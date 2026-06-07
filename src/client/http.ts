@@ -103,7 +103,16 @@ export const nodeHttpTransport: Transport = (request) =>
 
     req.on("error", (err) => {
       // A timeout destroy already passes an HaushaltNetworkError; don't double-wrap.
-      reject(err instanceof HaushaltNetworkError ? err : new HaushaltNetworkError(err.message, { cause: err }));
+      // Otherwise prepend the request method + URL so the failure is traceable
+      // (the raw Node message — e.g. "connect ECONNREFUSED 127.0.0.1:1" — has no
+      // indication of which request it belongs to).
+      reject(
+        err instanceof HaushaltNetworkError
+          ? err
+          : new HaushaltNetworkError(`${request.method} ${request.url} failed: ${err.message}`, {
+              cause: err,
+            }),
+      );
     });
 
     if (request.body !== undefined) req.write(request.body);

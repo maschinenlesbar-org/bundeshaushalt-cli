@@ -23,6 +23,10 @@ export interface BudgetMeta {
   levelMax?: number;
   modifyDate?: string;
   timestamp?: number;
+  /** Human-readable label of the active table/dimension (e.g. "Einzelplan"). */
+  tableLabel?: string;
+  /** Human-readable label of the active selection (e.g. "Alle Einzelpläne"). */
+  selectionLabel?: string;
 }
 
 /** A single budget element (a line, group or function). */
@@ -34,6 +38,10 @@ export interface BudgetElement {
   value: number;
   relativeValue: number;
   relativeToParentValue: number;
+  /** Human-readable label of the table/dimension this element belongs to. */
+  tableLabel?: string;
+  /** Human-readable label of the selection this element belongs to. */
+  selectionLabel?: string;
 }
 
 /** An id/label pair used in `parents` and `related`. */
@@ -45,7 +53,8 @@ export interface LabeledElement {
 /** Response of `/internalapi/budgetData`. */
 export interface BudgetData {
   meta: BudgetMeta;
-  details: BudgetElement | JsonObject;
+  /** The selected element. NB: the wire field is `detail` (singular). */
+  detail: BudgetElement | JsonObject;
   children: (BudgetElement | JsonObject)[];
   parents?: LabeledElement[][];
   related?: {

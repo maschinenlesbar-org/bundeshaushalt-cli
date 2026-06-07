@@ -40,7 +40,7 @@ A query is a **year** + **account** (`expenses` / `income`). Optionally narrow b
 - **unit** — `single` (budget item), `function` (functional area) or `group` (economic group),
 - **id** — drill into one element (a budget number; `G-` prefix for groups, `F-` for functions).
 
-The response carries the selected `details`, its `children` (so you can walk the
+The response carries the selected `detail`, its `children` (so you can walk the
 tree by passing a child's `id` back in), `parents`, and `related` cross-references.
 
 > **Stability / data coverage.** This client talks to an **undocumented, internal
@@ -62,7 +62,9 @@ tree by passing a child's `id` back in), `parents`, and `related` cross-referenc
 | `--max-response-bytes <n>` | Cap response body size in bytes (`0` = unlimited; default 100 MiB) |
 | `--compact` | Print JSON on a single line |
 
-Global options go **before** the command, e.g. `bundeshaushalt --compact expenses 2024`.
+Global options may appear **before or after** the command, e.g. both
+`bundeshaushalt --compact expenses 2024` and `bundeshaushalt expenses 2024 --compact`
+work (they are resolved with commander's `optsWithGlobals`).
 
 ### Commands
 
@@ -72,8 +74,8 @@ expenses <year> [--quota] [--unit] [--id]    shortcut for: budget <year> expense
 income   <year> [--quota] [--unit] [--id]    shortcut for: budget <year> income
 ```
 
-(`<year>` is a four-digit year between `2012` and next year, inclusive; the upper
-bound is derived from the current year so it stays meaningful over time.)
+(`<year>` is a four-digit year between `2012` and the current year, inclusive;
+the upper bound is derived from the current year so it stays meaningful over time.)
 
 ### Examples
 

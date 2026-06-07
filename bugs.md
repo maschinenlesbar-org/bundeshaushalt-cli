@@ -11,7 +11,8 @@
 
 ## HIGH
 
-### 1. `--max-response-bytes ""` (empty) silently disables the response-size safety cap
+### 1. `--max-response-bytes ""` (empty) silently disables the response-size safety cap — ✅ FIXED
+**Fix:** `parseIntArg` in `src/cli/shared.ts` is now strict (`/^\d+$/`), so `""` is rejected with "Expected a non-negative integer." before reaching the engine.
 - **Severity:** High · **Confidence:** High
 - **Repro:**
   ```bash
@@ -25,7 +26,8 @@
   ```
 - **Root cause:** `parseIntArg` in `src/cli/shared.ts:11-17` treats `""` as `0`; `0` is then interpreted as "unlimited" in `src/client/engine.ts:42,87,119`. A typo/quoting accident removes the safety limit.
 
-### 2. `parseIntArg` accepts hex / octal / binary / scientific / `+` / whitespace despite "non-negative integer"
+### 2. `parseIntArg` accepts hex / octal / binary / scientific / `+` / whitespace despite "non-negative integer" — ✅ FIXED
+**Fix:** `parseIntArg` in `src/cli/shared.ts` now validates with `/^\d+$/` instead of `Number()`-coercion, so hex/octal/binary/scientific/`+`/whitespace are all rejected.
 - **Severity:** High · **Confidence:** High
 - **Repro:**
   ```bash
@@ -37,7 +39,8 @@
 - **Actual:** `Number()` coerces `0x10`→16, `0o17`→15, `0b101`→5, `1e3`→1000, `+500`→500, `"  5 "`→5 — all accepted silently (verified: `node -e 'console.log(Number("0x10"),Number("1e3"),Number("  5 "))'` → `16 1000 5`). Only truly non-numeric forms (`abc`, `1.5`, `Infinity`, `123abc`, `.5`, `-1`) are rejected.
 - **Root cause:** `src/cli/shared.ts:12` uses `const n = Number(value)` instead of a strict pattern (e.g. `/^\d+$/`). `Number.isInteger` is true for all of the above.
 
-### 3. `--max-retries` with a large loose value enables a runaway retry loop (DoS)
+### 3. `--max-retries` with a large loose value enables a runaway retry loop (DoS) — ✅ FIXED
+**Fix:** `1e9` is now rejected by the stricter `parseIntArg` (#2), and `--max-retries` additionally uses a new `parseBoundedIntArg(100)` (`src/cli/shared.ts` + `src/cli/program.ts`), so even plain-decimal values are capped at 100.
 - **Severity:** High · **Confidence:** Medium (consequence of #2; not run to completion to avoid hammering)
 - **Repro:**
   ```bash
@@ -47,7 +50,8 @@
 - **Actual:** `1e9` is accepted (see #2) → `engine.ts:124` retries up to a billion times on any transient 429/503, with linearly growing backoff (`retryDelayMs * attempt`, `engine.ts:126`) — effectively a hang. (Verified the retry mechanism itself: default `--max-retries 2` produced exactly 3 server hits; `--max-retries 0` produced 1.)
 - **Root cause:** No upper bound + loose `parseIntArg` (`src/cli/shared.ts:12`) feeding the retry loop in `src/client/engine.ts:113-128`.
 
-### 4. `BudgetData.details` (type + README) does not match the live API field `detail`
+### 4. `BudgetData.details` (type + README) does not match the live API field `detail` — ✅ FIXED
+**Fix:** Renamed the field to `detail` (singular) in `src/client/types.ts` and updated README line 43 to match the wire format.
 - **Severity:** High (for library users) · **Confidence:** High
 - **Repro:**
   ```bash
@@ -67,7 +71,8 @@
 
 ## MEDIUM
 
-### 5. `--user-agent ""` sends an empty `User-Agent` header (overrides the default)
+### 5. `--user-agent ""` sends an empty `User-Agent` header (overrides the default) — ✅ FIXED
+**Fix:** Added `normalizeUserAgent()` in `src/client/engine.ts`; an empty/whitespace-only UA now falls back to `DEFAULT_USER_AGENT`.
 - **Severity:** Medium · **Confidence:** High
 - **Repro:**
   ```bash
@@ -78,7 +83,8 @@
 - **Actual:** Server received `ua: ""`. The engine uses `options.userAgent ?? DEFAULT_USER_AGENT`, and `""` is not nullish, so the empty string is sent.
 - **Root cause:** `src/client/engine.ts:82` `this.userAgent = options.userAgent ?? DEFAULT_USER_AGENT;` — `??` does not catch `""`.
 
-### 6. CRLF in `--user-agent` leaks a raw Node error as "Unexpected error"
+### 6. CRLF in `--user-agent` leaks a raw Node error as "Unexpected error" — ✅ FIXED
+**Fix:** `normalizeUserAgent()` in `src/client/engine.ts` now scans for C0 control chars / DEL and throws a typed `HaushaltError` ("Invalid User-Agent: control characters are not allowed."), so `run()` surfaces a friendly `Error:` instead of a raw `TypeError`.
 - **Severity:** Medium · **Confidence:** High
 - **Repro:**
   ```bash
@@ -93,7 +99,8 @@
   This is the generic catch-all branch (`run.ts:46`) leaking a low-level `TypeError`, not a `HaushaltError`. (Header injection is *blocked* by Node, so no security hole — only the ungraceful message.)
 - **Root cause:** No validation/normalization of `--user-agent`; the `TypeError` from `node:http` escapes to `src/cli/run.ts:46`.
 
-### 7. Year validator accepts `currentYear+1` (2027) but the live API returns 404 for it
+### 7. Year validator accepts `currentYear+1` (2027) but the live API returns 404 for it — ✅ FIXED
+**Fix:** `maxYear()` in `src/cli/commands/budget.ts` now returns `getUTCFullYear()` (no `+1`), so `currentYear+1` is rejected client-side; README year-range note updated accordingly.
 - **Severity:** Medium · **Confidence:** High
 - **Repro:**
   ```bash
@@ -108,7 +115,8 @@
   The validator passes 2027 (= `maxYear()`), but the portal has not published 2027 yet → 404. The "+1" window over-shoots available data, turning a predictable client-side rejection into a network round-trip + 404. (2012 lower bound and 2028 rejection both behave correctly.)
 - **Root cause:** `maxYear()` in `src/cli/commands/budget.ts:14-16` returns `getUTCFullYear()+1` unconditionally.
 
-### 8. `--max-retries 1e9` etc. share root cause with #2/#3 — `--id --quota` consumes the next flag as the id value
+### 8. `--max-retries 1e9` etc. share root cause with #2/#3 — `--id --quota` consumes the next flag as the id value — ✅ FIXED
+**Fix:** `optionsFrom()` in `src/cli/commands/budget.ts` now rejects an `--id` value that starts with `-` (looks like an option flag) with a clear "did you forget to supply an id?" message.
 - **Severity:** Medium · **Confidence:** High
 - **Repro:**
   ```bash
@@ -119,7 +127,8 @@
 - **Actual:** commander accepts `--quota` as the *value* of `--id`, so `id=--quota` is sent to the API (would yield a confusing 404). Verified against an echo server.
 - **Root cause:** Default commander option parsing (no value-shape guard on `--id`); `src/cli/commands/budget.ts:62`. The local empty-id guard in `optionsFrom` (`budget.ts:50`) does not catch this because `"--quota"` is non-empty.
 
-### 9. `--id` silently trims surrounding whitespace, mutating the queried id
+### 9. `--id` silently trims surrounding whitespace, mutating the queried id — ✅ FIXED
+**Fix:** `optionsFrom()` in `src/cli/commands/budget.ts` now rejects ids with surrounding whitespace ("Surrounding whitespace is not allowed.") instead of silently trimming.
 - **Severity:** Medium · **Confidence:** High
 - **Repro:**
   ```bash
@@ -129,7 +138,8 @@
 - **Actual:** `"  11  "` (and `$'\t11\n'`) are trimmed to `11` and the request succeeds as if the user typed `11`.
 - **Root cause:** `src/cli/commands/budget.ts:47` `const id = String(opts["id"]).trim();` trims unconditionally before use.
 
-### 10. Network errors drop all request context (no URL / host:port)
+### 10. Network errors drop all request context (no URL / host:port) — ✅ FIXED
+**Fix:** The `req.on("error")` handler in `src/client/http.ts` now wraps transport failures as `GET <url> failed: <message>`, e.g. `GET http://127.0.0.1:1/... failed: connect ECONNREFUSED 127.0.0.1:1`.
 - **Severity:** Medium · **Confidence:** High
 - **Repro:**
   ```bash
@@ -148,14 +158,16 @@
 
 ## LOW
 
-### 11. `--max-response-bytes ""`/`0` "unlimited" semantics are also reachable via the loose parser without warning
+### 11. `--max-response-bytes ""`/`0` "unlimited" semantics are also reachable via the loose parser without warning — ✅ FIXED
+**Fix:** Resolved by the strict `parseIntArg` in `src/cli/shared.ts` (#1/#2): `""` no longer coerces to `0`, so the cap can no longer be disabled by an accidental empty value. (An explicit `0` remains a documented opt-in for "unlimited".)
 - **Severity:** Low · **Confidence:** High
 - **Repro:** see #1. Listed separately because the *documentation* side ("0 = unlimited") combined with `""`→0 means there is **no way** the user is told their cap was dropped.
 - **Expected:** When the cap is disabled, that is a security-relevant state worth at least not arriving at by accident.
 - **Actual:** Silent.
 - **Root cause:** `src/cli/shared.ts:12` + `src/client/engine.ts:87`.
 
-### 12. `--help` omits documented defaults for `--timeout` and `--max-retries`
+### 12. `--help` omits documented defaults for `--timeout` and `--max-retries` — ✅ FIXED
+**Fix:** `src/cli/program.ts` now passes default values (`30000` and `2`) to the `--timeout` and `--max-retries` options, so `--help` renders `(default: 30000)` / `(default: 2)`.
 - **Severity:** Low · **Confidence:** High
 - **Repro:**
   ```bash
@@ -165,7 +177,8 @@
 - **Actual:** Help shows `--timeout <ms>  per-request timeout in milliseconds` and `--max-retries <n>  retries for transient 429/503 responses` — **no defaults**. (`--base-url` and `--max-response-bytes` *do* show/mention theirs, so it is inconsistent.)
 - **Root cause:** `src/cli/program.ts:28,30` register these options without a default-value argument (and `parseIntArg` would otherwise show it); defaults live only in `src/client/engine.ts:83-84`.
 
-### 13. `--version` value is hardcoded and can drift from `package.json`
+### 13. `--version` value is hardcoded and can drift from `package.json` — ✅ FIXED
+**Fix:** `VERSION` in `src/cli/program.ts` is now read at runtime from `package.json` (via `readFileSync` relative to `import.meta.url`), removing the duplicated literal.
 - **Severity:** Low · **Confidence:** High
 - **Repro:**
   ```bash
@@ -176,7 +189,8 @@
 - **Actual:** Two independent literals. They happen to agree now, but a `package.json` bump that forgets `program.ts` makes `--version` stale.
 - **Root cause:** `src/cli/program.ts:12` `export const VERSION = "1.0.0";` duplicates `package.json`.
 
-### 14. `--base-url ""` produces a confusing "Invalid URL" instead of falling back to the default
+### 14. `--base-url ""` produces a confusing "Invalid URL" instead of falling back to the default — ✅ FIXED
+**Fix:** The engine constructor in `src/client/engine.ts` now falls back to `DEFAULT_BASE_URL` when `baseUrl` is empty/whitespace-only (`options.baseUrl?.trim() ? ... : DEFAULT_BASE_URL`).
 - **Severity:** Low · **Confidence:** High
 - **Repro:**
   ```bash
@@ -191,7 +205,8 @@
   The explicit `""` overrides commander's default, and `baseUrl.replace(/\/+$/,"")` leaves `""`, so the engine builds a relative URL that `new URL()` rejects.
 - **Root cause:** `src/client/engine.ts:80` `(options.baseUrl ?? DEFAULT_BASE_URL)` — `??` does not catch `""`.
 
-### 15. README "Global options go **before** the command" is inaccurate/incomplete
+### 15. README "Global options go **before** the command" is inaccurate/incomplete — ✅ FIXED
+**Fix:** Updated README to state global options may appear before *or* after the command (resolved via `optsWithGlobals`), matching the actual behavior.
 - **Severity:** Low · **Confidence:** High
 - **Repro:**
   ```bash
@@ -202,7 +217,8 @@
 - **Actual:** Global options are also honored **after** the subcommand (commander `optsWithGlobals`), contradicting README line 65's "go **before** the command".
 - **Root cause:** `src/cli/shared.ts:83` resolves `optsWithGlobals()`; README line 65 overstates the constraint.
 
-### 16. `BudgetMeta`/`BudgetElement` types omit fields the live API returns (`tableLabel`, `selectionLabel`)
+### 16. `BudgetMeta`/`BudgetElement` types omit fields the live API returns (`tableLabel`, `selectionLabel`) — ✅ FIXED
+**Fix:** Added optional `tableLabel?`/`selectionLabel?` to both `BudgetMeta` and `BudgetElement` in `src/client/types.ts`.
 - **Severity:** Low · **Confidence:** High
 - **Repro:**
   ```bash

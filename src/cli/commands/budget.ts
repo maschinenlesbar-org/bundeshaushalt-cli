@@ -8,11 +8,14 @@ import type { BudgetParams } from "../../client/types.js";
 
 /**
  * Upper bound for an accepted year. Derived from the current year (rather than a
- * hard-coded literal) so the validator stays meaningful as years advance. The
- * portal publishes the upcoming year's draft budget, so allow current year + 1.
+ * hard-coded literal) so the validator stays meaningful as years advance.
+ *
+ * Capped at the current year: the portal only serves data up to (and including)
+ * the current budget year. Allowing current year + 1 turned a predictable
+ * client-side rejection into a network round-trip that the API answers with 404.
  */
 function maxYear(): number {
-  return new Date().getUTCFullYear() + 1;
+  return new Date().getUTCFullYear();
 }
 
 /** Parse + range-check a positional year (a four-digit integer in range). */
@@ -44,11 +47,25 @@ function optionsFrom(opts: Record<string, unknown>): Omit<BudgetParams, "year" |
     params.unit = assertEnum(String(opts["unit"]), UnitValues, "unit");
   }
   if (opts["id"] !== undefined) {
-    const id = String(opts["id"]).trim();
+    const raw = String(opts["id"]);
+    // A value that looks like an option flag (e.g. `--id --quota`) is almost
+    // certainly a missing-value mistake: commander otherwise swallows the next
+    // flag as the id and sends `id=--quota` to the API. Reject it locally.
+    if (raw.startsWith("-")) {
+      throw new HaushaltError(
+        `Invalid id "${raw}". The --id value looks like an option; did you forget to supply an id?`,
+      );
+    }
+    const id = raw.trim();
     // Reject empty/whitespace ids so bad input fails locally with a clear
     // message instead of producing an opaque API error (or `id=` in the query).
     if (id.length === 0) {
       throw new HaushaltError(`Invalid id "". Expected a non-empty budget number.`);
+    }
+    // Reject surrounding whitespace rather than silently trimming it: silent
+    // mutation can mask copy-paste errors and collapse two distinct inputs.
+    if (id !== raw) {
+      throw new HaushaltError(`Invalid id "${raw}". Surrounding whitespace is not allowed.`);
     }
     params.id = id;
   }

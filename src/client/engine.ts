@@ -4,7 +4,7 @@
 
 import { nodeHttpTransport, type Transport } from "./http.js";
 import { buildQueryString, type QueryParams } from "./query.js";
-import { HaushaltApiError, HaushaltNetworkError, HaushaltParseError } from "./errors.js";
+import { HaushaltApiError, HaushaltError, HaushaltNetworkError, HaushaltParseError } from "./errors.js";
 
 export const DEFAULT_BASE_URL = "https://bundeshaushalt.de";
 const DEFAULT_USER_AGENT = "bundeshaushalt-cli";
@@ -65,6 +65,30 @@ export function stripCrossOriginCredentials(
 const realSleep = (ms: number): Promise<void> =>
   new Promise((resolve) => setTimeout(resolve, ms));
 
+/**
+ * Normalise a caller-supplied User-Agent into a safe header value.
+ *
+ * - An empty / whitespace-only value falls back to the default rather than
+ *   sending an empty `User-Agent` (which would suppress the default entirely).
+ * - A value containing control characters (CR/LF/NUL etc.) is rejected with a
+ *   typed error here, instead of letting node:http throw a raw TypeError deep in
+ *   the request that surfaces as an ungraceful "Unexpected error".
+ */
+function normalizeUserAgent(value: string | undefined): string {
+  if (value === undefined) return DEFAULT_USER_AGENT;
+  const trimmed = value.trim();
+  if (trimmed.length === 0) return DEFAULT_USER_AGENT;
+  for (let i = 0; i < trimmed.length; i += 1) {
+    const code = trimmed.charCodeAt(i);
+    // Reject C0 controls (incl. CR/LF/NUL) and DEL before they reach node:http,
+    // which would otherwise throw an opaque TypeError ("Invalid character...").
+    if (code < 0x20 || code === 0x7f) {
+      throw new HaushaltError("Invalid User-Agent: control characters are not allowed.");
+    }
+  }
+  return trimmed;
+}
+
 export class RequestEngine {
   private readonly baseUrl: string;
   private readonly transport: Transport;
@@ -77,9 +101,13 @@ export class RequestEngine {
   private readonly sleep: (ms: number) => Promise<void>;
 
   constructor(options: EngineOptions = {}) {
-    this.baseUrl = (options.baseUrl ?? DEFAULT_BASE_URL).replace(/\/+$/, "");
+    // An empty / whitespace-only baseUrl falls back to the default rather than
+    // collapsing (after trailing-slash stripping) to "" and building a relative
+    // URL that `new URL()` rejects with a confusing "Invalid URL".
+    const baseUrl = options.baseUrl?.trim() ? options.baseUrl : DEFAULT_BASE_URL;
+    this.baseUrl = baseUrl.replace(/\/+$/, "");
     this.transport = options.transport ?? nodeHttpTransport;
-    this.userAgent = options.userAgent ?? DEFAULT_USER_AGENT;
+    this.userAgent = normalizeUserAgent(options.userAgent);
     this.timeoutMs = options.timeoutMs ?? 30_000;
     this.maxRetries = options.maxRetries ?? 2;
     this.retryDelayMs = options.retryDelayMs ?? 200;

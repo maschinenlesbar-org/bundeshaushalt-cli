@@ -7,13 +7,34 @@ import type { CliDeps } from "./io.js";
 import { HaushaltError } from "../client/errors.js";
 import type { EngineOptions } from "../client/engine.js";
 
-/** commander value-parser: a non-negative integer. */
+/**
+ * commander value-parser: a non-negative integer in plain decimal notation.
+ *
+ * Deliberately strict: only `/^\d+$/` is accepted. `Number()` would otherwise
+ * coerce empty strings (→0, which silently disables size/retry caps), hex/octal/
+ * binary (`0x10`→16), scientific (`1e9`), a leading `+`, and surrounding
+ * whitespace — none of which a user typing a "non-negative integer" intends.
+ */
 export function parseIntArg(value: string): number {
-  const n = Number(value);
-  if (!Number.isInteger(n) || n < 0) {
+  if (!/^\d+$/.test(value)) {
     throw new InvalidArgumentError("Expected a non-negative integer.");
   }
-  return n;
+  return Number(value);
+}
+
+/**
+ * commander value-parser: a non-negative integer with an inclusive upper bound.
+ * Used for options like `--max-retries` where an absurdly large value would turn
+ * a transient-error retry loop into an effective hang (DoS).
+ */
+export function parseBoundedIntArg(max: number): (value: string) => number {
+  return (value: string): number => {
+    const n = parseIntArg(value);
+    if (n > max) {
+      throw new InvalidArgumentError(`Expected a non-negative integer <= ${max}.`);
+    }
+    return n;
+  };
 }
 
 /**
