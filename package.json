@@ -1,6 +1,6 @@
 {
-  "name": "bundeshaushalt-cli",
-  "version": "1.0.0",
+  "name": "@maschinenlesbar.org/bundeshaushalt-cli",
+  "version": "0.0.1",
   "description": "TypeScript API client and CLI for the open German federal budget API (bundeshaushalt.de)",
   "type": "module",
   "bin": {
@@ -44,6 +44,17 @@
   ],
   "author": "Sebastian Schürmann <sebs@2xs.org>",
   "license": "AGPL-3.0-or-later",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/maschinenlesbar-org/bundeshaushalt-cli.git"
+  },
+  "bugs": {
+    "url": "https://github.com/maschinenlesbar-org/bundeshaushalt-cli/issues"
+  },
+  "homepage": "https://github.com/maschinenlesbar-org/bundeshaushalt-cli#readme",
+  "publishConfig": {
+    "access": "public"
+  },
   "dependencies": {
     "commander": "15.0.0"
   },

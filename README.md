@@ -100,7 +100,7 @@ Exit codes: `0` success, `4` on a `404` from the API, `1` for any other error, n
 ## Library usage
 
 ```ts
-import { BundeshaushaltClient, HaushaltApiError } from "bundeshaushalt-cli";
+import { BundeshaushaltClient, HaushaltApiError } from "@maschinenlesbar.org/bundeshaushalt-cli";
 
 const client = new BundeshaushaltClient(); // defaults to https://bundeshaushalt.de
 
