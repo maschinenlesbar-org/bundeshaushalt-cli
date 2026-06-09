@@ -43,8 +43,7 @@ rate-limit, or disappear without notice, and is served without authentication.
 ## A budget query
 
 A query is a **year** + **account**, optionally narrowed by **quota**, **unit**
-and **id**. The client method is `client.budgetData({ year, account, quota?,
-unit?, id? })`; the CLI surfaces it as `budget <year> <account>` plus the
+and **id**. The CLI surfaces it as `budget <year> <account>` plus the
 `expenses` / `income` shortcuts.
 
 **year (Haushaltsjahr).** A four-digit budget year. The API serves data from
@@ -75,9 +74,8 @@ Optional (`--quota`).
 Optional (`--unit`).
 
 **id (budget number).** Drills into one element rather than returning the
-top-level view. The value is a **budget number** (see below). Walk the tree by
-taking a child's `id` from one response and passing it back as the next `--id`.
-Optional.
+top-level view. Walk the tree by taking a child's `id` from one response and
+passing it back as the next `--id`. Optional.
 
 ---
 
@@ -122,8 +120,7 @@ drill into by reusing a child's `id`.
 ## Identifiers, units & codes
 
 **Budget number (Haushaltsstelle).** The identifier of a budget element, carried
-as `budgetNumber` and used as the `id` to drill in. Prefix conventions surfaced
-by the client:
+as `budgetNumber` and used as the `id` to drill in. Prefix conventions:
 
 - **`G-`** prefix — a **group** (economic group / Gruppe).
 - **`F-`** prefix — a **function** (functional area / Funktion).
@@ -147,65 +144,21 @@ share of the overall total, and of its immediate parent, respectively.
 
 ---
 
-## Search & API concepts
+## No authentication
 
-**No authentication.** The budget-data endpoint requires no API key or token;
-this client performs **read-only** `GET` requests only.
-
-**Query serialisation.** Parameters are serialised into the query string by a
-small dependency-free builder (`buildQueryString`): `undefined`/`null` are
-dropped, arrays become repeated keys, booleans become `"true"`/`"false"`, and
-spaces are encoded as `%20`. Only `year` + `account` are always sent; `quota`,
-`unit` and `id` are included only when set.
-
-**Retries / transient errors.** The client retries `429` (rate limited) and
-`503` responses automatically with linear backoff (`--max-retries`, default 2).
-`HaushaltApiError.isRetryable` is `true` for exactly these statuses.
-
-**Redirects.** Up to `maxRedirects` (default 5) `3xx` redirects are followed.
-A redirect that would downgrade `https` → `http` is refused, and credential
-headers (`authorization`, `x-api-key`, `cookie`) are stripped when a redirect
-crosses origins.
-
-**Response size cap (`maxResponseBytes`).** A hard limit on the response body
-(default 100 MiB; `0` disables) that aborts the request if exceeded, guarding
-against memory exhaustion from a hostile or buggy endpoint.
-
-**RawResponse.** The engine's low-level result: `{ data: Buffer, contentType,
-status }` — raw bytes, decoded to JSON only by `getJson`.
+The budget-data endpoint requires no API key or token; this client performs
+**read-only** `GET` requests only.
 
 ---
 
-## Project / technical terms
+## Exit codes
 
-**API client.** [`BundeshaushaltClient`](src/client/client.ts) — the typed
-wrapper over the budget-data endpoint. Usable as a library independently of the
-CLI. Exposes a single method, `budgetData(...)`.
+**Exit codes.** The CLI maps outcomes to process exit codes: `0` success;
+`2` usage / argument-validation errors; `4` on `404` (budget item not found);
+`1` for any other error. `--help`/`--version` return `0`.
 
-**Transport.** A single function `(HttpRequest) => Promise<HttpResponse>`
-([`http.ts`](src/client/http.ts)). The default uses Node's built-in
-`http`/`https`; tests inject a mock. This is the only HTTP seam.
+---
 
-**Request engine.** [`RequestEngine`](src/client/engine.ts) — builds URLs,
-serialises queries, applies retry/backoff, follows redirects, decodes JSON and
-maps errors. Sits between the client and the transport. `DEFAULT_BASE_URL` is
-`https://bundeshaushalt.de`.
-
-**CliDeps / CliIO.** The dependency-injection seam for the CLI
-([`io.ts`](src/cli/io.ts)): a client factory plus an I/O object. Lets the whole
-CLI run in tests with a mocked client and captured output — no subprocess.
-
-**Global options.** Cross-cutting CLI flags resolved with commander's
-`optsWithGlobals` (so they may appear before or after the command):
-`--base-url`, `--timeout`, `--user-agent`, `--max-retries`,
-`--max-response-bytes`, `--compact`.
-
-**Enum value sets.** `AccountValues`, `QuotaValues`, `UnitValues` — const arrays
-that double as runtime CLI choice validators and as TypeScript union types
-(`Account`, `Quota`, `Unit`). `MIN_YEAR` (`2012`) is the earliest served year.
-
-**Error types.** [`errors.ts`](src/client/errors.ts): `HaushaltApiError`
-(non-2xx, carries `status`/`detail`/`url`/`method`/`body`), `HaushaltNetworkError`
-(transport failure/timeout/bad protocol), `HaushaltParseError` (bad JSON), all
-extending `HaushaltError`. The CLI maps a `404` to exit code `4`, other errors
-to `1`, and usage errors to a non-zero code.
+> **Library & internals.** Terms for the TypeScript client and its internals —
+> `BundeshaushaltClient`, the request engine, transport, retry/backoff, error
+> types, query builder — now live in **[DEVELOPING.md](DEVELOPING.md)**.
