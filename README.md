@@ -1,5 +1,10 @@
 # bundeshaushalt-cli
 
+[![CI](https://github.com/maschinenlesbar-org/bundeshaushalt-cli/actions/workflows/ci.yml/badge.svg)](https://github.com/maschinenlesbar-org/bundeshaushalt-cli/actions/workflows/ci.yml)
+[![Release](https://github.com/maschinenlesbar-org/bundeshaushalt-cli/actions/workflows/release.yml/badge.svg)](https://github.com/maschinenlesbar-org/bundeshaushalt-cli/actions/workflows/release.yml)
+[![GitHub release](https://img.shields.io/github/v/release/maschinenlesbar-org/bundeshaushalt-cli)](https://github.com/maschinenlesbar-org/bundeshaushalt-cli/releases/latest)
+[![npm](https://img.shields.io/npm/v/@maschinenlesbar.org/bundeshaushalt-cli)](https://www.npmjs.com/package/@maschinenlesbar.org/bundeshaushalt-cli)
+
 Query the German federal budget from your terminal. `bundeshaushalt` is a
 small command-line tool over the open
 [bundeshaushalt.de](https://bundeshaushalt.de/) budget-data portal: fetch
