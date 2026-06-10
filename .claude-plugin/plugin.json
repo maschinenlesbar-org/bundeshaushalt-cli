@@ -1,0 +1,23 @@
+{
+  "name": "bundeshaushalt",
+  "version": "0.1.0",
+  "description": "German federal budget intelligence skills powered by the bundeshaushalt-cli (bundeshaushalt.de budget-data portal).",
+  "author": {
+    "name": "Sebastian Schürmann",
+    "email": "sebs@2xs.org"
+  },
+  "license": "AGPL-3.0-or-later",
+  "repository": "https://github.com/maschinenlesbar-org/bundeshaushalt-cli",
+  "homepage": "https://github.com/maschinenlesbar-org/bundeshaushalt-cli#readme",
+  "keywords": [
+    "bundeshaushalt",
+    "bmf",
+    "budget",
+    "haushalt",
+    "finance",
+    "soll-ist",
+    "open-data",
+    "germany",
+    "bund.dev"
+  ]
+}
