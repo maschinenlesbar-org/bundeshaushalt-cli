@@ -185,6 +185,16 @@ These apply to every command and may be given before *or* after it:
 - **[SKILLS.md](SKILLS.md)** — Claude Code Agent Skills bundled with this repo (ministry
   breakdown, plan-vs-actual comparison, multi-year trends), installable as a plugin.
 
+## Data license
+
+This CLI is a **client** — it accesses data it does not own or redistribute. The
+upstream data is © its provider and licensed **separately from this tool's code**.
+See **[DATA_LICENSE.md](DATA_LICENSE.md)**.
+
+> **Bundesministerium der Finanzen** — public data without copyright protection on
+> bundeshaushalt.de (amtliches Werk); free to reuse incl. commercially, source
+> credit recommended. (The parallel BMF Datenportal / GovData channel is `dl-de/by-2-0`.)
+
 ## License
 
 **Dual-licensed** — use it under **either**:
