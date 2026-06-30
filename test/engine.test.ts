@@ -17,6 +17,21 @@ test("buildUrl normalises the path and appends the query", () => {
   );
 });
 
+test("buildUrl preserves a base URL path prefix", () => {
+  const e = new RequestEngine({ baseUrl: "https://host.test/api" });
+  assert.equal(e.buildUrl("/internalapi/x"), "https://host.test/api/internalapi/x");
+});
+
+test("buildUrl rejects a scheme-only base URL instead of mangling the host", () => {
+  const e = new RequestEngine({ baseUrl: "https:" });
+  assert.throws(() => e.buildUrl("/internalapi/budgetData"), HaushaltNetworkError);
+});
+
+test("buildUrl rejects a base URL carrying a query string", () => {
+  const e = new RequestEngine({ baseUrl: "https://example.test/?x=1" });
+  assert.throws(() => e.buildUrl("/internalapi/x"), HaushaltNetworkError);
+});
+
 test("getJson parses a JSON body", async () => {
   const mt = makeMockTransport(() => jsonResponse({ ok: true }));
   const e = new RequestEngine({ transport: mt.transport });
