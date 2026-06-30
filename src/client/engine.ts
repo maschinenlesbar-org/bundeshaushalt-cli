@@ -181,6 +181,9 @@ export class RequestEngine {
     let url = this.buildUrl(path, options.query);
     let headers: Record<string, string> = {
       Accept: options.accept,
+      // Advertise the encodings the transport can decode so an RFC-compliant
+      // origin (or a compressing proxy) actually compresses and we still decode it.
+      "Accept-Encoding": "gzip, deflate, br",
       "User-Agent": this.userAgent,
     };
 

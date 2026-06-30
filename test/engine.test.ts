@@ -168,4 +168,5 @@ test("the User-Agent and Accept headers are sent", async () => {
   await e.getJson("/x");
   assert.equal(mt.last().headers?.["User-Agent"], "ua/1");
   assert.equal(mt.last().headers?.["Accept"], "application/json");
+  assert.equal(mt.last().headers?.["Accept-Encoding"], "gzip, deflate, br");
 });

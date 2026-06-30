@@ -8,13 +8,69 @@
 
 import http from "node:http";
 import https from "node:https";
+import zlib from "node:zlib";
+import { promisify } from "node:util";
 import { HaushaltNetworkError } from "./errors.js";
+
+// Async (libuv thread-pool) variants of the zlib calls, so decoding a large body
+// does not block the event loop — this transport ships as a reusable library.
+const gunzip = promisify(zlib.gunzip);
+const inflate = promisify(zlib.inflate);
+const inflateRaw = promisify(zlib.inflateRaw);
+const brotliDecompress = promisify(zlib.brotliDecompress);
 
 // `req.setTimeout` holds the delay in a 32-bit signed integer. A larger value
 // makes Node emit a `TimeoutOverflowWarning` to stderr and silently truncate the
 // timer, so clamp here: the effective timeout is already unbounded for practical
 // purposes (~24.8 days).
 const MAX_TIMEOUT_MS = 2_147_483_647;
+
+/**
+ * Decompress a body according to its Content-Encoding (identity if none/unknown).
+ *
+ * `maxBytes` (when > 0) bounds the *decompressed* output via zlib's
+ * `maxOutputLength`: a small compressed body can expand to many gigabytes
+ * ("decompression bomb"), so capping only the compressed wire bytes is not
+ * enough. Past the cap zlib throws `ERR_BUFFER_TOO_LARGE`, which is turned into
+ * the same documented size-cap error the wire-size cap produces.
+ */
+async function decode(
+  body: Buffer,
+  encoding: string | undefined,
+  maxBytes: number | undefined,
+): Promise<Buffer> {
+  const limit = maxBytes && maxBytes > 0 ? { maxOutputLength: maxBytes } : {};
+  const overCap = (): HaushaltNetworkError =>
+    new HaushaltNetworkError(`Response exceeded maxResponseBytes (${maxBytes})`);
+  const isOverCap = (err: unknown): boolean =>
+    typeof err === "object" &&
+    err !== null &&
+    (err as { code?: unknown }).code === "ERR_BUFFER_TOO_LARGE";
+  try {
+    switch ((encoding ?? "").toLowerCase()) {
+      case "gzip":
+      case "x-gzip":
+        return await gunzip(body, limit);
+      case "deflate":
+        // `deflate` is ambiguous: some servers send zlib-wrapped data (RFC 1950),
+        // some send raw DEFLATE (RFC 1951). Try zlib-wrapped first, then raw.
+        try {
+          return await inflate(body, limit);
+        } catch (err) {
+          if (isOverCap(err)) throw err; // a size-cap hit, not a wrapper mismatch
+          return await inflateRaw(body, limit);
+        }
+      case "br":
+        return await brotliDecompress(body, limit);
+      default:
+        if (maxBytes && maxBytes > 0 && body.length > maxBytes) throw overCap();
+        return body;
+    }
+  } catch (err) {
+    if (isOverCap(err)) throw overCap();
+    throw err;
+  }
+}
 
 export interface HttpRequest {
   method: string;
@@ -88,11 +144,28 @@ export const nodeHttpTransport: Transport = (request) =>
       });
       res.on("end", () => {
         if (aborted) return;
-        resolve({
-          status: res.statusCode ?? 0,
-          headers: res.headers,
-          body: Buffer.concat(chunks),
-        });
+        const raw = Buffer.concat(chunks);
+        decode(raw, res.headers["content-encoding"], maxBytes).then(
+          (body) => {
+            // The body is now decoded; drop the encoding header so downstream
+            // consumers don't try to decode it a second time.
+            const headers = { ...res.headers };
+            delete headers["content-encoding"];
+            resolve({ status: res.statusCode ?? 0, headers, body });
+          },
+          (err) => {
+            if (err instanceof HaushaltNetworkError) {
+              reject(err);
+              return;
+            }
+            reject(
+              new HaushaltNetworkError(
+                `Failed to decode ${res.headers["content-encoding"]} response body`,
+                { cause: err },
+              ),
+            );
+          },
+        );
       });
       res.on("error", (err) => {
         if (aborted) return; // we already rejected with the size-cap error

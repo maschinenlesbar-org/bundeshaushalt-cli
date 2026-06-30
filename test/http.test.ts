@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import http from "node:http";
+import zlib from "node:zlib";
 import { nodeHttpTransport } from "../src/client/http.js";
 import { HaushaltNetworkError } from "../src/client/errors.js";
 
@@ -31,6 +32,22 @@ test("performs a real GET and returns status, headers and body", async () => {
       assert.equal(resp.status, 200);
       assert.equal(resp.headers["content-type"], "application/json");
       assert.deepEqual(JSON.parse(resp.body.toString("utf8")), { path: "/internalapi/" });
+    },
+  );
+});
+
+test("transparently decompresses a gzip-encoded body and strips the encoding header", async () => {
+  const payload = JSON.stringify({ ok: true });
+  await withServer(
+    (_req, res) => {
+      res.setHeader("content-encoding", "gzip");
+      res.setHeader("content-type", "application/json");
+      res.end(zlib.gzipSync(Buffer.from(payload)));
+    },
+    async (baseUrl) => {
+      const resp = await nodeHttpTransport({ method: "GET", url: baseUrl });
+      assert.equal(resp.body.toString("utf8"), payload);
+      assert.equal(resp.headers["content-encoding"], undefined);
     },
   );
 });
