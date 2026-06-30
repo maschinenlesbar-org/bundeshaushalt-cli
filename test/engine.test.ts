@@ -89,7 +89,7 @@ test("follows a redirect and returns the final body", async () => {
   assert.equal(calls, 2);
 });
 
-test("a redirect loop is bounded by maxRedirects then surfaces an error", async () => {
+test("a redirect loop is bounded by maxRedirects with a clear 'too many redirects' error", async () => {
   let calls = 0;
   const mt = makeMockTransport(() => {
     calls += 1;
@@ -100,8 +100,10 @@ test("a redirect loop is bounded by maxRedirects then surfaces an error", async 
     transport: mt.transport,
     maxRedirects: 2,
   });
-  // After exhausting redirects the 3xx is treated as a (non-2xx) API error.
-  await assert.rejects(() => e.getJson("/x"), HaushaltApiError);
+  await assert.rejects(
+    () => e.getJson("/x"),
+    (err) => err instanceof HaushaltNetworkError && /Too many redirects/.test(err.message),
+  );
   assert.equal(calls, 3); // initial + 2 redirect hops
 });
 

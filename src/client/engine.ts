@@ -189,7 +189,12 @@ export class RequestEngine {
       }
 
       // Follow redirects, resolving the Location relative to the current URL.
-      if (status >= 300 && status < 400 && redirects < this.maxRedirects) {
+      if (status >= 300 && status < 400 && response.headers["location"]) {
+        if (redirects >= this.maxRedirects) {
+          throw new HaushaltNetworkError(
+            `Too many redirects (exceeded maxRedirects=${this.maxRedirects}) for ${method} ${url}`,
+          );
+        }
         const location = response.headers["location"];
         if (typeof location === "string" && location.length > 0) {
           const nextUrl = new URL(location, url);
