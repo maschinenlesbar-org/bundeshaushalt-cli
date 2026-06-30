@@ -1,9 +1,10 @@
 import type { Command } from "commander";
+import { Option } from "commander";
 import type { CliDeps } from "../io.js";
 import { action, assertEnum, renderJson } from "../shared.js";
 import { HaushaltError } from "../../client/errors.js";
 import { AccountValues, QuotaValues, UnitValues, MIN_YEAR } from "../../client/enums.js";
-import type { Account } from "../../client/enums.js";
+import type { Account, Quota, Unit } from "../../client/enums.js";
 import type { BudgetParams } from "../../client/types.js";
 
 /**
@@ -40,12 +41,10 @@ function requireYear(value: string): number {
 /** Build the optional quota/unit/id params shared by all budget commands. */
 function optionsFrom(opts: Record<string, unknown>): Omit<BudgetParams, "year" | "account"> {
   const params: Omit<BudgetParams, "year" | "account"> = {};
-  if (opts["quota"] !== undefined) {
-    params.quota = assertEnum(String(opts["quota"]), QuotaValues, "quota");
-  }
-  if (opts["unit"] !== undefined) {
-    params.unit = assertEnum(String(opts["unit"]), UnitValues, "unit");
-  }
+  // --quota / --unit are validated by commander's .choices() (see
+  // addBudgetOptions), so they are already one of the allowed values here.
+  if (opts["quota"] !== undefined) params.quota = opts["quota"] as Quota;
+  if (opts["unit"] !== undefined) params.unit = opts["unit"] as Unit;
   if (opts["id"] !== undefined) {
     const raw = String(opts["id"]);
     // A value that looks like an option flag (e.g. `--id --quota`) is almost
@@ -74,8 +73,16 @@ function optionsFrom(opts: Record<string, unknown>): Omit<BudgetParams, "year" |
 
 function addBudgetOptions(cmd: Command): Command {
   return cmd
-    .option("--quota <quota>", `target | actual (default target)`)
-    .option("--unit <unit>", `single | function | group (default single)`)
+    .addOption(
+      new Option("--quota <quota>", "planned vs realised (default target)").choices([
+        ...QuotaValues,
+      ]),
+    )
+    .addOption(
+      new Option("--unit <unit>", "how elements are grouped (default single)").choices([
+        ...UnitValues,
+      ]),
+    )
     .option("--id <id>", 'budget number id ("G-" prefix for groups, "F-" for functions)');
 }
 

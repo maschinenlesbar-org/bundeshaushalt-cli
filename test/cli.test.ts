@@ -63,6 +63,13 @@ test("rejects an invalid unit", async () => {
   assert.equal(cli.mt.calls.length, 0);
 });
 
+test("a valid --quota reaches the query", async () => {
+  const cli = makeCli(() => jsonResponse(body));
+  const code = await run(["expenses", "2024", "--quota", "actual"], cli.deps);
+  assert.equal(code, 0);
+  assert.equal(new URL(cli.mt.last().url).searchParams.get("quota"), "actual");
+});
+
 test("income shortcut presets account=income", async () => {
   const cli = makeCli(() => jsonResponse(body));
   const code = await run(["income", "2024"], cli.deps);
