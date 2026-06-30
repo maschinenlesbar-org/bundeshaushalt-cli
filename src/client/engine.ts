@@ -65,6 +65,22 @@ export function stripCrossOriginCredentials(
 const realSleep = (ms: number): Promise<void> =>
   new Promise((resolve) => setTimeout(resolve, ms));
 
+/** The media type without parameters or surrounding whitespace. */
+function mediaType(contentType: string): string {
+  const semi = contentType.indexOf(";");
+  return (semi === -1 ? contentType : contentType.slice(0, semi)).trim();
+}
+
+/**
+ * Whether a Content-Type denotes JSON: the canonical `application/json`,
+ * structured-suffix types (`application/vnd.foo+json`), and the lenient
+ * `text/json`. Parameters (`; charset=...`) and case are ignored.
+ */
+function isJsonContentType(contentType: string): boolean {
+  const type = mediaType(contentType).toLowerCase();
+  return type === "application/json" || type === "text/json" || type.endsWith("+json");
+}
+
 /**
  * Normalise a caller-supplied User-Agent into a safe header value.
  *
@@ -224,6 +240,15 @@ export class RequestEngine {
   /** Perform a GET expecting JSON and parse it into `T`. */
   async getJson<T>(path: string, query?: QueryParams): Promise<T> {
     const res = await this.request("GET", path, { query, accept: "application/json" });
+    // Honour the Content-Type: a 200 with a clearly non-JSON type (e.g. a
+    // captive-portal HTML error page) should report what was actually returned
+    // rather than feeding HTML into JSON.parse and blaming a parse failure. A
+    // missing/empty Content-Type is treated leniently and still parsed.
+    if (res.contentType && !isJsonContentType(res.contentType)) {
+      throw new HaushaltParseError(
+        `Expected a JSON response from ${path} but got Content-Type "${mediaType(res.contentType)}"`,
+      );
+    }
     const text = res.data.toString("utf8");
     try {
       return JSON.parse(text) as T;

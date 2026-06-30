@@ -44,6 +44,15 @@ test("getJson throws HaushaltParseError on invalid JSON", async () => {
   await assert.rejects(() => e.getJson("/x"), HaushaltParseError);
 });
 
+test("getJson rejects a non-JSON Content-Type, naming the type returned", async () => {
+  const mt = makeMockTransport(() => rawResponse("<h1>nope</h1>", "text/html"));
+  const e = new RequestEngine({ transport: mt.transport });
+  await assert.rejects(
+    () => e.getJson("/x"),
+    (err) => err instanceof HaushaltParseError && /Content-Type "text\/html"/.test(err.message),
+  );
+});
+
 test("a 503 is retried up to maxRetries then surfaces as HaushaltApiError", async () => {
   let calls = 0;
   const mt = makeMockTransport(() => {
