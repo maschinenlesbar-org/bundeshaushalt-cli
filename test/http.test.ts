@@ -83,6 +83,34 @@ test("rejects on a connection error with HaushaltNetworkError", async () => {
   );
 });
 
+test("a timeout above setTimeout's 32-bit ceiling is clamped, not warned about", async () => {
+  const warnings: string[] = [];
+  const onWarning = (w: Error): void => {
+    warnings.push(w.name);
+  };
+  process.on("warning", onWarning);
+  try {
+    await withServer(
+      (_req, res) => res.end("{}"),
+      async (baseUrl) => {
+        const resp = await nodeHttpTransport({
+          method: "GET",
+          url: baseUrl,
+          timeoutMs: 2_147_483_648,
+        });
+        assert.equal(resp.status, 200);
+      },
+    );
+    await new Promise((resolve) => setImmediate(resolve));
+  } finally {
+    process.off("warning", onWarning);
+  }
+  assert.ok(
+    !warnings.includes("TimeoutOverflowWarning"),
+    `unexpected warnings: ${warnings.join(", ")}`,
+  );
+});
+
 test("times out a stalled response with HaushaltNetworkError", async () => {
   await withServer(
     () => {

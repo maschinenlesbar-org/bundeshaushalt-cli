@@ -10,6 +10,12 @@ import http from "node:http";
 import https from "node:https";
 import { HaushaltNetworkError } from "./errors.js";
 
+// `req.setTimeout` holds the delay in a 32-bit signed integer. A larger value
+// makes Node emit a `TimeoutOverflowWarning` to stderr and silently truncate the
+// timer, so clamp here: the effective timeout is already unbounded for practical
+// purposes (~24.8 days).
+const MAX_TIMEOUT_MS = 2_147_483_647;
+
 export interface HttpRequest {
   method: string;
   /** Fully-qualified absolute URL. */
@@ -108,8 +114,9 @@ export const nodeHttpTransport: Transport = (request) =>
     }
 
     if (request.timeoutMs && request.timeoutMs > 0) {
-      req.setTimeout(request.timeoutMs, () => {
-        req.destroy(new HaushaltNetworkError(`Request timed out after ${request.timeoutMs}ms`));
+      const timeoutMs = Math.min(request.timeoutMs, MAX_TIMEOUT_MS);
+      req.setTimeout(timeoutMs, () => {
+        req.destroy(new HaushaltNetworkError(`Request timed out after ${timeoutMs}ms`));
       });
     }
 
