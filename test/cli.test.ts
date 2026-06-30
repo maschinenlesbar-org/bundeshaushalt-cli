@@ -79,6 +79,14 @@ test("rejects a non-Latin-1 --user-agent with a clear message before any request
   assert.match(cli.err.join("\n"), /Invalid User-Agent/);
 });
 
+test("rejects a numeric option above MAX_SAFE_INTEGER", async () => {
+  const cli = makeCli(() => jsonResponse(body));
+  const code = await run(["--timeout", "99999999999999999999", "expenses", "2024"], cli.deps);
+  assert.notEqual(code, 0);
+  assert.equal(cli.mt.calls.length, 0);
+  assert.match(cli.err.join("\n"), /no greater than/);
+});
+
 test("a 404 from the API maps to exit code 4", async () => {
   const cli = makeCli(() => jsonResponse({}, 404));
   const code = await run(["income", "2024"], cli.deps);

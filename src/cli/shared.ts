@@ -19,7 +19,16 @@ export function parseIntArg(value: string): number {
   if (!/^\d+$/.test(value)) {
     throw new InvalidArgumentError("Expected a non-negative integer.");
   }
-  return Number(value);
+  const n = Number(value);
+  // Reject values that lose precision: above Number.MAX_SAFE_INTEGER the parsed
+  // number no longer round-trips to the digits the user typed, so accepting it
+  // would silently honour something other than what was asked for.
+  if (!Number.isSafeInteger(n)) {
+    throw new InvalidArgumentError(
+      `Expected a non-negative integer no greater than ${Number.MAX_SAFE_INTEGER}.`,
+    );
+  }
+  return n;
 }
 
 /**
