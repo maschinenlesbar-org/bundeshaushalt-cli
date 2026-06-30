@@ -53,6 +53,15 @@ test("getJson rejects a non-JSON Content-Type, naming the type returned", async 
   );
 });
 
+test("getJson reports an empty (204) response body clearly", async () => {
+  const mt = makeMockTransport(() => rawResponse("", "application/json", 204));
+  const e = new RequestEngine({ transport: mt.transport });
+  await assert.rejects(
+    () => e.getJson("/x"),
+    (err) => err instanceof HaushaltParseError && /Empty response body/.test(err.message),
+  );
+});
+
 test("a 503 is retried up to maxRetries then surfaces as HaushaltApiError", async () => {
   let calls = 0;
   const mt = makeMockTransport(() => {

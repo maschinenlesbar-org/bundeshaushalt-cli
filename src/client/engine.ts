@@ -253,6 +253,11 @@ export class RequestEngine {
       );
     }
     const text = res.data.toString("utf8");
+    // An empty 2xx body (e.g. a 204 No Content) is not valid JSON; report it as
+    // such rather than emitting the opaque "Failed to parse JSON" for `""`.
+    if (text.trim() === "") {
+      throw new HaushaltParseError(`Empty response body from ${path} (expected JSON)`);
+    }
     try {
       return JSON.parse(text) as T;
     } catch (cause) {
