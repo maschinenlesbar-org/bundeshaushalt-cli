@@ -87,6 +87,16 @@ test("rejects a numeric option above MAX_SAFE_INTEGER", async () => {
   assert.match(cli.err.join("\n"), /no greater than/);
 });
 
+test("subcommand help lists the global options that apply to it", async () => {
+  const cli = makeCli(() => jsonResponse(body));
+  const code = await run(["help", "expenses"], cli.deps);
+  assert.equal(code, 0);
+  const help = cli.out.join("\n");
+  assert.match(help, /Global Options:/);
+  assert.match(help, /--base-url/);
+  assert.match(help, /--user-agent/);
+});
+
 test("a 404 from the API maps to exit code 4", async () => {
   const cli = makeCli(() => jsonResponse({}, 404));
   const code = await run(["income", "2024"], cli.deps);
