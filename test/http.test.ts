@@ -42,6 +42,20 @@ test("rejects an unsupported protocol with HaushaltNetworkError", async () => {
   );
 });
 
+test("a non-Latin-1 header value rejects with HaushaltNetworkError, not a raw TypeError", async () => {
+  // Node's outgoing-header validation throws a synchronous TypeError for a value
+  // outside Latin-1 (emoji/CJK). It must surface as the typed transport error.
+  await assert.rejects(
+    () =>
+      nodeHttpTransport({
+        method: "GET",
+        url: "https://example.test/x",
+        headers: { "User-Agent": "🌦" },
+      }),
+    HaushaltNetworkError,
+  );
+});
+
 test("enforces maxResponseBytes", async () => {
   await withServer(
     (_req, res) => res.end("x".repeat(1000)),

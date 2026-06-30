@@ -71,6 +71,14 @@ test("income shortcut presets account=income", async () => {
   assert.equal(url.searchParams.get("account"), "income");
 });
 
+test("rejects a non-Latin-1 --user-agent with a clear message before any request", async () => {
+  const cli = makeCli(() => jsonResponse(body));
+  const code = await run(["--user-agent", "🌦", "expenses", "2024"], cli.deps);
+  assert.notEqual(code, 0);
+  assert.equal(cli.mt.calls.length, 0);
+  assert.match(cli.err.join("\n"), /Invalid User-Agent/);
+});
+
 test("a 404 from the API maps to exit code 4", async () => {
   const cli = makeCli(() => jsonResponse({}, 404));
   const code = await run(["income", "2024"], cli.deps);

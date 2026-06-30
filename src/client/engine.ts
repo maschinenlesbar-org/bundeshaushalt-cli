@@ -80,10 +80,14 @@ function normalizeUserAgent(value: string | undefined): string {
   if (trimmed.length === 0) return DEFAULT_USER_AGENT;
   for (let i = 0; i < trimmed.length; i += 1) {
     const code = trimmed.charCodeAt(i);
-    // Reject C0 controls (incl. CR/LF/NUL) and DEL before they reach node:http,
-    // which would otherwise throw an opaque TypeError ("Invalid character...").
-    if (code < 0x20 || code === 0x7f) {
-      throw new HaushaltError("Invalid User-Agent: control characters are not allowed.");
+    // HTTP header values are limited to (printable) Latin-1. Reject C0 controls,
+    // DEL, and anything beyond U+00FF (emoji, CJK, even U+0100) here, before
+    // node:http throws an opaque TypeError ("Invalid character in header
+    // content") that would otherwise escape as an ungraceful "Unexpected error".
+    if (code < 0x20 || code === 0x7f || code > 0xff) {
+      throw new HaushaltError(
+        "Invalid User-Agent: only printable Latin-1 characters are allowed.",
+      );
     }
   }
   return trimmed;

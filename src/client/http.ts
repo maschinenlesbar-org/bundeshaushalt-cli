@@ -31,6 +31,12 @@ export interface HttpResponse {
 
 export type Transport = (request: HttpRequest) => Promise<HttpResponse>;
 
+/** Wrap a thrown value as a HaushaltNetworkError unless it already is one. */
+function toNetworkError(err: unknown): HaushaltNetworkError {
+  if (err instanceof HaushaltNetworkError) return err;
+  return new HaushaltNetworkError(err instanceof Error ? err.message : String(err), { cause: err });
+}
+
 /**
  * Default transport. Resolves with the raw response (including non-2xx) — status
  * interpretation is the client's job. Rejects only on transport-level failures
@@ -58,42 +64,48 @@ export const nodeHttpTransport: Transport = (request) =>
     const driver = isHttps ? https : http;
     const maxBytes = request.maxResponseBytes;
 
-    const req = driver.request(
-      url,
-      {
-        method: request.method,
-        headers: request.headers,
-      },
-      (res) => {
-        const chunks: Buffer[] = [];
-        let received = 0;
-        let aborted = false;
+    const onResponse = (res: http.IncomingMessage): void => {
+      const chunks: Buffer[] = [];
+      let received = 0;
+      let aborted = false;
 
-        res.on("data", (chunk: Buffer) => {
-          if (aborted) return;
-          received += chunk.length;
-          if (maxBytes !== undefined && received > maxBytes) {
-            aborted = true;
-            res.destroy();
-            reject(new HaushaltNetworkError(`Response exceeded maxResponseBytes (${maxBytes})`));
-            return;
-          }
-          chunks.push(chunk);
+      res.on("data", (chunk: Buffer) => {
+        if (aborted) return;
+        received += chunk.length;
+        if (maxBytes !== undefined && received > maxBytes) {
+          aborted = true;
+          res.destroy();
+          reject(new HaushaltNetworkError(`Response exceeded maxResponseBytes (${maxBytes})`));
+          return;
+        }
+        chunks.push(chunk);
+      });
+      res.on("end", () => {
+        if (aborted) return;
+        resolve({
+          status: res.statusCode ?? 0,
+          headers: res.headers,
+          body: Buffer.concat(chunks),
         });
-        res.on("end", () => {
-          if (aborted) return;
-          resolve({
-            status: res.statusCode ?? 0,
-            headers: res.headers,
-            body: Buffer.concat(chunks),
-          });
-        });
-        res.on("error", (err) => {
-          if (aborted) return; // we already rejected with the size-cap error
-          reject(new HaushaltNetworkError(`Response stream error: ${err.message}`, { cause: err }));
-        });
-      },
-    );
+      });
+      res.on("error", (err) => {
+        if (aborted) return; // we already rejected with the size-cap error
+        reject(new HaushaltNetworkError(`Response stream error: ${err.message}`, { cause: err }));
+      });
+    };
+
+    let req: http.ClientRequest;
+    try {
+      // Node validates the outgoing headers synchronously here. An un-sendable
+      // value (e.g. a non-Latin-1 --user-agent) makes it throw a TypeError
+      // *before* the request is sent; surface it as the typed transport error
+      // rather than letting a bare TypeError escape to the CLI's "Unexpected
+      // error" fallback.
+      req = driver.request(url, { method: request.method, headers: request.headers }, onResponse);
+    } catch (err) {
+      reject(toNetworkError(err));
+      return;
+    }
 
     if (request.timeoutMs && request.timeoutMs > 0) {
       req.setTimeout(request.timeoutMs, () => {
@@ -115,6 +127,10 @@ export const nodeHttpTransport: Transport = (request) =>
       );
     });
 
-    if (request.body !== undefined) req.write(request.body);
-    req.end();
+    try {
+      if (request.body !== undefined) req.write(request.body);
+      req.end();
+    } catch (err) {
+      reject(toNetworkError(err));
+    }
   });
