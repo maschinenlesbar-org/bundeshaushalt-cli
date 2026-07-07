@@ -8,6 +8,19 @@ import {
 } from "../src/client/errors.js";
 import { makeMockTransport, jsonResponse, rawResponse, redirectResponse } from "./helpers.js";
 
+// Built via char codes so no raw control bytes ever appear in this source file.
+const ESC = String.fromCharCode(0x1b);
+const BEL = String.fromCharCode(0x07);
+const C1 = String.fromCharCode(0x9b); // a C1 control (CSI)
+
+/** True if the string contains any C0/C1 control char except tab/newline. */
+function hasControlChars(s: string): boolean {
+  return [...s].some((c) => {
+    const n = c.charCodeAt(0);
+    return n <= 8 || (n >= 0x0b && n <= 0x1f) || (n >= 0x7f && n <= 0x9f);
+  });
+}
+
 test("buildUrl normalises the path and appends the query", () => {
   const e = new RequestEngine({ baseUrl: "https://example.test/" });
   assert.equal(e.buildUrl("internalapi/"), "https://example.test/internalapi/");
@@ -178,4 +191,39 @@ test("the User-Agent and Accept headers are sent", async () => {
   assert.equal(mt.last().headers?.["User-Agent"], "ua/1");
   assert.equal(mt.last().headers?.["Accept"], "application/json");
   assert.equal(mt.last().headers?.["Accept-Encoding"], "gzip, deflate, br");
+});
+
+test("error detail is stripped of terminal control characters", async () => {
+  // ESC + C1 (CSI) + BEL interleaved with printable text, delivered in a non-2xx
+  // JSON error body. JSON.parse turns the escaped bytes into real control chars.
+  const evil = `boom${ESC}[31mred${BEL}${C1}2J`;
+  const mt = makeMockTransport(() => jsonResponse({ detail: evil }, 500));
+  const e = new RequestEngine({ transport: mt.transport, maxRetries: 0 });
+  await assert.rejects(
+    () => e.getJson("/x"),
+    (err: unknown) => {
+      assert.ok(err instanceof HaushaltApiError);
+      // The control bytes are gone from both the structured detail and the
+      // human-readable message that run.ts prints to stderr...
+      assert.ok(!hasControlChars(err.detail ?? ""));
+      assert.ok(!hasControlChars(err.message));
+      // ...while the printable characters are preserved.
+      assert.equal(err.detail, "boom[31mred2J");
+      return true;
+    },
+  );
+});
+
+test("a non-JSON Content-Type is stripped of control characters in the message", async () => {
+  // A hostile 200 with a crafted Content-Type carrying an escape sequence.
+  const mt = makeMockTransport(() => rawResponse("<h1>x</h1>", `text/html${ESC}[2J`));
+  const e = new RequestEngine({ transport: mt.transport });
+  await assert.rejects(
+    () => e.getJson("/x"),
+    (err: unknown) => {
+      assert.ok(err instanceof HaushaltParseError);
+      assert.ok(!hasControlChars(err.message));
+      return true;
+    },
+  );
 });

@@ -62,6 +62,31 @@ export function stripCrossOriginCredentials(
   return safe;
 }
 
+/**
+ * Strip control characters out of a string that originates in an
+ * attacker-controlled response — the error `detail`/`message` and the echoed
+ * Content-Type. `JSON.parse` decodes an escaped ESC in an error body into a
+ * real ESC byte, so without this a hostile or MITM'd endpoint could drive
+ * ANSI/OSC escape sequences into the user's terminal when the message is
+ * printed raw to stderr (title spoofing, output forgery, clipboard writes on
+ * permissive terminals). The success path is already safe because
+ * `JSON.stringify` escapes these, so this only needs to cover text that flows
+ * into an error message.
+ *
+ * Removes all C0 controls except tab (0x09) and newline (0x0a), plus DEL and the
+ * C1 control range (0x7f-0x9f). Written as a code-point filter so no raw control
+ * byte ever appears in this source file.
+ */
+function sanitizeServerText(text: string): string {
+  let out = "";
+  for (const ch of text) {
+    const n = ch.codePointAt(0) ?? 0;
+    if (n <= 8 || (n >= 0x0b && n <= 0x1f) || (n >= 0x7f && n <= 0x9f)) continue;
+    out += ch;
+  }
+  return out;
+}
+
 const realSleep = (ms: number): Promise<void> =>
   new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -248,8 +273,10 @@ export class RequestEngine {
     // rather than feeding HTML into JSON.parse and blaming a parse failure. A
     // missing/empty Content-Type is treated leniently and still parsed.
     if (res.contentType && !isJsonContentType(res.contentType)) {
+      // The Content-Type is attacker-controllable; strip control characters so a
+      // hostile endpoint cannot inject terminal escape sequences via this message.
       throw new HaushaltParseError(
-        `Expected a JSON response from ${path} but got Content-Type "${mediaType(res.contentType)}"`,
+        `Expected a JSON response from ${path} but got Content-Type "${sanitizeServerText(mediaType(res.contentType))}"`,
       );
     }
     const text = res.data.toString("utf8");
@@ -275,6 +302,9 @@ export class RequestEngine {
     } catch {
       // Non-JSON error body; leave detail undefined.
     }
+    // `detail` came from the response body; strip control characters so a hostile
+    // endpoint cannot inject terminal escape sequences via the stderr error message.
+    if (detail !== undefined) detail = sanitizeServerText(detail);
     return new HaushaltApiError({ status, url, method, body: text, detail });
   }
 }
