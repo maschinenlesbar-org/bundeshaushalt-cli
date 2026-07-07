@@ -138,6 +138,15 @@ as `true`/`false`, and encodes spaces as `%20` (not `+`). Only `year` +
 A redirect that would downgrade `https` → `http` is refused, and credential
 headers are stripped when a redirect crosses origins.
 
+**`--base-url` validation.** The base URL is not validated at commander parse
+time; it is fully validated before any request in
+[`buildUrl`](src/client/engine.ts) (scheme allowlist — only `http:`/`https:` —
+host required, no query/fragment) and re-checked in the transport, so no request
+can ever be issued to a `file:`/`ftp:` scheme. Because the check lives in the
+engine rather than a parse-time value-parser, a bad scheme surfaces as a
+`HaushaltNetworkError` (exit `1`) rather than a usage error (exit `2`) — a
+deliberate exit-code choice for this repo, not a validation gap.
+
 **CliDeps / CliIO.** The dependency-injection seam for the CLI
 ([`io.ts`](src/cli/io.ts)): a client factory plus an I/O object (`out`/`err`).
 Lets the whole CLI run in tests with a mocked client and captured output — no
