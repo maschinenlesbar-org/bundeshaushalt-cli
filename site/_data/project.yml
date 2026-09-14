@@ -1,0 +1,16 @@
+# The only repo-specific texts of the website. Everything else comes from the
+# repository: the English intro from README.md, the commands from the built CLI.
+
+# How the API is accessed: open | key (env: VAR) | account (token, user, password: VARs)
+access:
+  type: open
+
+de:
+  # German version of the README's intro paragraph. Keep it in step with README.md.
+  intro: >-
+    Den Bundeshaushalt direkt im Terminal abfragen. `bundeshaushalt` ist ein kleines
+    Kommandozeilen-Tool für das offene Haushaltsdaten-Portal
+    [bundeshaushalt.de](https://bundeshaushalt.de/): Ausgaben und Einnahmen nach Jahr abrufen,
+    einzelne Haushaltstitel, ökonomische Gruppen oder Funktionen aufschlüsseln und Soll- mit
+    Ist-Zahlen vergleichen – als sauberes JSON, das Sie direkt an
+    [`jq`](https://jqlang.github.io/jq/) weitergeben können.
