@@ -53,7 +53,7 @@ export function buildProgram(deps: CliDeps = defaultDeps): Command {
     .configureHelp({ showGlobalOptions: true })
     .version(VERSION)
     .option("--base-url <url>", "API base URL", "https://bundeshaushalt.de")
-    .option("--timeout <ms>", "per-request timeout in milliseconds", parseIntArg, 30_000)
+    .option("--timeout <ms>", "time limit per request in milliseconds, whole response included", parseIntArg, 30_000)
     .option("--user-agent <ua>", "User-Agent header value")
     .option(
       "--max-retries <n>",
