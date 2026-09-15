@@ -53,7 +53,7 @@ The response is one object. The fields that matter:
 |---|---|
 | `detail.value` | The **headline total** for the whole view, in **euros** |
 | `detail.label` | e.g. `Sollwerte des Haushaltsjahres 2024` |
-| `meta.tableLabel` | The dimension of the children (e.g. `Einzelplan`, `Hauptgruppe`); may be `null` for function |
+| `detail.tableLabel` | The dimension of the children: `Einzelplan` for `single`, `Hauptgruppe` for `group`, `Hauptfunktion` for `function` at the top level; `Kapitel` / `Titel` / `Obergruppe` … when drilled. It is on `detail`, **not** `meta` (`meta` has no `tableLabel`, so `jq .meta.tableLabel` gives `null`) |
 | `children[]` | The breakdown — one row per ministry / group / function |
 | `children[].id` | The drill-in id (e.g. `11`, `G-6`, `F-2`) |
 | `children[].label` | Human name, usually `<number> <name>` (e.g. `14 Bundesministerium der Verteidigung`) |
@@ -102,27 +102,35 @@ bundeshaushalt --compact budget 2024 expenses --unit group --id G-6
 The drill response carries:
 - `detail` — the element you drilled into (its own value/label),
 - `children` — the next level down (re-rank these the same way),
-- `meta.levelCur` / `meta.levelMax` — depth (`single` goes 0 Einzelplan → 1 Kapitel →
-  2 Titelgruppe → 3 leaf Titel),
-- `parents` — the path back up (arrays of `{id,label}`), useful for breadcrumbs,
+- `meta.levelCur` / `meta.levelMax` — depth. For `single` (`levelMax` 3): `0` whole budget
+  (children are Einzelpläne) → `1` one Einzelplan, e.g. `--id 14` (`meta.entity` `Section`,
+  children are Kapitel) → `2` one Kapitel, e.g. `--id 1405` (`Chapter`, children are Titel)
+  → `3` one Titel, e.g. `--id 140555408` (`Title`, the leaf). There is **no Titelgruppe
+  level**. `group` and `function` go one level deeper (`levelMax` 4).
+- `parents` — one array of `{id,label}` per level, from the top down to the current one,
+  each listing **all** elements of that level (the siblings), not just the path. For
+  breadcrumbs pick the entry whose `id` is a prefix of the current id (`14` → `1405` →
+  `140555408`),
 - `related` — **only populated at the leaf level** (`levelCur === levelMax`): the same Titel
   seen as `agency` / `function` / `group` cross-references. Surface these when present —
   they let the user pivot the same line item across dimensions. `null` at higher levels.
 
-When `children` is empty and `levelCur === levelMax`, you're at a leaf — report the single
-amount plus the `related` cross-references, don't claim "no breakdown available".
+When `levelCur === levelMax` you're at a leaf and `children` is `null` (not `[]`) — report
+the single amount plus the `related` cross-references, don't claim "no breakdown available".
 
 ## Traps
 
 - **Amounts are plain euros, no separators in the JSON.** Don't read `476807656000` as
   millions — it's €476.8 **billion**. Format consistently.
-- **`actual` (Ist) lags.** Recent years (e.g. the current and prior year) often have
-  **only `target`**; `--quota actual` for them returns HTTP `404` (exit `4`). That means
+- **`actual` (Ist) lags.** The current year has **only `target`**, and the prior year's
+  Ist appears only once its accounts are closed (2025's arrived in July 2026, per its
+  `meta.modifyDate`); until then `--quota actual` returns HTTP `404` (exit `4`). That means
   "realised figures not published yet", *not* "nothing was spent". Fall back to `target`
   and say so. (For the plan-vs-actual comparison itself, use the **budget-plan-vs-actual**
   skill.)
 - **A 404 (exit `4`) on `--id` = bad id for that year/account/unit combo.** Re-fetch a
-  fresh list and pick a valid `id`; ids are not guaranteed stable across years.
+  fresh list and pick a valid `id`; not every id exists in every year (e.g. Einzelplan `24`
+  only from 2025).
 - **`income` and `expenses` totals are equal** (the federal budget is balanced by
   construction) — don't present that as a surplus/deficit finding.
 - Don't hand the user raw JSON unless asked; the value of this skill is the ranked,
