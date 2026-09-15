@@ -69,9 +69,17 @@ A year may legitimately have no figure for your element:
 - **`--quota actual` for recent years → HTTP `404` (exit `4`)** = realised data not
   published yet. For a target-based trend you won't hit this; if the user insists on actuals,
   stop the series at the **last year that returns `0`** and say later years aren't published.
-- **`--id` 404 for some years** = that element id didn't exist (or was renamed) that year.
-  Record the year as a gap rather than aborting the whole series; ids are not guaranteed
-  stable across years, so prefer matching by **label** when an id goes missing.
+- **`--id` 404 for some years** = that element id didn't exist that year (e.g. Einzelplan
+  `24`, Bundesministerium für Digitales und Staatsmodernisierung, exists only from 2025).
+  Record the year as a gap rather than aborting the whole series.
+- **Match by `id`, not by label.** Einzelplan numbers stay stable while ministry names change
+  at every reorganisation: `12` is `Bundesministerium für Digitales und Verkehr` in 2024 and
+  `Bundesministerium für Verkehr` from 2025; `30` is `Bundesministerium für Bildung und
+  Forschung` in 2024 and `Bundesministerium für Forschung, Technologie und Raumfahrt` from
+  2025. A label match would break the series at each rename. A rename usually means
+  responsibilities moved, though (digital policy went from `12` to the new `24`, education
+  from `30` to `17`), so when the label changes, flag that year as a break in comparability
+  rather than presenting the jump as growth.
 - Detect 404 by checking the exit code per call (`… ; if [ $? -eq 4 ]; then …`), not by
   parsing stdout.
 
@@ -88,10 +96,14 @@ Format euros for humans (€…bn) and present a compact table, newest insight f
 Federal expenses, planned (Soll), 2012 → 2024
   2012  €311.6 bn
   …
-  2023  €476.8 bn   +0.0% YoY
-  2024  €476.8 bn   +0.0% YoY
+  2022  €495.8 bn   −13.4% YoY
+  2023  €461.2 bn    −7.0% YoY
+  2024  €476.8 bn    +3.4% YoY
 Over the span: +53% total  (~3.6%/yr CAGR)
 ```
+
+These are the figures the API returned on 2026-09-15, shown for format only — compute
+from a fresh fetch, since Soll figures can be revised.
 
 Rules:
 - State the **quota** in the heading (`planned`/`realised`) — a target trend and an actual
