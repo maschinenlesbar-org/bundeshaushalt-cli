@@ -11,7 +11,7 @@ export type Quota = (typeof QuotaValues)[number];
 
 /**
  * How budget elements are grouped:
- *   single   — by individual budget item (Einzelplan/Titel)
+ *   single   — by budget structure (Einzelplan → Kapitel → Titel)
  *   function — by functional area (Funktion)
  *   group    — by economic group (Gruppe)
  */

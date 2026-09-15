@@ -3,7 +3,7 @@
 Practical, use-case-driven examples for `bundeshaushalt-cli` — a command-line
 client for the open German federal budget API (`bundeshaushalt.de`). Query
 expenses and income of the **Bundeshaushalt** by year, drill into an
-**Einzelplan** (budget item), economic group or functional area, and compare
+**Einzelplan** (budget section), economic group or functional area, and compare
 planned (`target`) vs. realised (`actual`) figures in euros.
 
 ## Install
@@ -83,21 +83,23 @@ bundeshaushalt expenses 2024 \
   | jq -r '.children[] | "\(.id)\t\(.label)\t\(.value)"'
 ```
 
-`--unit single` is the default (`single` = individual budget item /
-Einzelplan), so it can be omitted here.
+`--unit single` is the default (`single` = the budget structure Einzelplan →
+Kapitel → Titel), so it can be omitted here.
 
 ### 5. Drill into one Einzelplan by id
 
-Why: zoom from the overview into a single budget item to see its own children,
-parents and related references. Pass a child `id` from use case 1/4 back in.
+Why: zoom from the overview into one Einzelplan (about one per ministry) to see
+its Kapitel. Pass a child `id` from use case 1/4 back in.
 
 ```bash
-bundeshaushalt budget 2024 expenses --id 090168301
+bundeshaushalt budget 2024 expenses --id 14
 ```
 
-The response carries that element as `detail`, its `children` (drill deeper by
-passing a child's id), `parents`, and `related` cross-references — so you can
-walk the tree one level at a time.
+The response carries that element as `detail`, its `children` (here the Kapitel;
+drill deeper by passing a child's id, e.g. `1405`, then a Titel id such as
+`140555408`) and `parents`. `related` cross-references appear only at the Titel
+(leaf) level, where `children` is `null`. So you can walk the tree one level at
+a time.
 
 ### 6. Break expenses down by economic group (Gruppe)
 
@@ -159,7 +161,7 @@ bundeshaushalt expenses 2024 \
 
 Transient `429`/`503` responses are retried automatically (default 2 retries).
 Exit codes: `0` success, `4` on a `404` from the API, `1` for other errors,
-non-zero for usage errors.
+including usage errors.
 
 ---
 

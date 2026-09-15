@@ -15,7 +15,7 @@ es einen gibt.
 > | Einnahmen | income |
 > | Soll | target (planned) |
 > | Ist | actual (realised) |
-> | Einzelplan | single / individual budget item |
+> | Einzelplan | budget section (top level of `single`) |
 > | Funktion | function (functional area) |
 > | Gruppe | group (economic group) |
 > | Titel | (budget) title / line item |
@@ -67,7 +67,7 @@ Optional (`--quota`).
 
 **unit (`Unit`).** Wie Haushaltselemente gruppiert werden – einer der Werte:
 
-- `single` – nach einzelnem Haushaltsposten (Einzelplan/Titel). Standard der API.
+- `single` – nach Haushaltsgliederung: Einzelplan → Kapitel → Titel. Standard der API.
 - `function` – nach Funktion.
 - `group` – nach ökonomischer Gruppe.
 
@@ -86,9 +86,8 @@ als nächstes `--id` übergeben. Optional.
 
 **BudgetMeta (`meta`).** Metadaten zur aktuellen Ansicht: die geltenden Werte für `account`,
 `year`, `quota` und `unit`, ein optionales `entity`, die aktuelle und maximale
-Aufschlüsselungstiefe (`levelCur` / `levelMax`), ein `modifyDate` / `timestamp` sowie die
-lesbaren Bezeichnungen `tableLabel` / `selectionLabel` (z. B. „Einzelplan“, „Alle
-Einzelpläne“).
+Aufschlüsselungstiefe (`levelCur` / `levelMax`) sowie ein `modifyDate` / `timestamp`.
+`meta` enthält kein `tableLabel` / `selectionLabel`; diese stehen in `detail`.
 
 **BudgetElement.** Eine einzelne Haushaltszeile, Gruppe oder Funktion. Wichtige Felder:
 
@@ -98,7 +97,9 @@ Einzelpläne“).
 - `value` – der Betrag, **in Euro**.
 - `relativeValue` – der Anteil dieses Elements am Ganzen (ein Bruchteil bzw. Prozentwert).
 - `relativeToParentValue` – sein Anteil am übergeordneten Element.
-- `tableLabel` / `selectionLabel` – die Dimension und die Auswahl, zu der es gehört.
+- `tableLabel` / `selectionLabel` – nur in `detail`: die Dimension seiner Kindelemente und
+  die Auswahl, die sie bilden (z. B. „Einzelplan“, „Alle Einzelpläne“; „Titel“ auf der
+  untersten Ebene).
 
 **detail.** Das aktuell ausgewählte Element. Hinweis: Das Feld in der Antwort steht im
 **Singular** (`detail`), obwohl es das eine fokussierte Element der Ansicht darstellt.
@@ -106,8 +107,10 @@ Einzelpläne“).
 **children.** Die Elemente eine Ebene unter `detail` – die Aufschlüsselung, in die Sie
 mit der `id` eines Kindelements weiter absteigen können.
 
-**parents.** Die Kette(n) der übergeordneten Elemente des ausgewählten Elements, als Arrays
-von `LabeledElement` (Paare aus ID und Bezeichnung) – der Weg zurück zur obersten Ebene.
+**parents.** Ein Array von `LabeledElement` (Paare aus ID und Bezeichnung) je Ebene, von
+oben bis zur Ebene des ausgewählten Elements. Jedes Array enthält alle Elemente dieser Ebene
+(die Geschwister), nicht nur den Pfad. Bei `single` ist der Pfad-Eintrag derjenige, dessen
+`id` ein Präfix der ausgewählten ID ist oder ihr entspricht.
 
 **related.** Querverweise auf dasselbe Element aus Sicht anderer Dimensionen:
 `agency`, `function` und `group`, jeweils ein Array von `LabeledElement`-Zeilen.
@@ -124,10 +127,12 @@ als `id` zum Absteigen verwendet. Konventionen für Präfixe:
 
 - Präfix **`G-`** – eine **Gruppe** (ökonomische Gruppe).
 - Präfix **`F-`** – eine **Funktion**.
-- kein Präfix – ein einzelner Haushaltsposten (Einzelplan/Titel), z. B. `090168301`.
+- kein Präfix – ein Element der `single`-Gliederung: ein Einzelplan (`09`), ein Kapitel
+  (`0901`) oder ein Titel (`090168301`).
 
 **Einzelplan.** Ein Abschnitt der obersten Ebene des Haushalts, im Wesentlichen einer je
-Bundesministerium bzw. Verfassungsorgan. Die Einheit `single` gruppiert nach dieser Dimension.
+Bundesministerium bzw. Verfassungsorgan. Die Einheit `single` gruppiert nach dieser Dimension;
+darunter folgen Kapitel, dann Titel.
 
 **Funktion (function).** Eine funktionale Gliederung der Ausgaben nach Zweck (*wofür* das
 Geld ausgegeben wird, unabhängig davon, welches Ministerium es ausgibt). Die Einheit
@@ -154,8 +159,9 @@ führt ausschließlich **lesende** `GET`-Anfragen aus.
 ## Exit-Codes
 
 **Exit-Codes.** Die CLI bildet Ergebnisse auf Prozess-Exit-Codes ab: `0` bei Erfolg;
-`2` bei Aufruf- bzw. Argumentvalidierungsfehlern; `4` bei `404` (Haushaltsposten nicht
-gefunden); `1` bei allen anderen Fehlern. `--help`/`--version` liefern `0`.
+`4` bei `404` (Haushaltsposten nicht gefunden); `1` bei allen anderen Fehlern, auch bei
+Aufruf- und Argumentvalidierungsfehlern (unbekannte Option, ungültiges Jahr).
+`--help`/`--version` liefern `0`.
 
 ---
 

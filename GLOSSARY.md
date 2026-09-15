@@ -15,7 +15,7 @@ exists.
 > | Einnahmen | income |
 > | Soll | target (planned) |
 > | Ist | actual (realised) |
-> | Einzelplan | single / individual budget item |
+> | Einzelplan | budget section (top level of `single`) |
 > | Funktion | function (functional area) |
 > | Gruppe | group (economic group) |
 > | Titel | (budget) title / line item |
@@ -67,7 +67,7 @@ Optional (`--quota`).
 
 **unit (`Unit`).** How budget elements are grouped — one of:
 
-- `single` — by individual budget item (Einzelplan/Titel). The API default.
+- `single` — by budget structure: Einzelplan → Kapitel → Titel. The API default.
 - `function` — by functional area (Funktion).
 - `group` — by economic group (Gruppe).
 
@@ -86,9 +86,8 @@ passing it back as the next `--id`. Optional.
 
 **BudgetMeta (`meta`).** Metadata describing the current view: the `account`,
 `year`, `quota` and `unit` in effect, an optional `entity`, the current/maximum
-drill-down depth (`levelCur` / `levelMax`), a `modifyDate` / `timestamp`, and
-human-readable `tableLabel` / `selectionLabel` (e.g. "Einzelplan", "Alle
-Einzelpläne").
+drill-down depth (`levelCur` / `levelMax`) and a `modifyDate` / `timestamp`.
+`meta` carries no `tableLabel` / `selectionLabel`; those are on `detail`.
 
 **BudgetElement.** A single budget line, group or function. Key fields:
 
@@ -98,7 +97,8 @@ Einzelpläne").
 - `value` — the amount, **in euros**.
 - `relativeValue` — this element's share of the whole (a fraction/percentage).
 - `relativeToParentValue` — its share of its parent element.
-- `tableLabel` / `selectionLabel` — the dimension and selection it belongs to.
+- `tableLabel` / `selectionLabel` — on `detail` only: the dimension of its children and
+  the selection they form (e.g. "Einzelplan", "Alle Einzelpläne"; "Titel" at a leaf).
 
 **detail.** The currently selected element. NB: the wire field is **singular**
 (`detail`), even though it represents the one focused element of the view.
@@ -106,8 +106,10 @@ Einzelpläne").
 **children.** The elements one level below `detail` — the breakdown you can
 drill into by reusing a child's `id`.
 
-**parents.** The ancestor chain(s) of the selected element, as arrays of
-`LabeledElement` (id/label pairs) — the path back up to the top level.
+**parents.** One array of `LabeledElement` (id/label pairs) per level, from the
+top down to the selected element's own level. Each array lists all elements of
+that level (the siblings), not just the path. For `single`, the path entry is the
+one whose `id` is a prefix of, or equal to, the selected id.
 
 **related.** Cross-references to the same element seen along other dimensions:
 `agency`, `function` and `group`, each an array of `LabeledElement` rows.
@@ -124,10 +126,12 @@ as `budgetNumber` and used as the `id` to drill in. Prefix conventions:
 
 - **`G-`** prefix — a **group** (economic group / Gruppe).
 - **`F-`** prefix — a **function** (functional area / Funktion).
-- no prefix — a single budget item (Einzelplan/Titel), e.g. `090168301`.
+- no prefix — an element of the `single` structure: an Einzelplan (`09`), a
+  Kapitel (`0901`) or a Titel (`090168301`).
 
 **Einzelplan.** A top-level section of the budget, broadly one per federal
-ministry/constitutional body. The `single` unit groups by this dimension.
+ministry/constitutional body. The `single` unit groups by this dimension; below
+it come Kapitel, then Titel.
 
 **Funktion (function).** A functional/purpose classification of spending
 (what the money is *for*, independent of which ministry spends it). The
@@ -154,8 +158,9 @@ The budget-data endpoint requires no API key or token; this client performs
 ## Exit codes
 
 **Exit codes.** The CLI maps outcomes to process exit codes: `0` success;
-`2` usage / argument-validation errors; `4` on `404` (budget item not found);
-`1` for any other error. `--help`/`--version` return `0`.
+`4` on `404` (budget item not found); `1` for any other error, including usage
+and argument-validation errors (an unknown option, an invalid year).
+`--help`/`--version` return `0`.
 
 ---
 

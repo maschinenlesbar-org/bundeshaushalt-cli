@@ -23,9 +23,12 @@ export interface BudgetMeta {
   levelMax?: number;
   modifyDate?: string;
   timestamp?: number;
-  /** Human-readable label of the active table/dimension (e.g. "Einzelplan"). */
+  /**
+   * Not sent in `meta` by the live API; the dimension label is on
+   * `detail.tableLabel`.
+   */
   tableLabel?: string;
-  /** Human-readable label of the active selection (e.g. "Alle Einzelpläne"). */
+  /** Not sent in `meta` by the live API; see `detail.selectionLabel`. */
   selectionLabel?: string;
 }
 
@@ -38,9 +41,12 @@ export interface BudgetElement {
   value: number;
   relativeValue: number;
   relativeToParentValue: number;
-  /** Human-readable label of the table/dimension this element belongs to. */
+  /**
+   * On `detail` only: the dimension of the element's children (e.g. "Einzelplan"
+   * for the whole budget, "Kapitel" inside an Einzelplan, "Titel" at a leaf).
+   */
   tableLabel?: string;
-  /** Human-readable label of the selection this element belongs to. */
+  /** On `detail` only: the selection the children form (e.g. "Alle Einzelpläne"). */
   selectionLabel?: string;
 }
 

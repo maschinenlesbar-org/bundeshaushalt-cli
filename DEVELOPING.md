@@ -144,8 +144,8 @@ time; it is fully validated before any request in
 host required, no query/fragment) and re-checked in the transport, so no request
 can ever be issued to a `file:`/`ftp:` scheme. Because the check lives in the
 engine rather than a parse-time value-parser, a bad scheme surfaces as a
-`HaushaltNetworkError` (exit `1`) rather than a usage error (exit `2`) — a
-deliberate exit-code choice for this repo, not a validation gap.
+`HaushaltNetworkError` at request time rather than as a commander parse error —
+a deliberate choice for this repo, not a validation gap. Both exit `1`.
 
 **CliDeps / CliIO.** The dependency-injection seam for the CLI
 ([`io.ts`](src/cli/io.ts)): a client factory plus an I/O object (`out`/`err`).
@@ -155,8 +155,8 @@ subprocess.
 **Error types.** [`errors.ts`](src/client/errors.ts): `HaushaltApiError`
 (non-2xx, carries `status`/`detail`/`url`/`method`/`body`), `HaushaltNetworkError`
 (transport failure/timeout), `HaushaltParseError` (bad JSON), all extending
-`HaushaltError`. The CLI maps a `404` to exit code `4`, usage errors to `2`,
-and other errors to `1`.
+`HaushaltError`. The CLI maps a `404` to exit code `4` and every other error,
+usage errors included, to `1`.
 
 **Enum value sets.** `AccountValues`, `QuotaValues`, `UnitValues` — const arrays
 that double as runtime CLI choice validators and as TypeScript union types
