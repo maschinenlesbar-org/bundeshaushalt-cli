@@ -69,9 +69,9 @@ export function stripCrossOriginCredentials(
  * real ESC byte, so without this a hostile or MITM'd endpoint could drive
  * ANSI/OSC escape sequences into the user's terminal when the message is
  * printed raw to stderr (title spoofing, output forgery, clipboard writes on
- * permissive terminals). The success path is already safe because
- * `JSON.stringify` escapes these, so this only needs to cover text that flows
- * into an error message.
+ * permissive terminals). The CLI's JSON output is escaped separately
+ * (`escapeControlChars` in cli/shared.ts): `JSON.stringify` alone leaves DEL and
+ * the C1 range raw.
  *
  * Removes all C0 controls except tab (0x09) and newline (0x0a), plus DEL and the
  * C1 control range (0x7f-0x9f). Written as a code-point filter so no raw control
