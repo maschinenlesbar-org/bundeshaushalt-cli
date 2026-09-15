@@ -85,8 +85,9 @@ Every skill is a single `SKILL.md` — a short, model-facing playbook describing
 `bundeshaushalt` subcommands to call, in what order, and how to interpret the JSON. The
 skills encode the non-obvious parts of this data, for example:
 
-- **`actual` (Ist) data is published with a lag** — recent years (current + most recent)
-  often carry **only `target`/Soll**, and `--quota actual` for them returns HTTP `404`
+- **`actual` (Ist) data is published with a lag** — the current year, and the prior year
+  until its accounts are closed (2025's Ist arrived in July 2026), carry **only
+  `target`/Soll**, and `--quota actual` for them returns HTTP `404`
   (exit `4`). That means "realised figures not published yet", not "nothing was spent"
   (central to **budget-plan-vs-actual** and **budget-trend**);
 - **amounts are plain euros with no separators** — `476807656000` is €476.8 **billion**,

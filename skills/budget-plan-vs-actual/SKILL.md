@@ -26,8 +26,9 @@ Data comes from the open, key-free portal (`bundeshaushalt.de`). Read-only, no a
 
 ## Step 0 — Pick a year that HAS actuals (the central trap)
 
-**`actual` (Ist) data is published with a lag.** The current and most-recent budget years
-typically have **only `target`** — `--quota actual` for them returns HTTP `404` (exit `4`).
+**`actual` (Ist) data is published with a lag.** The current year has **only `target`**,
+and the prior year's Ist appears only once its accounts are closed (2025's arrived in July
+2026, per its `meta.modifyDate`) — until then `--quota actual` returns HTTP `404` (exit `4`).
 Before comparing, confirm actuals exist:
 
 ```bash
@@ -55,7 +56,7 @@ work too). The fields that matter (per `children[]` row and on `detail`):
 | `children[].label` | Human name (`14 Bundesministerium der Verteidigung`) |
 | `children[].value` | Amount in euros for the fetched quota |
 
-> **`actual` values carry cents** (e.g. `481304311035.89`); `target` values are round.
+> **`actual` values carry cents** (e.g. `457663394853.41`); `target` values are round.
 > Keep full precision when subtracting; only round for display.
 
 ## Step 2 — Join and compute variance
@@ -90,14 +91,21 @@ Lead with the **headline totals and overall execution rate**
 
 ```
 Federal expenses 2023 — plan vs. actual (Soll vs. Ist)
-Planned €476.8 bn · Realised €457.1 bn · executed 95.9% (−€19.7 bn under plan)
+Planned €461.2 bn (incl. 1st supplementary budget) · Realised €457.7 bn
+Executed 99.2% (−€3.5 bn under plan)
 
 Biggest underspend (planned but not fully used):
-  −€8.1 bn  −18.4%  60 Allgemeine Finanzverwaltung
-  −€3.2 bn   −6.1%  12 Bundesministerium für Digitales und Verkehr
+  −€3.2 bn  −11.0%  60 Allgemeine Finanzverwaltung
+  −€2.7 bn  −18.8%  09 Bundesministerium für Wirtschaft und Klimaschutz
 Biggest overspend:
-  +€2.4 bn   +4.7%  32 Bundesschuld (interest)
+  +€5.5 bn   +3.3%  11 Bundesministerium für Arbeit und Soziales
+  +€1.1 bn   +8.2%  06 Bundesministerium des Innern und für Heimat
 ```
+
+These are the figures the API returned on 2026-09-15, shown for format only. Soll figures
+get revised (2023's `target` view was last modified 15.07.2025, and its `detail.label`
+says it includes the supplementary budget), so always compute from a fresh fetch and quote
+`detail.label` for what the plan covers.
 
 Rules:
 - Format euros for humans (€…bn / €…m); show delta **and** percentage.
