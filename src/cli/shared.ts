@@ -62,6 +62,26 @@ export function assertEnum<T extends string>(
   return value as T;
 }
 
+/**
+ * commander value-parser for `--base-url`: an absolute `http:`/`https:` URL.
+ * Rejecting a `file:`/`ftp:` or malformed value here makes it a usage error at
+ * parse time; the engine still re-validates the full URL before any request.
+ */
+export function parseBaseUrl(value: string): string {
+  let url: URL;
+  try {
+    url = new URL(value);
+  } catch {
+    throw new InvalidArgumentError("Expected an absolute http(s) URL.");
+  }
+  if (url.protocol !== "http:" && url.protocol !== "https:") {
+    throw new InvalidArgumentError(
+      `Unsupported scheme "${url.protocol}". Expected an http(s) URL.`,
+    );
+  }
+  return value;
+}
+
 export interface GlobalOptions {
   baseUrl?: string;
   timeout?: number;
