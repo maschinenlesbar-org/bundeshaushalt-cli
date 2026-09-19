@@ -8,8 +8,11 @@ description: >
   spending gone up?", "year-over-year growth of the education ministry", or wants
   a budget figure tracked across years. Uses the bundeshaushalt-cli, querying each
   year and stitching the series together.
-version: 1.0.0
-userInvocable: true
+compatibility: >
+  Requires the `bundeshaushalt` CLI (npm package
+  @maschinenlesbar.org/bundeshaushalt-cli) on PATH, installed by the user; the
+  skill never installs it. Uses jq for JSON filtering. Network access to
+  bundeshaushalt.de.
 ---
 
 # Federal Budget Trend (Time Series)
@@ -21,6 +24,8 @@ call) deliberately doesn't do.
 ## Tooling
 
 This skill drives the `bundeshaushalt` command. **Before anything else, validate it is available** — run `command -v bundeshaushalt` (or `bundeshaushalt --version`). If it is not on your PATH, STOP and inform the user that the `bundeshaushalt` CLI (`@maschinenlesbar.org/bundeshaushalt-cli`) is not installed — installing it is their responsibility; never install it yourself, and do not fall back to `npx` or a local `node dist/...` build.
+
+This skill also filters JSON with `jq`. **Validate it too** — run `command -v jq`. If it is missing, inform the user that `jq` is not installed — installing it is their responsibility; never install it yourself — and carry on without it: filter the CLI output with `node -e` instead (Node is already on your PATH, since the CLI runs on it).
 
 Data comes from the open, key-free portal (`bundeshaushalt.de`). Read-only, no account. Always `--compact`. Undocumented internal API — raise `--timeout 60000` / `--max-retries 4` on stalls or `429`. Be polite querying many years back-to-back; a small gap between calls avoids tripping rate limits.
 

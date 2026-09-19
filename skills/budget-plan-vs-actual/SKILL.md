@@ -8,8 +8,11 @@ description: >
   execution / Soll-Ist comparison", "how much of the defence budget was actually
   used?", or wants variance between budgeted and realised euros. Uses the
   bundeshaushalt-cli, fetching both quotas and computing the deltas.
-version: 1.0.0
-userInvocable: true
+compatibility: >
+  Requires the `bundeshaushalt` CLI (npm package
+  @maschinenlesbar.org/bundeshaushalt-cli) on PATH, installed by the user; the
+  skill never installs it. Uses jq for JSON filtering. Network access to
+  bundeshaushalt.de.
 ---
 
 # Plan vs. Actual (Soll/Ist) Comparison
@@ -21,6 +24,8 @@ one quota at a time; the whole job of this skill is the join + variance the CLI 
 ## Tooling
 
 This skill drives the `bundeshaushalt` command. **Before anything else, validate it is available** — run `command -v bundeshaushalt` (or `bundeshaushalt --version`). If it is not on your PATH, STOP and inform the user that the `bundeshaushalt` CLI (`@maschinenlesbar.org/bundeshaushalt-cli`) is not installed — installing it is their responsibility; never install it yourself, and do not fall back to `npx` or a local `node dist/...` build.
+
+This skill also filters JSON with `jq`. **Validate it too** — run `command -v jq`. If it is missing, inform the user that `jq` is not installed — installing it is their responsibility; never install it yourself — and carry on without it: filter the CLI output with `node -e` instead (Node is already on your PATH, since the CLI runs on it).
 
 Data comes from the open, key-free portal (`bundeshaushalt.de`). Read-only, no account. Always `--compact`. It's an undocumented internal API — raise `--timeout 60000` / `--max-retries 4` on stalls or `429`.
 

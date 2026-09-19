@@ -8,8 +8,11 @@ description: >
   ministry get?", "break the Bundeshaushalt down by economic group / function",
   or wants the budget by ministry (Einzelplan), economic group (Gruppe) or
   functional area (Funktion). Uses the bundeshaushalt-cli.
-version: 1.0.0
-userInvocable: true
+compatibility: >
+  Requires the `bundeshaushalt` CLI (npm package
+  @maschinenlesbar.org/bundeshaushalt-cli) on PATH, installed by the user; the
+  skill never installs it. Uses jq for JSON filtering. Network access to
+  bundeshaushalt.de.
 ---
 
 # Federal Budget Breakdown
@@ -20,6 +23,8 @@ optionally drilled into a single ministry — instead of the raw JSON envelope t
 ## Tooling
 
 This skill drives the `bundeshaushalt` command. **Before anything else, validate it is available** — run `command -v bundeshaushalt` (or `bundeshaushalt --version`). If it is not on your PATH, STOP and inform the user that the `bundeshaushalt` CLI (`@maschinenlesbar.org/bundeshaushalt-cli`) is not installed — installing it is their responsibility; never install it yourself, and do not fall back to `npx` or a local `node dist/...` build.
+
+This skill also filters JSON with `jq`. **Validate it too** — run `command -v jq`. If it is missing, inform the user that `jq` is not installed — installing it is their responsibility; never install it yourself — and carry on without it: filter the CLI output with `node -e` instead (Node is already on your PATH, since the CLI runs on it).
 
 Data comes from the open, key-free budget-data portal (`bundeshaushalt.de`). Read-only, no account. Always pass `--compact` so the result is one line, easy to pipe into `jq`. The endpoint is an **undocumented internal portal API** — bump `--timeout 60000` / `--max-retries 4` if a call stalls or returns `429`.
 
