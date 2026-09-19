@@ -161,3 +161,17 @@ test("rejects an empty --id before any request", async () => {
   assert.equal(cli.mt.calls.length, 0);
   assert.match(cli.err.join("\n"), /Invalid id/);
 });
+
+test("--timeout accepts up to the largest timer Node supports and rejects more", async () => {
+  const { MAX_TIMEOUT_MS } = await import("../src/client/index.js");
+  assert.equal(MAX_TIMEOUT_MS, 2_147_483_647);
+
+  const cli = makeCli(() => jsonResponse(body));
+  assert.equal(await run(["--timeout", "2147483647", "expenses", "2024"], cli.deps), 0);
+  assert.equal(cli.mt.last().timeoutMs, 2_147_483_647);
+
+  const over = makeCli(() => jsonResponse(body));
+  assert.notEqual(await run(["--timeout", "2147483648", "expenses", "2024"], over.deps), 0);
+  assert.equal(over.mt.calls.length, 0);
+  assert.match(over.err.join("\n"), /2147483647/);
+});

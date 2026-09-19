@@ -23,7 +23,11 @@ const brotliDecompress = promisify(zlib.brotliDecompress);
 // Node emit a `TimeoutOverflowWarning` to stderr and mis-fire the timer, so clamp
 // here: the effective timeout is already unbounded for practical
 // purposes (~24.8 days).
-const MAX_TIMEOUT_MS = 2_147_483_647;
+/**
+ * The longest delay Node's timers support (2^31 - 1 ms, about 24.8 days). A longer one
+ * prints a TimeoutOverflowWarning and fires after 1 ms, so timeouts are capped here.
+ */
+export const MAX_TIMEOUT_MS = 2_147_483_647;
 
 /**
  * Decompress a body according to its Content-Encoding (identity if none/unknown).
