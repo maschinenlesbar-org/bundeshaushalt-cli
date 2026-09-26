@@ -118,6 +118,10 @@ bundeshaushalt budget 2024 expenses --unit group
 bundeshaushalt budget 2024 expenses --unit group --id G-5
 ```
 
+The prefix must match `--unit`: `--unit group --id 14` or `--id G-5` with
+`--unit single` is rejected locally (the API would answer `404`). Without
+`--unit`, a `G-`/`F-` id sets it, so `--id G-5` alone works too.
+
 ### 7. Break expenses down by functional area (Funktion)
 
 Why: view spending by purpose/policy field across ministries. Use

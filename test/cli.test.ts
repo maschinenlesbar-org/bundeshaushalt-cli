@@ -262,3 +262,28 @@ test("a 404 for --quota actual hints that realised figures may not be published 
   assert.equal(await run(["expenses", "2026", "--id", "99"], target.deps), 4);
   assert.doesNotMatch(target.err.join("\n"), /Hint:/);
 });
+
+test("--id's G-/F- prefix sets --unit when omitted", async () => {
+  for (const [id, unit] of [["G-5", "group"], ["f-0", "function"], ["14", null]] as const) {
+    const cli = makeCli(() => jsonResponse(body));
+    assert.equal(await run(["budget", "2024", "expenses", "--id", id], cli.deps), 0, id);
+    assert.equal(new URL(cli.mt.last().url).searchParams.get("unit"), unit, id);
+  }
+});
+
+test("rejects an --id whose prefix contradicts --unit before any request", async () => {
+  const cases = [
+    ["single", "G-5", 'Invalid id "G-5" for --unit single: a "G-" id belongs to --unit group.'],
+    ["function", "G-5", 'Invalid id "G-5" for --unit function: a "G-" id belongs to --unit group.'],
+    ["group", "14", 'Invalid id "14" for --unit group: group ids start with "G-" (e.g. "G-5").'],
+    ["function", "14", 'Invalid id "14" for --unit function: function ids start with "F-" (e.g. "F-0").'],
+  ] as const;
+  for (const [unit, id, message] of cases) {
+    const cli = makeCli(() => jsonResponse(body));
+    assert.equal(await run(["budget", "2024", "expenses", "--unit", unit, "--id", id], cli.deps), 1, id);
+    assert.equal(cli.mt.calls.length, 0, id);
+    assert.equal(cli.err.join("\n"), `Error: ${message}`);
+  }
+  const ok = makeCli(() => jsonResponse(body));
+  assert.equal(await run(["budget", "2024", "expenses", "--unit", "group", "--id", "g-5"], ok.deps), 0);
+});

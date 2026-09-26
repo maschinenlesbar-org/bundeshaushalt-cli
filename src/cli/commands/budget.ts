@@ -77,8 +77,33 @@ function optionsFrom(opts: Record<string, unknown>): Omit<BudgetParams, "year" |
       );
     }
     params.id = id;
+    // The prefix fixes the grouping, and the API answers a mismatched pair with a
+    // bare 404 ("not found" for an id that exists): infer --unit when it is omitted,
+    // reject a contradicting one.
+    const idUnit = unitOfId(id);
+    if (params.unit === undefined) {
+      if (idUnit !== "single") params.unit = idUnit;
+    } else if (params.unit !== idUnit) {
+      const why =
+        idUnit === "single"
+          ? `${params.unit} ids start with "${UNIT_PREFIX[params.unit]}" (e.g. "${UNIT_EXAMPLE[params.unit]}")`
+          : `a "${UNIT_PREFIX[idUnit]}" id belongs to --unit ${idUnit}`;
+      throw new HaushaltError(`Invalid id "${raw}" for --unit ${params.unit}: ${why}.`);
+    }
   }
   return params;
+}
+
+/** The id prefix of each grouping (the API matches it case-insensitively). */
+const UNIT_PREFIX: Record<Unit, string> = { group: "G-", function: "F-", single: "" };
+const UNIT_EXAMPLE: Record<Unit, string> = { group: "G-5", function: "F-0", single: "14" };
+
+/** The grouping an id belongs to, by its prefix: G- group, F- function, none single. */
+function unitOfId(id: string): Unit {
+  const prefix = id.slice(0, 2).toUpperCase();
+  if (prefix === UNIT_PREFIX.group) return "group";
+  if (prefix === UNIT_PREFIX.function) return "function";
+  return "single";
 }
 
 function addBudgetOptions(cmd: Command): Command {
@@ -93,7 +118,10 @@ function addBudgetOptions(cmd: Command): Command {
         ...UnitValues,
       ]),
     )
-    .option("--id <id>", 'budget number id ("G-" prefix for groups, "F-" for functions)');
+    .option(
+      "--id <id>",
+      'element id: "G-…" a group, "F-…" a function, unprefixed the budget structure; must match --unit, which it sets when omitted',
+    );
 }
 
 export function registerBudgetCommands(program: Command, deps: CliDeps): void {
