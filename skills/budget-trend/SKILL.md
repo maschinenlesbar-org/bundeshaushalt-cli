@@ -50,8 +50,10 @@ For a **whole-budget** trend, read `detail.value` per year:
 
 ```bash
 for y in $(seq 2012 2024); do
-  v=$(bundeshaushalt --compact expenses "$y" | jq -r '.detail.value')
-  printf '%s\t%s\n' "$y" "$v"
+  out=$(bundeshaushalt --compact expenses "$y"); rc=$?
+  if [ "$rc" -eq 4 ]; then printf '%s\tgap\n' "$y"; continue; fi
+  if [ "$rc" -ne 0 ]; then echo "year $y failed (exit $rc)" >&2; continue; fi
+  printf '%s\t%s\n' "$y" "$(printf '%s' "$out" | jq -r '.detail.value')"
 done
 ```
 
@@ -60,8 +62,10 @@ read `detail.value`:
 
 ```bash
 for y in $(seq 2014 2024); do
-  v=$(bundeshaushalt --compact budget "$y" expenses --id 14 | jq -r '.detail.value')
-  printf '%s\t%s\n' "$y" "$v"
+  out=$(bundeshaushalt --compact budget "$y" expenses --id 14); rc=$?
+  if [ "$rc" -eq 4 ]; then printf '%s\tgap\n' "$y"; continue; fi
+  if [ "$rc" -ne 0 ]; then echo "year $y failed (exit $rc)" >&2; continue; fi
+  printf '%s\t%s\n' "$y" "$(printf '%s' "$out" | jq -r '.detail.value')"
 done
 ```
 
@@ -87,8 +91,11 @@ A year may legitimately have no figure for your element:
   responsibilities moved, though (digital policy went from `12` to the new `24`, education
   from `30` to `17`), so when the label changes, flag that year as a break in comparability
   rather than presenting the jump as growth.
-- Detect 404 by checking the exit code per call (`… ; if [ $? -eq 4 ]; then …`), not by
-  parsing stdout.
+- Detect 404 by the **CLI's own** exit code per call, not by parsing stdout: capture the
+  output first (`out=$(bundeshaushalt …); rc=$?`), then run `jq` on `$out`, as in the loops
+  above. After `bundeshaushalt … | jq …`, `$?` is `jq`'s status (`0` even on empty input),
+  so a 404 would go unnoticed. Exit `4` is a gap; any other non-zero exit is an error to
+  report, not a gap.
 
 ## Step 4 — Compute and present the series
 
