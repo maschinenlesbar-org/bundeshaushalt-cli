@@ -159,7 +159,9 @@ The budget-data endpoint requires no API key or token; this client performs
 ## Exit codes
 
 **Exit codes.** The CLI maps outcomes to process exit codes: `0` success;
-`4` on `404` (budget item not found); `1` for any other error, including usage
+`4` on `404` (not found: an unknown budget item id, a year without data, or —
+with `--quota actual` — a year whose realised figures are not published yet,
+which the CLI points out in a hint); `1` for any other error, including usage
 and argument-validation errors (an unknown option, an invalid year).
 `--help`/`--version` return `0`.
 

@@ -66,6 +66,10 @@ bundeshaushalt expenses 2023 --quota target
 bundeshaushalt expenses 2023 --quota actual
 ```
 
+Realised figures are published with a lag: the current year has none, and a
+year's appear only once its accounts are closed, months after it ends. Until
+then `--quota actual` answers `404` (exit `4`, with a hint on stderr).
+
 Pull just the headline total from each to compare in euros:
 
 ```bash
@@ -163,7 +167,9 @@ bundeshaushalt expenses 2024 \
 
 Transient `429`/`503` responses are retried automatically (default 2 retries, at
 most 10), honouring the server's `Retry-After` up to 30 s.
-Exit codes: `0` success, `4` on a `404` from the API, `1` for other errors,
+Exit codes: `0` success, `4` on a `404` from the API (an unknown id, a year
+without data, or `--quota actual` for a year whose realised figures aren't
+published yet), `1` for other errors,
 including usage errors.
 
 ---

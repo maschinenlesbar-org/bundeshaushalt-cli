@@ -252,3 +252,13 @@ test("a null 2xx body exits 1 with a parse error, not success", async () => {
   assert.deepEqual(cli.out, []);
   assert.match(cli.err.join("\n"), /^Error: Unexpected response shape from \/internalapi\/budgetData/);
 });
+
+test("a 404 for --quota actual hints that realised figures may not be published yet", async () => {
+  const actual = makeCli(() => jsonResponse({}, 404));
+  assert.equal(await run(["expenses", "2026", "--quota", "actual"], actual.deps), 4);
+  assert.match(actual.err.join("\n"), /^Hint: with --quota actual, a 404 also means/m);
+
+  const target = makeCli(() => jsonResponse({}, 404));
+  assert.equal(await run(["expenses", "2026", "--id", "99"], target.deps), 4);
+  assert.doesNotMatch(target.err.join("\n"), /Hint:/);
+});

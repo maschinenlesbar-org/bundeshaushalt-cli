@@ -144,7 +144,7 @@ do the same thing.
 | Code | Meaning |
 | --- | --- |
 | `0` | success (also `--help` / `--version`) |
-| `4` | budget item not found (`404`) |
+| `4` | not found (`404`): an unknown budget item id, a year the portal has no data for, or — with `--quota actual` — a year whose realised figures aren't published yet |
 | `1` | any other error — including bad usage / invalid arguments |
 
 ## Troubleshooting
@@ -154,7 +154,10 @@ do the same thing.
   `npx @maschinenlesbar.org/bundeshaushalt-cli …`.
 - **Exit `4` / "not found"** — the budget item id doesn't exist for the
   requested year/account/unit combination. Re-fetch a fresh list to pick a
-  valid id.
+  valid id. With `--quota actual` it also means the year's realised (Ist)
+  figures aren't published yet: they appear only once the year's accounts are
+  closed, months after it ends, so the current year has none. Use an earlier
+  year or `--quota target`.
 - **Year out of range** — the CLI validates years locally; it only accepts
   `2012` through next year (the draft budget for next year appears each summer).
   Out-of-range years are rejected before any network request is made; next

@@ -21,6 +21,15 @@ function configureTree(command: Command, deps: CliDeps): void {
   for (const child of command.commands) configureTree(child, deps);
 }
 
+/** True when the request URL asked for realised figures (`quota=actual`). */
+function requestedActual(url: string): boolean {
+  try {
+    return new URL(url).searchParams.get("quota") === "actual";
+  } catch {
+    return false;
+  }
+}
+
 export async function run(argv: string[], deps: CliDeps = defaultDeps): Promise<number> {
   const program = buildProgram(deps);
   configureTree(program, deps);
@@ -36,7 +45,18 @@ export async function run(argv: string[], deps: CliDeps = defaultDeps): Promise<
     if (err instanceof HaushaltApiError) {
       deps.io.err(`Error: ${err.message}`);
       // Map a few notable statuses to distinct exit codes for scripting.
-      if (err.status === 404) return 4;
+      if (err.status === 404) {
+        // The API answers a year whose realised figures are not published yet with
+        // the same bare 404 as an unknown id; say so, since no id may be involved.
+        if (requestedActual(err.url)) {
+          deps.io.err(
+            "Hint: with --quota actual, a 404 also means that year's realised figures " +
+              "are not published yet (they appear once its accounts are closed, months " +
+              "after the year ends). Try an earlier year or --quota target.",
+          );
+        }
+        return 4;
+      }
       return 1;
     }
     if (err instanceof HaushaltError) {
