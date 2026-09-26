@@ -10,7 +10,7 @@ import http from "node:http";
 import https from "node:https";
 import zlib from "node:zlib";
 import { promisify } from "node:util";
-import { HaushaltNetworkError } from "./errors.js";
+import { HaushaltNetworkError, redactUrl } from "./errors.js";
 
 // Async (libuv thread-pool) variants of the zlib calls, so decoding a large body
 // does not block the event loop — this transport ships as a reusable library.
@@ -114,7 +114,7 @@ export const nodeHttpTransport: Transport = (request) =>
     try {
       url = new URL(request.url);
     } catch {
-      reject(new HaushaltNetworkError(`Invalid URL: ${request.url}`));
+      reject(new HaushaltNetworkError(`Invalid URL: ${redactUrl(request.url)}`));
       return;
     }
 
@@ -122,7 +122,9 @@ export const nodeHttpTransport: Transport = (request) =>
     // typed error instead of letting Node throw an opaque ERR_INVALID_PROTOCOL
     // (and so this never reaches the file:/ftp:/etc. drivers).
     if (url.protocol !== "http:" && url.protocol !== "https:") {
-      reject(new HaushaltNetworkError(`Unsupported protocol "${url.protocol}" in URL: ${request.url}`));
+      reject(
+        new HaushaltNetworkError(`Unsupported protocol "${url.protocol}" in URL: ${redactUrl(request.url)}`),
+      );
       return;
     }
 
@@ -218,7 +220,7 @@ export const nodeHttpTransport: Transport = (request) =>
       fail(
         err instanceof HaushaltNetworkError
           ? err
-          : new HaushaltNetworkError(`${request.method} ${request.url} failed: ${err.message}`, {
+          : new HaushaltNetworkError(`${request.method} ${redactUrl(request.url)} failed: ${err.message}`, {
               cause: err,
             }),
       );

@@ -165,3 +165,23 @@ test("times out a stalled response with HaushaltNetworkError", async () => {
     },
   );
 });
+
+test("userinfo in the URL is sent as Basic auth; a failure message redacts it", async () => {
+  let auth: string | undefined;
+  await withServer(
+    (req, res) => {
+      auth = req.headers.authorization;
+      res.end("{}");
+    },
+    async (baseUrl) => {
+      await nodeHttpTransport({ method: "GET", url: baseUrl.replace("http://", "http://user:pw@") + "/x" });
+    },
+  );
+  assert.equal(auth, `Basic ${Buffer.from("user:pw").toString("base64")}`);
+
+  await assert.rejects(
+    () => nodeHttpTransport({ method: "GET", url: "http://user:secret@127.0.0.1:1/x" }),
+    (err: unknown) =>
+      err instanceof HaushaltNetworkError && !err.message.includes("secret") && err.message.includes("http://***@127.0.0.1:1/x"),
+  );
+});

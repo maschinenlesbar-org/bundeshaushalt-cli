@@ -4,7 +4,13 @@
 
 import { MAX_TIMEOUT_MS, nodeHttpTransport, type Transport } from "./http.js";
 import { buildQueryString, type QueryParams } from "./query.js";
-import { HaushaltApiError, HaushaltError, HaushaltNetworkError, HaushaltParseError } from "./errors.js";
+import {
+  HaushaltApiError,
+  HaushaltError,
+  HaushaltNetworkError,
+  HaushaltParseError,
+  redactUrl,
+} from "./errors.js";
 
 export const DEFAULT_BASE_URL = "https://bundeshaushalt.de";
 const DEFAULT_USER_AGENT = "bundeshaushalt-cli";
@@ -274,25 +280,31 @@ export class RequestEngine {
     try {
       base = new URL(this.baseUrl);
     } catch {
-      throw new HaushaltNetworkError(`Invalid base URL: "${this.baseUrl}"`);
+      throw new HaushaltNetworkError(`Invalid base URL: "${redactUrl(this.baseUrl)}"`);
     }
     if (base.protocol !== "http:" && base.protocol !== "https:") {
       throw new HaushaltNetworkError(
-        `Unsupported protocol "${base.protocol}" in base URL: "${this.baseUrl}"`,
+        `Unsupported protocol "${base.protocol}" in base URL: "${redactUrl(this.baseUrl)}"`,
       );
     }
     if (!base.host) {
-      throw new HaushaltNetworkError(`Base URL "${this.baseUrl}" has no host`);
+      throw new HaushaltNetworkError(`Base URL "${redactUrl(this.baseUrl)}" has no host`);
     }
     if (base.search || base.hash) {
       throw new HaushaltNetworkError(
-        `Base URL "${this.baseUrl}" must not contain a query string or fragment`,
+        `Base URL "${redactUrl(this.baseUrl)}" must not contain a query string or fragment`,
       );
     }
     const basePath = base.pathname.replace(/\/+$/, "");
     const normalizedPath = path.startsWith("/") ? path : `/${path}`;
     const qs = query ? buildQueryString(query) : "";
-    return `${base.origin}${basePath}${normalizedPath}${qs ? `?${qs}` : ""}`;
+    // Keep any userinfo (`http://user:pw@mirror/`): the transport sends it as Basic
+    // auth, for a mirror behind a login. Error messages show it redacted.
+    const userinfo =
+      base.username || base.password
+        ? `${base.username}${base.password ? `:${base.password}` : ""}@`
+        : "";
+    return `${base.protocol}//${userinfo}${base.host}${basePath}${normalizedPath}${qs ? `?${qs}` : ""}`;
   }
 
   /** Perform a request with Accept negotiation and transient-error retries. */
@@ -339,7 +351,7 @@ export class RequestEngine {
       if (status >= 300 && status < 400 && response.headers["location"]) {
         if (redirects >= this.maxRedirects) {
           throw new HaushaltNetworkError(
-            `Too many redirects (exceeded maxRedirects=${this.maxRedirects}) for ${method} ${url}`,
+            `Too many redirects (exceeded maxRedirects=${this.maxRedirects}) for ${method} ${redactUrl(url)}`,
           );
         }
         const location = response.headers["location"];
@@ -348,7 +360,7 @@ export class RequestEngine {
           // Refuse a downgrade from https to plaintext http on redirect.
           if (new URL(url).protocol === "https:" && nextUrl.protocol === "http:") {
             throw new HaushaltNetworkError(
-              `Refusing to follow https->http redirect to ${nextUrl.toString()}`,
+              `Refusing to follow https->http redirect to ${redactUrl(nextUrl.toString())}`,
             );
           }
           // Strip credential headers if the redirect crosses origins.

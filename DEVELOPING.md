@@ -164,6 +164,9 @@ naming `--base-url`, and no request is made. It is then fully validated again
 before any request in [`buildUrl`](src/client/engine.ts) (scheme allowlist,
 host required, no query/fragment) and re-checked in the transport, so library
 callers passing a bad `baseUrl` get a `HaushaltNetworkError`. Both exit `1`.
+Userinfo in the base URL (`http://user:pw@mirror/`) is kept and sent as Basic
+auth, for a mirror behind a login; every error message shows the URL through
+`redactUrl` (`http://***@mirror/...`), so the password never reaches a log.
 
 **CliDeps / CliIO.** The dependency-injection seam for the CLI
 ([`io.ts`](src/cli/io.ts)): a client factory plus an I/O object (`out`/`err`).

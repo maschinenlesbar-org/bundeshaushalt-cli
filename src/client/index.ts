@@ -18,6 +18,7 @@ export {
   HaushaltApiError,
   HaushaltNetworkError,
   HaushaltParseError,
+  redactUrl,
 } from "./errors.js";
 
 export * from "./enums.js";

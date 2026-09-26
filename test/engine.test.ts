@@ -306,3 +306,25 @@ test("server text on stderr loses line breaks and bidi controls", async () => {
     },
   );
 });
+
+test("a base URL's userinfo is kept for the request and redacted in error messages", async () => {
+  const mt = makeMockTransport(() => jsonResponse({ detail: "busy" }, 500));
+  const e = new RequestEngine({ baseUrl: "http://user:s%40cret@mirror.test/api/", transport: mt.transport });
+  assert.equal(e.buildUrl("/x", { a: "1" }), "http://user:s%40cret@mirror.test/api/x?a=1");
+  await assert.rejects(
+    () => e.getJson("/x"),
+    (err: unknown) => {
+      assert.ok(err instanceof HaushaltApiError);
+      assert.equal(err.url, "http://***@mirror.test/api/x");
+      assert.equal(err.message, "HTTP 500 for GET http://***@mirror.test/api/x: busy");
+      return true;
+    },
+  );
+  assert.equal(mt.last().url, "http://user:s%40cret@mirror.test/api/x");
+
+  const bad = new RequestEngine({ baseUrl: "http://user:secret@mirror.test/?q=1" });
+  assert.throws(
+    () => bad.buildUrl("/x"),
+    (err: unknown) => err instanceof HaushaltNetworkError && !err.message.includes("secret") && err.message.includes("***@"),
+  );
+});
