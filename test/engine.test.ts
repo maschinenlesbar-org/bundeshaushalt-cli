@@ -1,6 +1,11 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { RequestEngine, stripCrossOriginCredentials } from "../src/client/engine.js";
+import {
+  MAX_RETRY_AFTER_MS,
+  RequestEngine,
+  parseRetryAfter,
+  stripCrossOriginCredentials,
+} from "../src/client/engine.js";
 import {
   HaushaltApiError,
   HaushaltNetworkError,
@@ -226,4 +231,61 @@ test("a non-JSON Content-Type is stripped of control characters in the message",
       return true;
     },
   );
+});
+
+/** An engine over a transport that always answers `status` with this Retry-After. */
+function retryAfterEngine(status: number, header: string) {
+  const delays: number[] = [];
+  const mt = makeMockTransport(() => ({
+    status,
+    headers: { "retry-after": header },
+    body: Buffer.alloc(0),
+  }));
+  const e = new RequestEngine({
+    transport: mt.transport,
+    sleep: async (ms) => {
+      delays.push(ms);
+    },
+  });
+  return { e, mt, delays };
+}
+
+test("a valid Retry-After is waited out instead of the linear backoff", async () => {
+  const { e, mt, delays } = retryAfterEngine(429, "1");
+  await assert.rejects(() => e.getJson("/x"), HaushaltApiError);
+  assert.equal(mt.calls.length, 3);
+  assert.deepEqual(delays, [1000, 1000]);
+});
+
+test("a malformed Retry-After (-1, 1.5, ...) falls back to the linear backoff", async () => {
+  for (const header of ["", "-1", "1.5", "+5", "abc", "1e3", "0x10", "2026-09-26T10:00:00Z"]) {
+    const { e, delays } = retryAfterEngine(429, header);
+    await assert.rejects(() => e.getJson("/x"), HaushaltApiError);
+    assert.deepEqual(delays, [200, 400], header);
+  }
+});
+
+test("a Retry-After beyond 30 s is not retried: the error surfaces at once", async () => {
+  for (const header of ["31", "99999999999", "Wed, 21 Oct 2099 07:28:00 GMT"]) {
+    const { e, mt, delays } = retryAfterEngine(503, header);
+    await assert.rejects(
+      () => e.getJson("/x"),
+      (err) => err instanceof HaushaltApiError && err.status === 503,
+    );
+    assert.equal(mt.calls.length, 1, header);
+    assert.deepEqual(delays, [], header);
+  }
+});
+
+test("parseRetryAfter reads delay-seconds and IMF-fixdate HTTP-dates", () => {
+  const now = Date.parse("Sat, 26 Sep 2026 10:00:00 GMT");
+  assert.equal(parseRetryAfter("0", now), 0);
+  assert.equal(parseRetryAfter(" 30 ", now), 30_000);
+  assert.equal(parseRetryAfter(["2", "9"], now), 2000);
+  assert.equal(parseRetryAfter("Sat, 26 Sep 2026 10:00:05 GMT", now), 5000);
+  assert.equal(parseRetryAfter("Sat, 26 Sep 2026 09:00:00 GMT", now), 0);
+  for (const bad of [undefined, "", "-1", "+5", "1.5", "1e3", "0x10", "Saturday, 26-Sep-26 10:00:05 GMT"]) {
+    assert.equal(parseRetryAfter(bad, now), undefined, String(bad));
+  }
+  assert.equal(MAX_RETRY_AFTER_MS, 30_000);
 });

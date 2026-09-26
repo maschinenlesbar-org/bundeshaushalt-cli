@@ -197,3 +197,15 @@ test("accepts next year (the published draft budget) and rejects the year after"
   assert.equal(over.mt.calls.length, 0);
   assert.match(over.err.join("\n"), new RegExp(`between 2012 and ${next}\\.`));
 });
+
+test("--max-retries is bounded to 0..10", async () => {
+  for (const [value, ok] of [["0", true], ["10", true], ["11", false], ["100", false]] as const) {
+    const cli = makeCli(() => jsonResponse(body));
+    const code = await run(["--max-retries", value, "expenses", "2024"], cli.deps);
+    assert.equal(code, ok ? 0 : 1, value);
+    if (!ok) {
+      assert.equal(cli.mt.calls.length, 0);
+      assert.match(cli.err.join("\n"), /<= 10/);
+    }
+  }
+});

@@ -63,7 +63,7 @@ try {
 new BundeshaushaltClient({
   baseUrl: "https://bundeshaushalt.de",
   timeoutMs: 15_000,
-  maxRetries: 3,              // 429 / 503 are retried with linear backoff
+  maxRetries: 3,              // 429 / 503: waits Retry-After (<= 30 s), else linear backoff; 0..10
   maxResponseBytes: 50 << 20, // abort responses larger than 50 MiB (0 = unlimited)
   userAgent: "my-app/1.0",
   transport: customTransport, // inject your own HTTP transport
@@ -120,7 +120,12 @@ maps errors. Sits between the client and the transport. `DEFAULT_BASE_URL` is
 built-in `http`/`https`; tests inject a mock. This is the only HTTP seam.
 
 **Retry / backoff.** Transient `429` (rate limit) and `503` responses are
-retried automatically with linear backoff, up to `--max-retries`. `HaushaltApiError`
+retried automatically, up to `--max-retries` (`0`..`MAX_RETRIES`, 10). Each retry
+waits the response's `Retry-After` — delay-seconds or an IMF-fixdate HTTP-date,
+parsed strictly by the exported `parseRetryAfter` — or, without a usable one,
+`retryDelayMs × attempt` (200 ms, 400 ms, …). A `Retry-After` longer than
+`MAX_RETRY_AFTER_MS` (30 s) is not retried: the error surfaces at once rather than
+retrying inside the window the server asked us to wait out. `HaushaltApiError`
 exposes `isRetryable` (true for `429`/`503`).
 
 **maxResponseBytes.** A cap on the response body size in bytes (`0` = unlimited;

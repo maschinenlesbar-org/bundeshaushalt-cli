@@ -9,14 +9,9 @@ import type { CliDeps } from "./io.js";
 import { defaultIO } from "./io.js";
 import { BundeshaushaltClient } from "../client/client.js";
 import { MAX_TIMEOUT_MS } from "../client/http.js";
+import { MAX_RETRIES } from "../client/engine.js";
 import { parseIntArg, parseBoundedIntArg, parseBaseUrl } from "./shared.js";
 import { registerBudgetCommands } from "./commands/budget.js";
-
-/**
- * Sane upper bound for `--max-retries`. A larger value would let a transient
- * 429/503 spin the retry loop (with growing backoff) for effectively forever.
- */
-const MAX_RETRIES_LIMIT = 100;
 
 /**
  * Single source of truth for the version: read from package.json at runtime
@@ -58,8 +53,8 @@ export function buildProgram(deps: CliDeps = defaultDeps): Command {
     .option("--user-agent <ua>", "User-Agent header value")
     .option(
       "--max-retries <n>",
-      "retries for transient 429/503 responses",
-      parseBoundedIntArg(MAX_RETRIES_LIMIT),
+      "retries for transient 429/503 responses (0..10; each waits the server's Retry-After, up to 30 s)",
+      parseBoundedIntArg(MAX_RETRIES),
       2,
     )
     .option(
