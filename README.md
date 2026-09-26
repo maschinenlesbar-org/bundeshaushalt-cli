@@ -150,7 +150,8 @@ do the same thing.
 ## Troubleshooting
 
 - **`command not found: bundeshaushalt`** — the global npm bin directory isn't
-  on your `PATH`. Run `npm bin -g` to find it and add it, or run via
+  on your `PATH`. Add `$(npm prefix -g)/bin` to it (`npm bin` was removed in
+  npm 9), or run via
   `npx @maschinenlesbar.org/bundeshaushalt-cli …`.
 - **Exit `4` / "not found"** — the budget item id doesn't exist for the
   requested year/account/unit combination. Re-fetch a fresh list to pick a
