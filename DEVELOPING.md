@@ -46,9 +46,11 @@ import { BundeshaushaltClient, HaushaltApiError } from "@maschinenlesbar.org/bun
 const client = new BundeshaushaltClient(); // defaults to https://bundeshaushalt.de
 
 const top = await client.budgetData({ year: 2024, account: "expenses" });
-console.log(top.meta.year, top.children.length, "children");
+console.log(top.meta.year, top.children?.length ?? 0, "children");
 
-const drill = await client.budgetData({ year: 2024, account: "expenses", id: "090168301" });
+// A leaf (a Titel) has no `children`; `related` holds its path in each grouping.
+const leaf = await client.budgetData({ year: 2024, account: "expenses", id: "090168301" });
+console.log(leaf.related?.agency?.map((a) => a.label).join(" > "));
 
 try {
   await client.budgetData({ year: 1999, account: "expenses" });
@@ -74,6 +76,12 @@ new BundeshaushaltClient({
 
 `client.budgetData({ year, account, quota?, unit?, id? })`. The `AccountValues` /
 `QuotaValues` / `UnitValues` enums are exported for reference.
+
+The response types follow the live wire shape, which varies by level: the top-level
+`detail` has no `id`/`budgetNumber`; `children` is absent at a leaf; `parents` (one
+list per level above) is absent at the top; `related` (a flat breadcrumb list per
+grouping) and `detail.pdf` appear only at a leaf. Check the optional fields before
+using them.
 
 ## Architecture
 
