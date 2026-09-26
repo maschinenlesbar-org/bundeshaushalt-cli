@@ -1,6 +1,6 @@
 {
   "name": "bundeshaushalt",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "description": "German federal budget intelligence skills powered by the bundeshaushalt-cli (bundeshaushalt.de budget-data portal).",
   "author": {
     "name": "Sebastian Schürmann",
