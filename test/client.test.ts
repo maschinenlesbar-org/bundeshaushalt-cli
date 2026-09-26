@@ -1,8 +1,8 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { BundeshaushaltClient } from "../src/client/client.js";
-import { HaushaltApiError } from "../src/client/errors.js";
-import type { BudgetData } from "../src/client/types.js";
+import { HaushaltApiError, HaushaltError } from "../src/client/errors.js";
+import type { BudgetData, BudgetParams } from "../src/client/types.js";
 import { makeMockTransport, jsonResponse, constantJson } from "./helpers.js";
 
 function clientWith(mt: ReturnType<typeof makeMockTransport>): BundeshaushaltClient {
@@ -63,4 +63,62 @@ test("the BudgetData type admits the live leaf and top-level shapes", () => {
   assert.equal(leaf.children, undefined);
   assert.equal(leaf.related?.agency?.[0]?.id, "09");
   assert.equal(top.children?.length, 0);
+});
+
+test("numeric engine options must be integers in range; a bad one throws instead of disabling a limit", () => {
+  const bad: [string, number][] = [
+    ["timeoutMs", -1],
+    ["timeoutMs", Number.NaN],
+    ["timeoutMs", 1.5],
+    ["timeoutMs", 2_147_483_648],
+    ["maxRetries", -1],
+    ["maxRetries", Number.POSITIVE_INFINITY],
+    ["maxRetries", 11],
+    ["retryDelayMs", -1],
+    ["retryDelayMs", 30_001],
+    ["maxRedirects", -1],
+    ["maxRedirects", Number.NaN],
+    ["maxRedirects", 21],
+    ["maxResponseBytes", -1],
+    ["maxResponseBytes", 0.5],
+  ];
+  for (const [name, value] of bad) {
+    assert.throws(
+      () => new BundeshaushaltClient({ [name]: value }),
+      (e: unknown) =>
+        e instanceof HaushaltError &&
+        new RegExp(`^Invalid option ${name}: expected an integer from 0 to \\d+, got `).test(e.message),
+      `${name}=${value}`,
+    );
+  }
+  for (const [name, value] of [
+    ["timeoutMs", 0],
+    ["timeoutMs", 2_147_483_647],
+    ["maxRetries", 10],
+    ["retryDelayMs", 0],
+    ["maxRedirects", 0],
+    ["maxResponseBytes", 0],
+  ] as const) {
+    assert.doesNotThrow(() => new BundeshaushaltClient({ [name]: value }), `${name}=${value}`);
+  }
+});
+
+test("budgetData checks its params before any request", async () => {
+  const cases: [Record<string, unknown>, RegExp][] = [
+    [{ year: 1999, account: "expenses" }, /^Invalid year 1999: expected an integer from 2012 on\.$/],
+    [{ year: 2024.5, account: "expenses" }, /^Invalid year 2024\.5/],
+    [{ year: 2024, account: "bogus" }, /^Invalid account "bogus": expected one of expenses, income\.$/],
+    [{ year: 2024, account: "expenses", quota: "nope" }, /^Invalid quota "nope"/],
+    [{ year: 2024, account: "expenses", unit: "x" }, /^Invalid unit "x"/],
+    [{ year: 2024, account: "expenses", id: " " }, /^Invalid id " ": expected a non-empty budget number\.$/],
+  ];
+  for (const [params, message] of cases) {
+    const mt = constantJson(body);
+    await assert.rejects(
+      () => clientWith(mt).budgetData(params as unknown as BudgetParams),
+      (e: unknown) => e instanceof HaushaltError && message.test(e.message),
+      JSON.stringify(params),
+    );
+    assert.equal(mt.calls.length, 0, JSON.stringify(params));
+  }
 });

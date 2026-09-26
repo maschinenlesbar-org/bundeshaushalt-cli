@@ -110,7 +110,13 @@ src/
   uses `node:http`/`node:https`; tests inject a mock. This keeps the client free of any HTTP framework.
 - The CLI is built around injectable `CliDeps` (client factory + I/O), so the whole program can be
   driven in-process by tests with a mocked client and captured output — no subprocesses.
-- `account`/`quota`/`unit` are validated against their enums and the year is range-checked before any request.
+- `account`/`quota`/`unit` are validated against their enums and the year is range-checked before any
+  request — by the client too (year from `MIN_YEAR` on, non-blank `id`), so a library caller gets a
+  `HaushaltError` rather than a request with `account=bogus` or `id=`. Only the CLI enforces the upper
+  year bound (next year) and the `--id`/`--unit` rules. The numeric `EngineOptions` must be integers in
+  range (`timeoutMs` 0..2^31−1, `maxRetries` 0..10, `retryDelayMs` 0..30 000, `maxRedirects` 0..20,
+  `maxResponseBytes` 0..`Number.MAX_SAFE_INTEGER`); anything else — `NaN`, `Infinity`, `-1`, `1.5` —
+  makes the constructor throw a `HaushaltError` naming the option.
 
 ### Library / technical terms
 
