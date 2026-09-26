@@ -4,7 +4,7 @@ import { run } from "../src/cli/run.js";
 import { BundeshaushaltClient } from "../src/client/client.js";
 import type { CliDeps } from "../src/cli/io.js";
 import type { HttpRequest, HttpResponse } from "../src/client/http.js";
-import { makeMockTransport, jsonResponse } from "./helpers.js";
+import { makeMockTransport, jsonResponse, rawResponse } from "./helpers.js";
 
 const body = { meta: {}, details: {}, children: [] };
 
@@ -218,4 +218,21 @@ test("rejects a bare G-/F- prefix as --id before any request", async () => {
     assert.equal(cli.mt.calls.length, 0, id);
     assert.match(cli.err.join("\n"), /Expected a number after the "[GF]-" prefix/, id);
   }
+});
+
+test("a deeply nested response fails pretty-printing cleanly and still prints with --compact", async () => {
+  const depth = 200_000;
+  const nested = "[".repeat(depth) + "]".repeat(depth);
+  const deep = () => rawResponse(`{"meta":{},"detail":{},"x":${nested}}`, "application/json");
+  const pretty = makeCli(deep);
+  assert.equal(await run(["expenses", "2024"], pretty.deps), 1);
+  assert.deepEqual(pretty.out, []);
+  assert.equal(pretty.err.join("\n"), "Error: The response is nested too deeply to pretty-print; try --compact.");
+
+  // Compact serialisation goes much deeper (it prints this one on current Node);
+  // should a runtime's stack still be too small, it must fail just as cleanly.
+  const compact = makeCli(deep);
+  const code = await run(["--compact", "expenses", "2024"], compact.deps);
+  if (code === 0) assert.ok(compact.out.join("").includes(nested));
+  else assert.equal(compact.err.join("\n"), "Error: The response is nested too deeply to print.");
 });
