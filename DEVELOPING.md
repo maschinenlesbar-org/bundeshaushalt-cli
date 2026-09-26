@@ -172,7 +172,9 @@ subprocess.
 
 **Error types.** [`errors.ts`](src/client/errors.ts): `HaushaltApiError`
 (non-2xx, carries `status`/`detail`/`url`/`method`/`body`), `HaushaltNetworkError`
-(transport failure/timeout), `HaushaltParseError` (bad JSON), all extending
+(transport failure/timeout), `HaushaltParseError` (bad JSON, or a 2xx body that is
+not an object with `meta` and `detail` objects — `Unexpected response shape from
+/internalapi/budgetData: expected a JSON object with meta and detail.`), all extending
 `HaushaltError`. The CLI maps a `404` to exit code `4` and every other error,
 usage errors included, to `1`.
 

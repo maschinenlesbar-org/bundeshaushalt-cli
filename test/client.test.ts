@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { BundeshaushaltClient } from "../src/client/client.js";
-import { HaushaltApiError, HaushaltError } from "../src/client/errors.js";
+import { HaushaltApiError, HaushaltError, HaushaltParseError } from "../src/client/errors.js";
 import type { BudgetData, BudgetParams } from "../src/client/types.js";
 import { makeMockTransport, jsonResponse, constantJson } from "./helpers.js";
 
@@ -9,7 +9,7 @@ function clientWith(mt: ReturnType<typeof makeMockTransport>): BundeshaushaltCli
   return new BundeshaushaltClient({ transport: mt.transport });
 }
 
-const body = { meta: {}, details: {}, children: [] };
+const body = { meta: {}, detail: {}, children: [] };
 
 test("budgetData sends year + account", async () => {
   const mt = constantJson(body);
@@ -120,5 +120,19 @@ test("budgetData checks its params before any request", async () => {
       JSON.stringify(params),
     );
     assert.equal(mt.calls.length, 0, JSON.stringify(params));
+  }
+});
+
+test("a 2xx body without the meta/detail envelope raises HaushaltParseError", async () => {
+  for (const bad of [null, [1, 2], "x", 5, {}, { meta: {} }, { meta: null, detail: {} }, { meta: {}, detail: [] }]) {
+    const mt = constantJson(bad);
+    await assert.rejects(
+      () => clientWith(mt).budgetData({ year: 2024, account: "expenses" }),
+      (e: unknown) =>
+        e instanceof HaushaltParseError &&
+        e.message ===
+          "Unexpected response shape from /internalapi/budgetData: expected a JSON object with meta and detail.",
+      JSON.stringify(bad),
+    );
   }
 });

@@ -6,7 +6,7 @@ import type { CliDeps } from "../src/cli/io.js";
 import type { HttpRequest, HttpResponse } from "../src/client/http.js";
 import { makeMockTransport, jsonResponse, rawResponse } from "./helpers.js";
 
-const body = { meta: {}, details: {}, children: [] };
+const body = { meta: {}, detail: {}, children: [] };
 
 function makeCli(responder: (req: HttpRequest) => HttpResponse) {
   const out: string[] = [];
@@ -244,4 +244,11 @@ test("bidi controls in server data are escaped in the JSON output", async () => 
   const text = cli.out.join("\n");
   assert.match(text, /a\\u202eb\\u2066c/);
   assert.deepEqual(JSON.parse(text), served);
+});
+
+test("a null 2xx body exits 1 with a parse error, not success", async () => {
+  const cli = makeCli(() => jsonResponse(null));
+  assert.equal(await run(["--compact", "expenses", "2024"], cli.deps), 1);
+  assert.deepEqual(cli.out, []);
+  assert.match(cli.err.join("\n"), /^Error: Unexpected response shape from \/internalapi\/budgetData/);
 });

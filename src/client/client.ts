@@ -6,7 +6,7 @@
 
 import { RequestEngine, type EngineOptions } from "./engine.js";
 import { AccountValues, MIN_YEAR, QuotaValues, UnitValues } from "./enums.js";
-import { HaushaltError } from "./errors.js";
+import { HaushaltError, HaushaltParseError } from "./errors.js";
 import type { QueryParams } from "./query.js";
 import type { BudgetData, BudgetParams } from "./types.js";
 
@@ -39,8 +39,27 @@ export class BundeshaushaltClient {
     if (params.quota !== undefined) query["quota"] = params.quota;
     if (params.unit !== undefined) query["unit"] = params.unit;
     if (params.id !== undefined) query["id"] = params.id;
-    return this.engine.getJson(PATH, query);
+    return assertBudgetData(await this.engine.getJson<unknown>(PATH, query));
   }
+}
+
+function isObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+/**
+ * Check the top-level shape every budgetData response has — an object with `meta`
+ * and `detail` objects — so a 2xx `null`, array or other body (the undocumented
+ * endpoint changing shape, a broken proxy) is a HaushaltParseError instead of a
+ * "successful" result. The record contents are not checked.
+ */
+function assertBudgetData(body: unknown): BudgetData {
+  if (!isObject(body) || !isObject(body["meta"]) || !isObject(body["detail"])) {
+    throw new HaushaltParseError(
+      `Unexpected response shape from ${PATH}: expected a JSON object with meta and detail.`,
+    );
+  }
+  return body as unknown as BudgetData;
 }
 
 function checkParams(params: BudgetParams): void {
