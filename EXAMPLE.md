@@ -3,7 +3,8 @@
 Real examples for the Claude Code skills of the `bundeshaushalt` plugin, one per skill: a request,
 the `bundeshaushalt` commands the skill ran, and the answer Claude gave.
 
-Every example ran against the live API on 15 September 2026 with `bundeshaushalt` 0.0.6.
+Every example ran against the live API on 15 September 2026 with `bundeshaushalt` 0.0.6, except
+budget-trend, re-run on 26 September 2026 with 0.0.10.
 The data changes, so your results will differ; the ids and keys shown work for trying the
 requests yourself. Long lists are shortened.
 
@@ -99,10 +100,20 @@ Spending below plan is normal: it usually means not all appropriations were draw
 > Has federal health spending come back down since the pandemic? Show me the health ministry's budget since 2012.
 
 ```bash
-for y in $(seq 2012 2026); do bundeshaushalt --compact budget "$y" expenses --id 15 | jq -r '.detail.value'; done   # 15 calls, all exit 0
+for y in $(seq 2012 2027); do
+  out=$(bundeshaushalt --compact budget "$y" expenses --id 15); rc=$?
+  if [ "$rc" -eq 4 ]; then printf '%s\tgap\n' "$y"; continue; fi
+  if [ "$rc" -ne 0 ]; then echo "year $y failed (exit $rc)" >&2; continue; fi
+  printf '%s\t%s\n' "$y" "$(printf '%s' "$out" | jq -r '.detail.value')"
+done   # 16 calls, 1 s apart: 15 exit 0, 2016 exit 1
 ```
 
-Id `15` returned `15 Bundesministerium für Gesundheit` in every year, so the series has no gaps and no renamed ids.
+```text
+Error: HTTP 503 for GET https://bundeshaushalt.de/internalapi/budgetData?year=2016&account=expenses&id=15
+year 2016 failed (exit 1)
+```
+
+Id `15` returned `15 Bundesministerium für Gesundheit` in every year that answered, so there are no renamed ids. 2016 is not a gap: the portal answered `503` even after the CLI's two retries, so the loop reported it as a failed call (exit 1), not as a year without data (exit 4). 2027 is the government's draft budget, last modified on 3 September 2026.
 
 | Year | Planned (Soll) | YoY | Share of budget |
 |---|---:|---:|---:|
@@ -110,8 +121,8 @@ Id `15` returned `15 Bundesministerium für Gesundheit` in every year, so the se
 | 2013 | €12.0 bn | −17.2% | 3.9% |
 | 2014 | €11.1 bn | −7.8% | 3.7% |
 | 2015 | €12.1 bn | +9.2% | 3.9% |
-| 2016 | €14.6 bn | +20.8% | 4.6% |
-| 2017 | €15.2 bn | +4.0% | 4.6% |
+| 2016 | failed (HTTP 503) | | |
+| 2017 | €15.2 bn | | 4.6% |
 | 2018 | €15.2 bn | +0.3% | 4.4% |
 | 2019 | €15.3 bn | +0.6% | 4.3% |
 | 2020 | €41.3 bn | +169.5% | 8.1% |
@@ -121,7 +132,8 @@ Id `15` returned `15 Bundesministerium für Gesundheit` in every year, so the se
 | 2024 | €16.7 bn | −31.8% | 3.5% |
 | 2025 | €19.3 bn | +15.4% | 3.8% |
 | 2026 | €21.8 bn | +12.9% | 4.2% |
+| 2027 (draft) | €14.3 bn | −34.2% | 2.6% |
 
-Yes, mostly: the 2022 peak of €64.4 bn fell to €16.7 bn by 2024. Since then the budget has grown again. 2026 is 66% below 2022 but 42% above 2019. Over 2012–2026: +50% in total (~3.0%/yr CAGR). All figures are planned amounts in nominal euros, not adjusted for inflation.
+Yes, mostly: the 2022 peak of €64.4 bn fell to €16.7 bn by 2024. Since then the budget has grown again. 2026 is 66% below 2022 but 42% above 2019. Over 2012–2026: +50% in total (~3.0%/yr CAGR). The 2027 draft plans €14.3 bn, 34% less than 2026 and below 2019. 2016 is missing because that call failed; 2017 has no YoY figure for that reason. All figures are planned amounts in nominal euros, not adjusted for inflation.
 
-Next steps offered: the realised (Ist) series up to 2025, or the same trend by function instead of ministry.
+Next steps offered: fetch 2016 again once the portal answers, the realised (Ist) series up to 2025, or the same trend by function instead of ministry.

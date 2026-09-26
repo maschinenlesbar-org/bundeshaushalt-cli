@@ -3,7 +3,8 @@
 Echte Beispiele für die Claude-Code-Skills des Plugins `bundeshaushalt`, eines pro Skill: eine
 Anfrage, die `bundeshaushalt`-Befehle, die der Skill ausgeführt hat, und Claudes Antwort.
 
-Jedes Beispiel lief am 15. September 2026 mit `bundeshaushalt` 0.0.6 gegen die Live-API.
+Jedes Beispiel lief am 15. September 2026 mit `bundeshaushalt` 0.0.6 gegen die Live-API, außer
+budget-trend, das am 26. September 2026 mit 0.0.10 neu lief.
 Die Daten ändern sich, Ihre Ergebnisse werden also abweichen; mit den gezeigten IDs und
 Schlüsseln können Sie die Anfragen selbst ausprobieren. Lange Listen sind gekürzt.
 
@@ -99,10 +100,20 @@ Ausgaben unter Plan sind normal: Meist wurden nicht alle Mittel abgerufen. Als N
 > Sind die Gesundheitsausgaben des Bundes nach der Pandemie wieder gesunken? Bitte den Etat des Gesundheitsministeriums seit 2012.
 
 ```bash
-for y in $(seq 2012 2026); do bundeshaushalt --compact budget "$y" expenses --id 15 | jq -r '.detail.value'; done   # 15 Aufrufe, alle Exit 0
+for y in $(seq 2012 2027); do
+  out=$(bundeshaushalt --compact budget "$y" expenses --id 15); rc=$?
+  if [ "$rc" -eq 4 ]; then printf '%s\tgap\n' "$y"; continue; fi
+  if [ "$rc" -ne 0 ]; then echo "year $y failed (exit $rc)" >&2; continue; fi
+  printf '%s\t%s\n' "$y" "$(printf '%s' "$out" | jq -r '.detail.value')"
+done   # 16 Aufrufe im Abstand von 1 s: 15 mit Exit 0, 2016 mit Exit 1
 ```
 
-Die id `15` lieferte in jedem Jahr `15 Bundesministerium für Gesundheit`. Die Reihe hat also keine Lücken und keine umbenannten ids.
+```text
+Error: HTTP 503 for GET https://bundeshaushalt.de/internalapi/budgetData?year=2016&account=expenses&id=15
+year 2016 failed (exit 1)
+```
+
+Die id `15` lieferte in jedem Jahr mit Antwort `15 Bundesministerium für Gesundheit`. Es gibt also keine umbenannten ids. 2016 ist keine Lücke: Das Portal antwortete auch nach den zwei Wiederholungen der CLI mit `503`. Die Schleife meldete das Jahr deshalb als fehlgeschlagenen Aufruf (Exit 1), nicht als Jahr ohne Daten (Exit 4). 2027 ist der Regierungsentwurf, zuletzt geändert am 3. September 2026.
 
 | Jahr | Soll | ggü. Vorjahr | Anteil am Haushalt |
 |---|---:|---:|---:|
@@ -110,8 +121,8 @@ Die id `15` lieferte in jedem Jahr `15 Bundesministerium für Gesundheit`. Die R
 | 2013 | 12,0 Mrd. € | −17,2 % | 3,9 % |
 | 2014 | 11,1 Mrd. € | −7,8 % | 3,7 % |
 | 2015 | 12,1 Mrd. € | +9,2 % | 3,9 % |
-| 2016 | 14,6 Mrd. € | +20,8 % | 4,6 % |
-| 2017 | 15,2 Mrd. € | +4,0 % | 4,6 % |
+| 2016 | fehlgeschlagen (HTTP 503) | | |
+| 2017 | 15,2 Mrd. € | | 4,6 % |
 | 2018 | 15,2 Mrd. € | +0,3 % | 4,4 % |
 | 2019 | 15,3 Mrd. € | +0,6 % | 4,3 % |
 | 2020 | 41,3 Mrd. € | +169,5 % | 8,1 % |
@@ -121,7 +132,8 @@ Die id `15` lieferte in jedem Jahr `15 Bundesministerium für Gesundheit`. Die R
 | 2024 | 16,7 Mrd. € | −31,8 % | 3,5 % |
 | 2025 | 19,3 Mrd. € | +15,4 % | 3,8 % |
 | 2026 | 21,8 Mrd. € | +12,9 % | 4,2 % |
+| 2027 (Entwurf) | 14,3 Mrd. € | −34,2 % | 2,6 % |
 
-Großenteils ja: Vom Höchststand 2022 (64,4 Mrd. €) fiel der Etat bis 2024 auf 16,7 Mrd. €. Seitdem wächst er wieder. 2026 liegt er 66 % unter 2022, aber 42 % über 2019. Von 2012 bis 2026 stieg er insgesamt um 50 % (rund 3,0 % pro Jahr). Alle Werte sind Soll-Werte in nominalen Euro, nicht inflationsbereinigt.
+Großenteils ja: Vom Höchststand 2022 (64,4 Mrd. €) fiel der Etat bis 2024 auf 16,7 Mrd. €. Seitdem wächst er wieder. 2026 liegt er 66 % unter 2022, aber 42 % über 2019. Von 2012 bis 2026 stieg er insgesamt um 50 % (rund 3,0 % pro Jahr). Der Entwurf für 2027 sieht 14,3 Mrd. € vor, 34 % weniger als 2026 und weniger als 2019. 2016 fehlt, weil der Aufruf fehlschlug; für 2017 gibt es deshalb keine Veränderung ggü. Vorjahr. Alle Werte sind Soll-Werte in nominalen Euro, nicht inflationsbereinigt.
 
-Als Nächstes angeboten: die Ist-Reihe bis 2025 oder derselbe Trend nach Funktion statt nach Ministerium.
+Als Nächstes angeboten: 2016 erneut abrufen, sobald das Portal antwortet, die Ist-Reihe bis 2025 oder derselbe Trend nach Funktion statt nach Ministerium.
