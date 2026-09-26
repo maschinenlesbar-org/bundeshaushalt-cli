@@ -79,28 +79,50 @@ export function stripCrossOriginCredentials(
 }
 
 /**
- * Strip control characters out of a string that originates in an
- * attacker-controlled response — the error `detail`/`message` and the echoed
- * Content-Type. `JSON.parse` decodes an escaped ESC in an error body into a
- * real ESC byte, so without this a hostile or MITM'd endpoint could drive
- * ANSI/OSC escape sequences into the user's terminal when the message is
- * printed raw to stderr (title spoofing, output forgery, clipboard writes on
- * permissive terminals). The CLI's JSON output is escaped separately
- * (`escapeControlChars` in cli/shared.ts): `JSON.stringify` alone leaves DEL and
- * the C1 range raw.
- *
- * Removes all C0 controls except tab (0x09) and newline (0x0a), plus DEL and the
- * C1 control range (0x7f-0x9f). Written as a code-point filter so no raw control
- * byte ever appears in this source file.
+ * True for the Unicode bidirectional formatting characters: ALM (U+061C), LRM/RLM
+ * (U+200E/U+200F), the embeddings and overrides U+202A–U+202E and the isolates
+ * U+2066–U+2069. A terminal applies them to the text that follows, so an override
+ * in server text can reorder what the user sees ("Trojan Source" spoofing).
  */
-function sanitizeServerText(text: string): string {
+export function isBidiControl(code: number): boolean {
+  return (
+    code === 0x061c ||
+    code === 0x200e ||
+    code === 0x200f ||
+    (code >= 0x202a && code <= 0x202e) ||
+    (code >= 0x2066 && code <= 0x2069)
+  );
+}
+
+/**
+ * Make a string that originates in an attacker-controlled response — the error
+ * `detail`/`message`, the echoed Content-Type — safe to print into an error
+ * message on stderr:
+ *
+ * - C0 and C1 controls and DEL are dropped. `JSON.parse` decodes an escaped ESC in
+ *   an error body into a real ESC byte; printed raw, a hostile or MITM'd endpoint
+ *   could drive ANSI/OSC escape sequences into the user's terminal (title
+ *   spoofing, output forgery, clipboard writes on permissive terminals).
+ * - Bidi formatting characters (isBidiControl) are dropped, so server text cannot
+ *   reorder the visible message.
+ * - Every run of whitespace — newlines, tabs, U+2028/U+2029 included — becomes one
+ *   space and the ends are trimmed, so the text stays on one line and a server
+ *   cannot forge a line of its own.
+ *
+ * The CLI's JSON output is escaped separately (`escapeControlChars` in
+ * cli/shared.ts): `JSON.stringify` alone leaves DEL, C1 and bidi characters raw.
+ * Written as a code-point filter so no raw control byte ever appears in this
+ * source file.
+ */
+export function sanitizeServerText(text: string): string {
   let out = "";
   for (const ch of text) {
     const n = ch.codePointAt(0) ?? 0;
-    if (n <= 8 || (n >= 0x0b && n <= 0x1f) || (n >= 0x7f && n <= 0x9f)) continue;
+    const whitespaceControl = n >= 0x09 && n <= 0x0d;
+    if (!whitespaceControl && (n <= 0x1f || (n >= 0x7f && n <= 0x9f) || isBidiControl(n))) continue;
     out += ch;
   }
-  return out;
+  return out.replace(/\s+/g, " ").trim();
 }
 
 /**

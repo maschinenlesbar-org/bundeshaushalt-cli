@@ -236,3 +236,12 @@ test("a deeply nested response fails pretty-printing cleanly and still prints wi
   if (code === 0) assert.ok(compact.out.join("").includes(nested));
   else assert.equal(compact.err.join("\n"), "Error: The response is nested too deeply to print.");
 });
+
+test("bidi controls in server data are escaped in the JSON output", async () => {
+  const served = { ...body, meta: { label: `a${String.fromCharCode(0x202e)}b${String.fromCharCode(0x2066)}c` } };
+  const cli = makeCli(() => jsonResponse(served));
+  assert.equal(await run(["--compact", "expenses", "2024"], cli.deps), 0);
+  const text = cli.out.join("\n");
+  assert.match(text, /a\\u202eb\\u2066c/);
+  assert.deepEqual(JSON.parse(text), served);
+});

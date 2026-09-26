@@ -289,3 +289,20 @@ test("parseRetryAfter reads delay-seconds and IMF-fixdate HTTP-dates", () => {
   }
   assert.equal(MAX_RETRY_AFTER_MS, 30_000);
 });
+
+test("server text on stderr loses line breaks and bidi controls", async () => {
+  const rlo = String.fromCharCode(0x202e);
+  const mt = makeMockTransport(() =>
+    jsonResponse({ detail: `nope\n\nbundeshaushalt: all good, exit 0${rlo}gnp.exe x` }, 404),
+  );
+  const e = new RequestEngine({ transport: mt.transport });
+  await assert.rejects(
+    () => e.getJson("/x"),
+    (err: unknown) => {
+      assert.ok(err instanceof HaushaltApiError);
+      assert.equal(err.detail, "nope bundeshaushalt: all good, exit 0gnp.exe x");
+      assert.ok(!/[\n\r]/.test(err.message));
+      return true;
+    },
+  );
+});
