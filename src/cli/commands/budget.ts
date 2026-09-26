@@ -62,7 +62,7 @@ function optionsFrom(opts: Record<string, unknown>): Omit<BudgetParams, "year" |
     // Reject empty/whitespace ids so bad input fails locally with a clear
     // message instead of producing an opaque API error (or `id=` in the query).
     if (id.length === 0) {
-      throw new HaushaltError(`Invalid id "". Expected a non-empty budget number.`);
+      throw new HaushaltError(`Invalid id "${raw}". Expected a non-empty budget number.`);
     }
     // Reject surrounding whitespace rather than silently trimming it: silent
     // mutation can mask copy-paste errors and collapse two distinct inputs.

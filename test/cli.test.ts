@@ -170,7 +170,7 @@ test("rejects an empty --id before any request", async () => {
   const code = await run(["budget", "2024", "expenses", "--id", "  "], cli.deps);
   assert.notEqual(code, 0);
   assert.equal(cli.mt.calls.length, 0);
-  assert.match(cli.err.join("\n"), /Invalid id/);
+  assert.equal(cli.err.join("\n"), 'Error: Invalid id "  ". Expected a non-empty budget number.');
 });
 
 test("--timeout accepts up to the largest timer Node supports and rejects more", async () => {
