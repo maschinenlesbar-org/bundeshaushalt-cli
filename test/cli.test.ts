@@ -78,12 +78,23 @@ test("income shortcut presets account=income", async () => {
   assert.equal(url.searchParams.get("account"), "income");
 });
 
-test("rejects a non-Latin-1 --user-agent with a clear message before any request", async () => {
-  const cli = makeCli(() => jsonResponse(body));
-  const code = await run(["--user-agent", "🌦", "expenses", "2024"], cli.deps);
-  assert.notEqual(code, 0);
-  assert.equal(cli.mt.calls.length, 0);
-  assert.match(cli.err.join("\n"), /Invalid User-Agent/);
+test("rejects a blank, control-character or non-Latin-1 --user-agent before any request", async () => {
+  const cases = [
+    ["", /Expected a non-empty value\./],
+    ["   ", /Expected a non-empty value\./],
+    ["a\r\nX-Evil: 1", /Value contains control characters\./],
+    ["🌦", /Value contains characters outside Latin-1 \(above U\+00FF\)\./],
+  ] as const;
+  for (const [ua, message] of cases) {
+    const cli = makeCli(() => jsonResponse(body));
+    const code = await run(["--user-agent", ua, "expenses", "2024"], cli.deps);
+    assert.equal(code, 1, JSON.stringify(ua));
+    assert.equal(cli.mt.calls.length, 0, JSON.stringify(ua));
+    assert.match(cli.err.join("\n"), message, JSON.stringify(ua));
+  }
+  const ok = makeCli(() => jsonResponse(body));
+  assert.equal(await run(["--user-agent", "my-app/1.0\tüber", "expenses", "2024"], ok.deps), 0);
+  assert.equal(ok.mt.last().headers?.["User-Agent"], "my-app/1.0\tüber");
 });
 
 test("rejects a numeric option above MAX_SAFE_INTEGER", async () => {
