@@ -185,3 +185,15 @@ test("rejects a non-http(s) or malformed --base-url at parse time, before any re
     assert.match(cli.err.join("\n"), /--base-url/, `${bad} error should name --base-url`);
   }
 });
+
+test("accepts next year (the published draft budget) and rejects the year after", async () => {
+  const next = new Date().getUTCFullYear() + 1;
+  const cli = makeCli(() => jsonResponse(body));
+  assert.equal(await run(["expenses", String(next)], cli.deps), 0);
+  assert.equal(new URL(cli.mt.last().url).searchParams.get("year"), String(next));
+
+  const over = makeCli(() => jsonResponse(body));
+  assert.equal(await run(["expenses", String(next + 1)], over.deps), 1);
+  assert.equal(over.mt.calls.length, 0);
+  assert.match(over.err.join("\n"), new RegExp(`between 2012 and ${next}\\.`));
+});

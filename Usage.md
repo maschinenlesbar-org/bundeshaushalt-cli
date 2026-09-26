@@ -133,8 +133,10 @@ for trend analysis.
 bundeshaushalt expenses 2015 --quota actual
 ```
 
-Years are validated locally: a four-digit year between `2012` and the current
-year (inclusive). Out-of-range years are rejected before any request is made.
+Years are validated locally: a four-digit year between `2012` and next year
+(inclusive). Out-of-range years are rejected before any request is made. Next
+year's draft budget (Regierungsentwurf) appears each summer; before that, next
+year answers `404` (exit `4`).
 
 ### 9. Compact output for scripting and piping
 

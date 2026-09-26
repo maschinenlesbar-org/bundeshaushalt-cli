@@ -11,12 +11,15 @@ import type { BudgetParams } from "../../client/types.js";
  * Upper bound for an accepted year. Derived from the current year (rather than a
  * hard-coded literal) so the validator stays meaningful as years advance.
  *
- * Capped at the current year: the portal only serves data up to (and including)
- * the current budget year. Allowing current year + 1 turned a predictable
- * client-side rejection into a network round-trip that the API answers with 404.
+ * Capped at next year: every summer the portal publishes the government's draft
+ * budget (Regierungsentwurf) for the following year — in September 2026 it served
+ * 2027 — so the current year alone would lock that newest budget out for months.
+ * Outside that window the API answers next year with a 404 (exit 4). Next year
+ * also covers the first hour of 1 January in German time, when UTC still reports
+ * the old year.
  */
 function maxYear(): number {
-  return new Date().getUTCFullYear();
+  return new Date().getUTCFullYear() + 1;
 }
 
 /** Parse + range-check a positional year (a four-digit integer in range). */

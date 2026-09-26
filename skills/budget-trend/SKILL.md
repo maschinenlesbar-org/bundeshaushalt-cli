@@ -39,8 +39,10 @@ Decide three things and keep them **constant across every year**:
 - **quota**: `target` (planned) is the safe default for a trend, because **`actual` is only
   published with a lag** — see traps.
 
-Year range is `2012`..current year (the CLI rejects out-of-range years locally). Default to
-the full available span unless the user gives endpoints.
+Year range is `2012`..next year (the CLI rejects out-of-range years locally). Next year is
+the government's draft budget (Regierungsentwurf), published each summer; before that it
+exits `4`. Default to the full available span unless the user gives endpoints, and label a
+draft year as a draft.
 
 ## Step 2 — Fetch each year, pull one number
 

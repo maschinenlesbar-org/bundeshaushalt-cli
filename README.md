@@ -69,7 +69,8 @@ expenses  <year> [options]             shortcut for: budget <year> expenses
 income    <year> [options]             shortcut for: budget <year> income
 ```
 
-`<year>` is a four-digit year between `2012` and the current year (inclusive).
+`<year>` is a four-digit year between `2012` and next year (inclusive): each summer the
+portal publishes the draft budget (Regierungsentwurf) for the following year.
 `<account>` is `expenses` or `income`.
 
 ### Command options
@@ -155,8 +156,9 @@ do the same thing.
   requested year/account/unit combination. Re-fetch a fresh list to pick a
   valid id.
 - **Year out of range** — the CLI validates years locally; it only accepts
-  `2012` through the current calendar year. Out-of-range years are rejected
-  before any network request is made.
+  `2012` through next year (the draft budget for next year appears each summer).
+  Out-of-range years are rejected before any network request is made; next
+  year before its draft is published gives exit `4`.
 - **Network error / exit `1`** — connectivity, DNS, or a timeout. Try again,
   or raise the limit with `--timeout 60000`. The client retries `429`/`503`
   responses automatically (default 2 retries).

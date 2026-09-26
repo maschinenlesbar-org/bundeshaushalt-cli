@@ -40,8 +40,9 @@ Data comes from the open, key-free budget-data portal (`bundeshaushalt.de`). Rea
 | Planned figures | `--quota target` (default — *Soll*) |
 | Realised figures | `--quota actual` (*Ist*) — **only published with a lag; see traps** |
 
-`<year>` is `2012`..current year. The CLI rejects out-of-range years **locally** with exit
-`1` before any request.
+`<year>` is `2012`..next year. The CLI rejects out-of-range years **locally** with exit
+`1` before any request. Next year is the draft budget (Regierungsentwurf), published each
+summer; before that it exits `4`.
 
 ## Step 2 — Fetch the breakdown
 
