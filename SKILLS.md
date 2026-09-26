@@ -95,7 +95,7 @@ skills encode the non-obvious parts of this data, for example:
 - **drilling with `--id` must keep the matching `--unit`** — a `G-…` id needs
   `--unit group`, an `F-…` id needs `--unit function`, a plain numeric id is `single`;
 - **`related` cross-references (agency/function/group) appear only at the leaf level**
-  (`meta.levelCur === meta.levelMax`) and are `null` higher up;
+  (`meta.levelCur === meta.levelMax`) and are absent higher up;
 - **`actual` values carry cents** while `target` values are round — keep full precision when
   subtracting, round only for display;
 - **`income` and `expenses` totals are equal** (the budget is balanced by construction) —

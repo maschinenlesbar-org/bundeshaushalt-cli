@@ -92,12 +92,16 @@ drill-down depth (`levelCur` / `levelMax`) and a `modifyDate` / `timestamp`.
 
 **BudgetElement.** A single budget line, group or function. Key fields:
 
-- `budgetNumber` — the element's budget number (see below).
-- `id` — its addressable id (often the budget number, possibly prefixed).
+- `budgetNumber` — the element's budget number as a masked display string
+  (`"0901 683 01 - 165"`, `"14__ ___ __ - ___"`). It is **not** an id: passed to
+  `--id` it gives a `404`. Absent on the top-level `detail`.
+- `id` — the id to drill in with (`14`, `090168301`, `G-5`). Absent on the
+  top-level `detail`.
 - `label` — the human-readable name.
 - `value` — the amount, **in euros**.
-- `relativeValue` — this element's share of the whole (a fraction/percentage).
-- `relativeToParentValue` — its share of its parent element.
+- `relativeValue` — this element's share of the whole budget, **in percent** on a
+  0–100 scale (`36.84`, `100`), not a fraction.
+- `relativeToParentValue` — its share of its parent element, also in percent.
 - `tableLabel` / `selectionLabel` — on `detail` only: the dimension of its children and
   the selection they form (e.g. "Einzelplan", "Alle Einzelpläne"; "Titel" at a leaf).
 
@@ -105,15 +109,17 @@ drill-down depth (`levelCur` / `levelMax`) and a `modifyDate` / `timestamp`.
 (`detail`), even though it represents the one focused element of the view.
 
 **children.** The elements one level below `detail` — the breakdown you can
-drill into by reusing a child's `id`.
+drill into by reusing a child's `id`. At a leaf (a Titel) the key is **absent**.
 
 **parents.** One array of `LabeledElement` (id/label pairs) per level, from the
 top down to the selected element's own level. Each array lists all elements of
 that level (the siblings), not just the path. For `single`, the path entry is the
 one whose `id` is a prefix of, or equal to, the selected id.
 
-**related.** Cross-references to the same element seen along other dimensions:
-`agency`, `function` and `group`, each an array of `LabeledElement` rows.
+**related.** Cross-references to the same element seen along other dimensions,
+present **only at a leaf** (absent above): `agency`, `function` and `group`, each
+a flat list of `LabeledElement` rows — the element's path in that dimension, from
+the top down.
 
 **LabeledElement.** A minimal `{ id?, label? }` pair used in `parents` and
 `related` to name an element without its full figures.
@@ -122,8 +128,10 @@ one whose `id` is a prefix of, or equal to, the selected id.
 
 ## Identifiers, units & codes
 
-**Budget number (Haushaltsstelle).** The identifier of a budget element, carried
-as `budgetNumber` and used as the `id` to drill in. Prefix conventions:
+**Budget number (Haushaltsstelle).** The identifier of a budget element, used as
+its `id` to drill in. `budgetNumber` shows it as a masked display string
+(`"0901 683 01 - 165"`), which the API does not accept as an id. Prefix
+conventions:
 
 - **`G-`** prefix — a **group** (economic group / Gruppe).
 - **`F-`** prefix — a **function** (functional area / Funktion).

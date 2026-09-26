@@ -119,9 +119,10 @@ The drill response carries:
   `140555408`),
 - `related` — **only populated at the leaf level** (`levelCur === levelMax`): the same Titel
   seen as `agency` / `function` / `group` cross-references. Surface these when present —
-  they let the user pivot the same line item across dimensions. `null` at higher levels.
+  they let the user pivot the same line item across dimensions. The key is absent at higher
+  levels.
 
-When `levelCur === levelMax` you're at a leaf and `children` is `null` (not `[]`) — report
+When `levelCur === levelMax` you're at a leaf and the `children` key is absent (not `[]`) — report
 the single amount plus the `related` cross-references, don't claim "no breakdown available".
 
 ## Traps

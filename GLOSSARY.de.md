@@ -92,12 +92,16 @@ Aufschlüsselungstiefe (`levelCur` / `levelMax`) sowie ein `modifyDate` / `times
 
 **BudgetElement.** Eine einzelne Haushaltszeile, Gruppe oder Funktion. Wichtige Felder:
 
-- `budgetNumber` – die Haushaltsstelle des Elements (siehe unten).
-- `id` – seine adressierbare ID (oft die Haushaltsstelle, eventuell mit Präfix).
+- `budgetNumber` – die Haushaltsstelle des Elements als maskierte Anzeigezeichenkette
+  (`"0901 683 01 - 165"`, `"14__ ___ __ - ___"`). Sie ist **keine** ID: Mit `--id`
+  übergeben, liefert sie `404`. Fehlt im `detail` der obersten Ebene.
+- `id` – die ID zum Absteigen (`14`, `090168301`, `G-5`). Fehlt im `detail` der obersten
+  Ebene.
 - `label` – der lesbare Name.
 - `value` – der Betrag, **in Euro**.
-- `relativeValue` – der Anteil dieses Elements am Ganzen (ein Bruchteil bzw. Prozentwert).
-- `relativeToParentValue` – sein Anteil am übergeordneten Element.
+- `relativeValue` – der Anteil dieses Elements am Gesamthaushalt, **in Prozent** auf einer
+  Skala von 0 bis 100 (`36.84`, `100`), kein Bruchteil.
+- `relativeToParentValue` – sein Anteil am übergeordneten Element, ebenfalls in Prozent.
 - `tableLabel` / `selectionLabel` – nur in `detail`: die Dimension seiner Kindelemente und
   die Auswahl, die sie bilden (z. B. „Einzelplan“, „Alle Einzelpläne“; „Titel“ auf der
   untersten Ebene).
@@ -106,15 +110,18 @@ Aufschlüsselungstiefe (`levelCur` / `levelMax`) sowie ein `modifyDate` / `times
 **Singular** (`detail`), obwohl es das eine fokussierte Element der Ansicht darstellt.
 
 **children.** Die Elemente eine Ebene unter `detail` – die Aufschlüsselung, in die Sie
-mit der `id` eines Kindelements weiter absteigen können.
+mit der `id` eines Kindelements weiter absteigen können. Auf der untersten Ebene (einem
+Titel) **fehlt** der Schlüssel.
 
 **parents.** Ein Array von `LabeledElement` (Paare aus ID und Bezeichnung) je Ebene, von
 oben bis zur Ebene des ausgewählten Elements. Jedes Array enthält alle Elemente dieser Ebene
 (die Geschwister), nicht nur den Pfad. Bei `single` ist der Pfad-Eintrag derjenige, dessen
 `id` ein Präfix der ausgewählten ID ist oder ihr entspricht.
 
-**related.** Querverweise auf dasselbe Element aus Sicht anderer Dimensionen:
-`agency`, `function` und `group`, jeweils ein Array von `LabeledElement`-Zeilen.
+**related.** Querverweise auf dasselbe Element aus Sicht anderer Dimensionen, **nur auf der
+untersten Ebene** vorhanden (darüber fehlt der Schlüssel): `agency`, `function` und `group`,
+jeweils eine flache Liste von `LabeledElement`-Zeilen – der Pfad des Elements in dieser
+Dimension, von oben nach unten.
 
 **LabeledElement.** Ein minimales Paar `{ id?, label? }`, das in `parents` und
 `related` ein Element benennt, ohne seine vollständigen Zahlen.
@@ -123,8 +130,9 @@ oben bis zur Ebene des ausgewählten Elements. Jedes Array enthält alle Element
 
 ## Kennungen, Einheiten & Codes
 
-**Haushaltsstelle.** Die Kennung eines Haushaltselements, geführt als `budgetNumber` und
-als `id` zum Absteigen verwendet. Konventionen für Präfixe:
+**Haushaltsstelle.** Die Kennung eines Haushaltselements, als `id` zum Absteigen verwendet.
+`budgetNumber` zeigt sie als maskierte Anzeigezeichenkette (`"0901 683 01 - 165"`), die die
+API nicht als ID annimmt. Konventionen für Präfixe:
 
 - Präfix **`G-`** – eine **Gruppe** (ökonomische Gruppe).
 - Präfix **`F-`** – eine **Funktion**.

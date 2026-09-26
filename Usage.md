@@ -102,7 +102,7 @@ bundeshaushalt budget 2024 expenses --id 14
 The response carries that element as `detail`, its `children` (here the Kapitel;
 drill deeper by passing a child's id, e.g. `1405`, then a Titel id such as
 `140555408`) and `parents`. `related` cross-references appear only at the Titel
-(leaf) level, where `children` is `null`. So you can walk the tree one level at
+(leaf) level, where the `children` key is absent. So you can walk the tree one level at
 a time.
 
 ### 6. Break expenses down by economic group (Gruppe)
