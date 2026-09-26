@@ -69,6 +69,13 @@ function optionsFrom(opts: Record<string, unknown>): Omit<BudgetParams, "year" |
     if (id !== raw) {
       throw new HaushaltError(`Invalid id "${raw}". Surrounding whitespace is not allowed.`);
     }
+    // A bare group/function prefix names no element; the live API answers it with a
+    // 503, which would be retried as transient and read as an outage.
+    if (/^[GF]-$/i.test(id)) {
+      throw new HaushaltError(
+        `Invalid id "${raw}". Expected a number after the "${id.toUpperCase()}" prefix, e.g. "${id.toUpperCase()}5".`,
+      );
+    }
     params.id = id;
   }
   return params;

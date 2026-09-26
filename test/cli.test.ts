@@ -209,3 +209,13 @@ test("--max-retries is bounded to 0..10", async () => {
     }
   }
 });
+
+test("rejects a bare G-/F- prefix as --id before any request", async () => {
+  for (const id of ["G-", "F-", "g-"]) {
+    const cli = makeCli(() => jsonResponse(body));
+    const code = await run(["budget", "2024", "expenses", "--unit", "group", "--id", id], cli.deps);
+    assert.equal(code, 1, id);
+    assert.equal(cli.mt.calls.length, 0, id);
+    assert.match(cli.err.join("\n"), /Expected a number after the "[GF]-" prefix/, id);
+  }
+});

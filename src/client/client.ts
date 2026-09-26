@@ -2,7 +2,7 @@
 // endpoint of the German federal budget portal (https://bundeshaushalt.de).
 //
 //   client.budgetData({ year: 2024, account: "expenses" })
-//   client.budgetData({ year: 2024, account: "expenses", id: "G-",  unit: "group" })
+//   client.budgetData({ year: 2024, account: "expenses", id: "G-5", unit: "group" })
 
 import { RequestEngine, type EngineOptions } from "./engine.js";
 import type { QueryParams } from "./query.js";
