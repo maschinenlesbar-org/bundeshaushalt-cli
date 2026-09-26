@@ -113,7 +113,17 @@ Error: HTTP 503 for GET https://bundeshaushalt.de/internalapi/budgetData?year=20
 year 2016 failed (exit 1)
 ```
 
-Die id `15` lieferte in jedem Jahr mit Antwort `15 Bundesministerium für Gesundheit`. Es gibt also keine umbenannten ids. 2016 ist keine Lücke: Das Portal antwortete auch nach den zwei Wiederholungen der CLI mit `503`. Die Schleife meldete das Jahr deshalb als fehlgeschlagenen Aufruf (Exit 1), nicht als Jahr ohne Daten (Exit 4). 2027 ist der Regierungsentwurf, zuletzt geändert am 3. September 2026.
+Später antwortete das Portal wieder, also wurde das eine fehlgeschlagene Jahr einzeln abgerufen (19:45 UTC):
+
+```bash
+bundeshaushalt --compact budget 2016 expenses --id 15 | jq -r '.detail.value'   # Exit 0
+```
+
+```text
+14572911000
+```
+
+Die id `15` lieferte in jedem Jahr mit Antwort `15 Bundesministerium für Gesundheit`. Es gibt also keine umbenannten ids. 2016 war keine Lücke: In der Schleife antwortete das Portal auch nach den zwei Wiederholungen der CLI mit `503`. Sie meldete das Jahr deshalb als fehlgeschlagenen Aufruf (Exit 1), nicht als Jahr ohne Daten (Exit 4) – der einzelne Abruf oben hat es nachgeholt. 2027 ist der Regierungsentwurf, zuletzt geändert am 3. September 2026.
 
 | Jahr | Soll | ggü. Vorjahr | Anteil am Haushalt |
 |---|---:|---:|---:|
@@ -121,8 +131,8 @@ Die id `15` lieferte in jedem Jahr mit Antwort `15 Bundesministerium für Gesund
 | 2013 | 12,0 Mrd. € | −17,2 % | 3,9 % |
 | 2014 | 11,1 Mrd. € | −7,8 % | 3,7 % |
 | 2015 | 12,1 Mrd. € | +9,2 % | 3,9 % |
-| 2016 | fehlgeschlagen (HTTP 503) | | |
-| 2017 | 15,2 Mrd. € | | 4,6 % |
+| 2016 | 14,6 Mrd. € | +20,8 % | 4,6 % |
+| 2017 | 15,2 Mrd. € | +4,0 % | 4,6 % |
 | 2018 | 15,2 Mrd. € | +0,3 % | 4,4 % |
 | 2019 | 15,3 Mrd. € | +0,6 % | 4,3 % |
 | 2020 | 41,3 Mrd. € | +169,5 % | 8,1 % |
@@ -134,6 +144,6 @@ Die id `15` lieferte in jedem Jahr mit Antwort `15 Bundesministerium für Gesund
 | 2026 | 21,8 Mrd. € | +12,9 % | 4,2 % |
 | 2027 (Entwurf) | 14,3 Mrd. € | −34,2 % | 2,6 % |
 
-Großenteils ja: Vom Höchststand 2022 (64,4 Mrd. €) fiel der Etat bis 2024 auf 16,7 Mrd. €. Seitdem wächst er wieder. 2026 liegt er 66 % unter 2022, aber 42 % über 2019. Von 2012 bis 2026 stieg er insgesamt um 50 % (rund 3,0 % pro Jahr). Der Entwurf für 2027 sieht 14,3 Mrd. € vor, 34 % weniger als 2026 und weniger als 2019. 2016 fehlt, weil der Aufruf fehlschlug; für 2017 gibt es deshalb keine Veränderung ggü. Vorjahr. Alle Werte sind Soll-Werte in nominalen Euro, nicht inflationsbereinigt.
+Großenteils ja: Vom Höchststand 2022 (64,4 Mrd. €) fiel der Etat bis 2024 auf 16,7 Mrd. €. Seitdem wächst er wieder. 2026 liegt er 66 % unter 2022, aber 42 % über 2019. Von 2012 bis 2026 stieg er insgesamt um 50 % (rund 3,0 % pro Jahr). Der Entwurf für 2027 sieht 14,3 Mrd. € vor, 34 % weniger als 2026 und weniger als 2019. Alle Werte sind Soll-Werte in nominalen Euro, nicht inflationsbereinigt.
 
-Als Nächstes angeboten: 2016 erneut abrufen, sobald das Portal antwortet, die Ist-Reihe bis 2025 oder derselbe Trend nach Funktion statt nach Ministerium.
+Als Nächstes angeboten: die Ist-Reihe bis 2025 oder derselbe Trend nach Funktion statt nach Ministerium.

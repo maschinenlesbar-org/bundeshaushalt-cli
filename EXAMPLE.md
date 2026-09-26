@@ -113,7 +113,17 @@ Error: HTTP 503 for GET https://bundeshaushalt.de/internalapi/budgetData?year=20
 year 2016 failed (exit 1)
 ```
 
-Id `15` returned `15 Bundesministerium für Gesundheit` in every year that answered, so there are no renamed ids. 2016 is not a gap: the portal answered `503` even after the CLI's two retries, so the loop reported it as a failed call (exit 1), not as a year without data (exit 4). 2027 is the government's draft budget, last modified on 3 September 2026.
+The portal answered again later, so the one failed year was fetched on its own (19:45 UTC):
+
+```bash
+bundeshaushalt --compact budget 2016 expenses --id 15 | jq -r '.detail.value'   # exit 0
+```
+
+```text
+14572911000
+```
+
+Id `15` returned `15 Bundesministerium für Gesundheit` in every year that answered, so there are no renamed ids. 2016 was not a gap: in the loop the portal answered `503` even after the CLI's two retries, so it was reported as a failed call (exit 1), not as a year without data (exit 4) — and the single retry above filled it. 2027 is the government's draft budget, last modified on 3 September 2026.
 
 | Year | Planned (Soll) | YoY | Share of budget |
 |---|---:|---:|---:|
@@ -121,8 +131,8 @@ Id `15` returned `15 Bundesministerium für Gesundheit` in every year that answe
 | 2013 | €12.0 bn | −17.2% | 3.9% |
 | 2014 | €11.1 bn | −7.8% | 3.7% |
 | 2015 | €12.1 bn | +9.2% | 3.9% |
-| 2016 | failed (HTTP 503) | | |
-| 2017 | €15.2 bn | | 4.6% |
+| 2016 | €14.6 bn | +20.8% | 4.6% |
+| 2017 | €15.2 bn | +4.0% | 4.6% |
 | 2018 | €15.2 bn | +0.3% | 4.4% |
 | 2019 | €15.3 bn | +0.6% | 4.3% |
 | 2020 | €41.3 bn | +169.5% | 8.1% |
@@ -134,6 +144,6 @@ Id `15` returned `15 Bundesministerium für Gesundheit` in every year that answe
 | 2026 | €21.8 bn | +12.9% | 4.2% |
 | 2027 (draft) | €14.3 bn | −34.2% | 2.6% |
 
-Yes, mostly: the 2022 peak of €64.4 bn fell to €16.7 bn by 2024. Since then the budget has grown again. 2026 is 66% below 2022 but 42% above 2019. Over 2012–2026: +50% in total (~3.0%/yr CAGR). The 2027 draft plans €14.3 bn, 34% less than 2026 and below 2019. 2016 is missing because that call failed; 2017 has no YoY figure for that reason. All figures are planned amounts in nominal euros, not adjusted for inflation.
+Yes, mostly: the 2022 peak of €64.4 bn fell to €16.7 bn by 2024. Since then the budget has grown again. 2026 is 66% below 2022 but 42% above 2019. Over 2012–2026: +50% in total (~3.0%/yr CAGR). The 2027 draft plans €14.3 bn, 34% less than 2026 and below 2019. All figures are planned amounts in nominal euros, not adjusted for inflation.
 
-Next steps offered: fetch 2016 again once the portal answers, the realised (Ist) series up to 2025, or the same trend by function instead of ministry.
+Next steps offered: the realised (Ist) series up to 2025, or the same trend by function instead of ministry.
