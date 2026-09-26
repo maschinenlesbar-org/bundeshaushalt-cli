@@ -328,3 +328,21 @@ test("a base URL's userinfo is kept for the request and redacted in error messag
     (err: unknown) => err instanceof HaushaltNetworkError && !err.message.includes("secret") && err.message.includes("***@"),
   );
 });
+
+test("the body is decoded by its declared charset and a UTF-8 BOM is ignored", async () => {
+  const latin1 = makeMockTransport(() =>
+    rawResponse(Buffer.from('{"label":"Grüße"}', "latin1"), "application/json; charset=iso-8859-1"),
+  );
+  assert.deepEqual(await new RequestEngine({ transport: latin1.transport }).getJson("/x"), { label: "Grüße" });
+
+  const bom = makeMockTransport(() =>
+    rawResponse(Buffer.concat([Buffer.from([0xef, 0xbb, 0xbf]), Buffer.from('{"label":"Grüße"}')]), "application/json"),
+  );
+  assert.deepEqual(await new RequestEngine({ transport: bom.transport }).getJson("/x"), { label: "Grüße" });
+
+  const unknown = makeMockTransport(() => rawResponse("{}", "application/json; charset=x-nope"));
+  await assert.rejects(
+    () => new RequestEngine({ transport: unknown.transport }).getJson("/x"),
+    (err: unknown) => err instanceof HaushaltParseError && err.message === 'Unsupported response charset "x-nope" from /x.',
+  );
+});

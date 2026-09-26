@@ -394,7 +394,7 @@ export class RequestEngine {
         `Expected a JSON response from ${path} but got Content-Type "${sanitizeServerText(mediaType(res.contentType))}"`,
       );
     }
-    const text = res.data.toString("utf8");
+    const text = decodeBody(res.data, res.contentType, path);
     // An empty 2xx body (e.g. a 204 No Content) is not valid JSON; report it as
     // such rather than emitting the opaque "Failed to parse JSON" for `""`.
     if (text.trim() === "") {
@@ -422,4 +422,23 @@ export class RequestEngine {
     if (detail !== undefined) detail = sanitizeServerText(detail);
     return new HaushaltApiError({ status, url, method, body: text, detail });
   }
+}
+
+/**
+ * Decode a response body by the charset of its Content-Type (UTF-8 when none is
+ * given, as JSON requires). A leading byte-order mark is dropped: TextDecoder does
+ * that by default, where Buffer#toString kept it and JSON.parse then failed. The
+ * upstream sends UTF-8; this matters for proxies and mirrors that re-encode.
+ */
+function decodeBody(body: Buffer, contentType: string, path: string): string {
+  const charset = /;\s*charset\s*=\s*"?([^";\s]+)"?/i.exec(contentType)?.[1] ?? "utf-8";
+  let decoder: TextDecoder;
+  try {
+    decoder = new TextDecoder(charset);
+  } catch {
+    throw new HaushaltParseError(
+      `Unsupported response charset "${sanitizeServerText(charset)}" from ${path}.`,
+    );
+  }
+  return decoder.decode(body);
 }
