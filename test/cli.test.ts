@@ -298,3 +298,9 @@ test("rejects an --id whose prefix contradicts --unit before any request", async
   const ok = makeCli(() => jsonResponse(body));
   assert.equal(await run(["budget", "2024", "expenses", "--unit", "group", "--id", "g-5"], ok.deps), 0);
 });
+
+test("--help says that --timeout 0 means no limit", async () => {
+  const cli = makeCli(() => jsonResponse(body));
+  assert.equal(await run(["--help"], cli.deps), 0);
+  assert.match(cli.out.join("\n").replace(/\s+/g, " "), /--timeout <ms> time limit per request in milliseconds, whole response included \(0 = no limit\)/);
+});
