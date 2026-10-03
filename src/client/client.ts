@@ -9,6 +9,7 @@ import { AccountValues, MIN_YEAR, QuotaValues, UnitValues } from "./enums.js";
 import { HaushaltError, HaushaltParseError } from "./errors.js";
 import type { QueryParams } from "./query.js";
 import type { BudgetData, BudgetParams } from "./types.js";
+import { assertValid, idProblem } from "./validate.js";
 
 // NOTE: This is an undocumented, internal endpoint of bundeshaushalt.de (note the
 // "internalapi" path segment). It is not a published, stable public API and may
@@ -27,8 +28,9 @@ export class BundeshaushaltClient {
    * Budget data for a year + account, optionally scoped by quota/unit/id. The
    * params are checked before any request (a HaushaltError, as a rejected promise):
    * `year` an integer from `MIN_YEAR` on, `account`/`quota`/`unit` from their value
-   * sets, `id` non-blank. The upper year bound is left to the API (404 for a year it
-   * does not have).
+   * sets, `id` non-blank, without surrounding whitespace and not a bare `G-`/`F-`
+   * prefix (`idProblem`; a HaushaltValidationError). The upper year bound is left to
+   * the API (404 for a year it does not have).
    */
   async budgetData(params: BudgetParams): Promise<BudgetData> {
     checkParams(params);
@@ -69,9 +71,7 @@ function checkParams(params: BudgetParams): void {
   checkEnum("account", params.account, AccountValues);
   if (params.quota !== undefined) checkEnum("quota", params.quota, QuotaValues);
   if (params.unit !== undefined) checkEnum("unit", params.unit, UnitValues);
-  if (params.id !== undefined && (typeof params.id !== "string" || params.id.trim() === "")) {
-    throw new HaushaltError(`Invalid id "${String(params.id)}": expected a non-empty budget number.`);
-  }
+  if (params.id !== undefined) assertValid(`id "${String(params.id)}"`, params.id, idProblem);
 }
 
 function checkEnum(name: string, value: unknown, allowed: readonly string[]): void {

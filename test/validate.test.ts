@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { BundeshaushaltClient } from "../src/client/client.js";
 import { HaushaltError, HaushaltValidationError } from "../src/client/errors.js";
-import { assertValid, type Problem } from "../src/client/validate.js";
+import { assertValid, idProblem, type Problem } from "../src/client/validate.js";
 import * as root from "../src/index.js";
 import { run } from "../src/cli/run.js";
 import type { CliDeps } from "../src/cli/io.js";
@@ -49,4 +49,15 @@ test("run() prints a HaushaltValidationError from an action as 'Error: <message>
   const deps: CliDeps = { io: { out: () => {}, err: (s) => err.push(s) }, createClient: () => client };
   assert.equal(await run(["expenses", "2024"], deps), 1);
   assert.deepEqual(err, ["Error: Invalid thing: Expected a non-empty value."]);
+});
+
+test("idProblem: a non-blank budget number without surrounding whitespace or a bare G-/F- prefix", () => {
+  for (const ok of ["14", "090168301", "G-5", "g-5", "F-0", "f-12"]) assert.equal(idProblem(ok), undefined, ok);
+  assert.equal(idProblem(""), "Expected a non-empty budget number.");
+  assert.equal(idProblem("  "), "Expected a non-empty budget number.");
+  assert.equal(idProblem(14), "Expected a non-empty budget number.");
+  assert.equal(idProblem(" 14 "), "Surrounding whitespace is not allowed.");
+  assert.equal(idProblem("14\n"), "Surrounding whitespace is not allowed.");
+  assert.equal(idProblem("G-"), 'Expected a number after the "G-" prefix, e.g. "G-5".');
+  assert.equal(idProblem("f-"), 'Expected a number after the "F-" prefix, e.g. "F-5".');
 });

@@ -22,10 +22,10 @@ test("budgetData sends year + account", async () => {
 
 test("budgetData includes optional quota/unit/id only when set", async () => {
   const mt = constantJson(body);
-  await clientWith(mt).budgetData({ year: 2023, account: "income", unit: "group", id: "G-" });
+  await clientWith(mt).budgetData({ year: 2023, account: "income", unit: "group", id: "G-5" });
   const url = new URL(mt.last().url);
   assert.equal(url.searchParams.get("unit"), "group");
-  assert.equal(url.searchParams.get("id"), "G-");
+  assert.equal(url.searchParams.get("id"), "G-5");
   assert.equal(url.searchParams.get("quota"), null);
 });
 
@@ -110,7 +110,10 @@ test("budgetData checks its params before any request", async () => {
     [{ year: 2024, account: "bogus" }, /^Invalid account "bogus": expected one of expenses, income\.$/],
     [{ year: 2024, account: "expenses", quota: "nope" }, /^Invalid quota "nope"/],
     [{ year: 2024, account: "expenses", unit: "x" }, /^Invalid unit "x"/],
-    [{ year: 2024, account: "expenses", id: " " }, /^Invalid id " ": expected a non-empty budget number\.$/],
+    [{ year: 2024, account: "expenses", id: " " }, /^Invalid id " ": Expected a non-empty budget number\.$/],
+    [{ year: 2024, account: "expenses", id: " 14 " }, /^Invalid id " 14 ": Surrounding whitespace is not allowed\.$/],
+    [{ year: 2024, account: "expenses", id: "14\n" }, /^Invalid id "14\n": Surrounding whitespace is not allowed\.$/],
+    [{ year: 2024, account: "expenses", id: "g-" }, /^Invalid id "g-": Expected a number after the "G-" prefix, e\.g\. "G-5"\.$/],
   ];
   for (const [params, message] of cases) {
     const mt = constantJson(body);

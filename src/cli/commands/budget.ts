@@ -6,6 +6,7 @@ import { HaushaltError } from "../../client/errors.js";
 import { AccountValues, QuotaValues, UnitValues, MIN_YEAR } from "../../client/enums.js";
 import type { Account, Quota, Unit } from "../../client/enums.js";
 import type { BudgetParams } from "../../client/types.js";
+import { assertValid, idProblem } from "../../client/validate.js";
 
 /**
  * Upper bound for an accepted year. Derived from the current year (rather than a
@@ -58,24 +59,9 @@ function optionsFrom(opts: Record<string, unknown>): Omit<BudgetParams, "year" |
         `Invalid id "${raw}". The --id value looks like an option; did you forget to supply an id?`,
       );
     }
-    const id = raw.trim();
-    // Reject empty/whitespace ids so bad input fails locally with a clear
-    // message instead of producing an opaque API error (or `id=` in the query).
-    if (id.length === 0) {
-      throw new HaushaltError(`Invalid id "${raw}". Expected a non-empty budget number.`);
-    }
-    // Reject surrounding whitespace rather than silently trimming it: silent
-    // mutation can mask copy-paste errors and collapse two distinct inputs.
-    if (id !== raw) {
-      throw new HaushaltError(`Invalid id "${raw}". Surrounding whitespace is not allowed.`);
-    }
-    // A bare group/function prefix names no element; the live API answers it with a
-    // 503, which would be retried as transient and read as an outage.
-    if (/^[GF]-$/i.test(id)) {
-      throw new HaushaltError(
-        `Invalid id "${raw}". Expected a number after the "${id.toUpperCase()}" prefix, e.g. "${id.toUpperCase()}5".`,
-      );
-    }
+    // The id's own shape (non-blank, no surrounding whitespace, not a bare G-/F-)
+    // is the client's rule (idProblem); check it first, before the --unit rule.
+    const id = assertValid(`id "${raw}"`, raw, idProblem);
     params.id = id;
     // The prefix fixes the grouping, and the API answers a mismatched pair with a
     // bare 404 ("not found" for an id that exists): infer --unit when it is omitted,

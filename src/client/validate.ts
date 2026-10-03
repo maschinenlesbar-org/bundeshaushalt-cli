@@ -18,3 +18,19 @@ export function assertValid<T>(name: string, value: T, problem: Problem<T>): T {
   if (reason !== undefined) throw new HaushaltValidationError(`Invalid ${name}: ${reason}`);
   return value;
 }
+
+/**
+ * A budget-number `id`: a non-blank string with no surrounding whitespace (not
+ * trimmed silently, which could hide a copy-paste error), and not a bare `G-`/`F-`
+ * prefix (any case), which names no element; the live API answers that with a 503
+ * that would be retried and read as an outage.
+ */
+export const idProblem: Problem<unknown> = (id) => {
+  if (typeof id !== "string" || id.trim() === "") return "Expected a non-empty budget number.";
+  if (id !== id.trim()) return "Surrounding whitespace is not allowed.";
+  if (/^[GF]-$/i.test(id)) {
+    const prefix = id.toUpperCase();
+    return `Expected a number after the "${prefix}" prefix, e.g. "${prefix}5".`;
+  }
+  return undefined;
+};
