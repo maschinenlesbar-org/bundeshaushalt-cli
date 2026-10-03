@@ -4,6 +4,7 @@
 
 import { MAX_TIMEOUT_MS, nodeHttpTransport, type Transport } from "./http.js";
 import { buildQueryString, type QueryParams } from "./query.js";
+import { assertValid, baseUrlProblem } from "./validate.js";
 import {
   HaushaltApiError,
   HaushaltError,
@@ -233,6 +234,16 @@ function normalizeUserAgent(value: string | undefined): string {
   return trimmed;
 }
 
+/**
+ * Check a base URL (`baseUrlProblem`: absolute http(s), a host, no query string or
+ * fragment) and return it without trailing slashes. Throws a
+ * HaushaltValidationError, its URL shown through `redactUrl`.
+ */
+export function validateBaseUrl(raw: string): string {
+  assertValid(`base URL "${redactUrl(String(raw))}"`, raw, baseUrlProblem);
+  return raw.replace(/\/+$/, "");
+}
+
 export class RequestEngine {
   private readonly baseUrl: string;
   private readonly transport: Transport;
@@ -248,8 +259,10 @@ export class RequestEngine {
     // An empty / whitespace-only baseUrl falls back to the default rather than
     // collapsing (after trailing-slash stripping) to "" and building a relative
     // URL that `new URL()` rejects with a confusing "Invalid URL".
+    // The base URL is checked here, before any request, so a bad one is a
+    // HaushaltValidationError at construction rather than a "network" error later.
     const baseUrl = options.baseUrl?.trim() ? options.baseUrl : DEFAULT_BASE_URL;
-    this.baseUrl = baseUrl.replace(/\/+$/, "");
+    this.baseUrl = validateBaseUrl(baseUrl);
     this.transport = options.transport ?? nodeHttpTransport;
     this.userAgent = normalizeUserAgent(options.userAgent);
     this.timeoutMs = intOption("timeoutMs", options.timeoutMs, 30_000, MAX_TIMEOUT_MS);
@@ -268,33 +281,12 @@ export class RequestEngine {
   /**
    * Build a fully-qualified URL from a path and optional query parameters.
    *
-   * The base URL is validated and decomposed via the WHATWG URL parser rather
-   * than blindly concatenated, so a scheme-only base (`https:`) or one carrying
-   * a query string (`https://host/?x=1`) is rejected with a clear,
-   * base-url-specific error instead of silently producing a malformed URL — e.g.
-   * promoting an internal path segment to the hostname, or emitting a double-`?`.
-   * The base's own path prefix is preserved.
+   * The base URL (checked by the constructor, `validateBaseUrl`) is decomposed via
+   * the WHATWG URL parser rather than blindly concatenated, so its scheme, host
+   * and own path prefix are kept exactly.
    */
   buildUrl(path: string, query?: QueryParams): string {
-    let base: URL;
-    try {
-      base = new URL(this.baseUrl);
-    } catch {
-      throw new HaushaltNetworkError(`Invalid base URL: "${redactUrl(this.baseUrl)}"`);
-    }
-    if (base.protocol !== "http:" && base.protocol !== "https:") {
-      throw new HaushaltNetworkError(
-        `Unsupported protocol "${base.protocol}" in base URL: "${redactUrl(this.baseUrl)}"`,
-      );
-    }
-    if (!base.host) {
-      throw new HaushaltNetworkError(`Base URL "${redactUrl(this.baseUrl)}" has no host`);
-    }
-    if (base.search || base.hash) {
-      throw new HaushaltNetworkError(
-        `Base URL "${redactUrl(this.baseUrl)}" must not contain a query string or fragment`,
-      );
-    }
+    const base = new URL(this.baseUrl);
     const basePath = base.pathname.replace(/\/+$/, "");
     const normalizedPath = path.startsWith("/") ? path : `/${path}`;
     const qs = query ? buildQueryString(query) : "";

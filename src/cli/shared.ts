@@ -6,6 +6,7 @@ import { InvalidArgumentError } from "commander";
 import type { CliDeps } from "./io.js";
 import { HaushaltError } from "../client/errors.js";
 import { isBidiControl, type EngineOptions } from "../client/engine.js";
+import { baseUrlProblem } from "../client/validate.js";
 
 /**
  * commander value-parser: a non-negative integer in plain decimal notation.
@@ -87,22 +88,13 @@ export function assertEnum<T extends string>(
 }
 
 /**
- * commander value-parser for `--base-url`: an absolute `http:`/`https:` URL.
- * Rejecting a `file:`/`ftp:` or malformed value here makes it a usage error at
- * parse time; the engine still re-validates the full URL before any request.
+ * commander value-parser for `--base-url`: the client's own rule (`baseUrlProblem`:
+ * an absolute http(s) URL with a host and no query string or fragment), reported
+ * as a usage error naming `--base-url` at parse time, before any request.
  */
 export function parseBaseUrl(value: string): string {
-  let url: URL;
-  try {
-    url = new URL(value);
-  } catch {
-    throw new InvalidArgumentError("Expected an absolute http(s) URL.");
-  }
-  if (url.protocol !== "http:" && url.protocol !== "https:") {
-    throw new InvalidArgumentError(
-      `Unsupported scheme "${url.protocol}". Expected an http(s) URL.`,
-    );
-  }
+  const reason = baseUrlProblem(value);
+  if (reason !== undefined) throw new InvalidArgumentError(reason);
   return value;
 }
 

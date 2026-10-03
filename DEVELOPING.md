@@ -168,13 +168,16 @@ as `true`/`false`, and encodes spaces as `%20` (not `+`). Only `year` +
 A redirect that would downgrade `https` → `http` is refused, and credential
 headers are stripped when a redirect crosses origins.
 
-**`--base-url` validation.** The base URL is checked at commander parse time by
-the `parseBaseUrl` value-parser ([`shared.ts`](src/cli/shared.ts)): a malformed
-or non-`http:`/`https:` value (`file:`, `ftp:`, `notaurl`) is a usage error
-naming `--base-url`, and no request is made. It is then fully validated again
-before any request in [`buildUrl`](src/client/engine.ts) (scheme allowlist,
-host required, no query/fragment) and re-checked in the transport, so library
-callers passing a bad `baseUrl` get a `HaushaltNetworkError`. Both exit `1`.
+**Base URL validation.** One rule, `baseUrlProblem` ([`validate.ts`](src/client/validate.ts)):
+an absolute `http:`/`https:` URL with a host and no query string or fragment. The
+`RequestEngine` constructor applies it through the exported `validateBaseUrl`, so
+a library caller passing a bad `baseUrl` (`file:`, `ftp:`, `notaurl`, `https:`,
+`https://host/?q=1`) gets a `HaushaltValidationError` from `new
+BundeshaushaltClient(...)`, before any request. The CLI's `--base-url`
+value-parser (`parseBaseUrl` in [`shared.ts`](src/cli/shared.ts)) calls the same
+rule and reports its reason as a usage error naming `--base-url` (exit `1`). The
+default transport re-checks the scheme on every hop, redirects included, and
+reports that as a `HaushaltNetworkError`.
 Userinfo in the base URL (`http://user:pw@mirror/`) is kept and sent as Basic
 auth, for a mirror behind a login; every error message shows the URL through
 `redactUrl` (`http://***@mirror/...`), so the password never reaches a log.

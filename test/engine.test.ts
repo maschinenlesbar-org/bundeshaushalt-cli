@@ -10,6 +10,7 @@ import {
   HaushaltApiError,
   HaushaltNetworkError,
   HaushaltParseError,
+  HaushaltValidationError,
 } from "../src/client/errors.js";
 import { makeMockTransport, jsonResponse, rawResponse, redirectResponse } from "./helpers.js";
 
@@ -40,14 +41,14 @@ test("buildUrl preserves a base URL path prefix", () => {
   assert.equal(e.buildUrl("/internalapi/x"), "https://host.test/api/internalapi/x");
 });
 
-test("buildUrl rejects a scheme-only base URL instead of mangling the host", () => {
-  const e = new RequestEngine({ baseUrl: "https:" });
-  assert.throws(() => e.buildUrl("/internalapi/budgetData"), HaushaltNetworkError);
-});
-
-test("buildUrl rejects a base URL carrying a query string", () => {
-  const e = new RequestEngine({ baseUrl: "https://example.test/?x=1" });
-  assert.throws(() => e.buildUrl("/internalapi/x"), HaushaltNetworkError);
+test("the constructor rejects a bad base URL as a HaushaltValidationError, not a network error", () => {
+  for (const baseUrl of ["https:", "https://example.test/?x=1", "https://example.test/#f", "ftp://example.test", "notaurl"]) {
+    assert.throws(
+      () => new RequestEngine({ baseUrl }),
+      (e: unknown) => e instanceof HaushaltValidationError && !(e instanceof HaushaltNetworkError),
+      baseUrl,
+    );
+  }
 });
 
 test("getJson parses a JSON body", async () => {
@@ -322,10 +323,10 @@ test("a base URL's userinfo is kept for the request and redacted in error messag
   );
   assert.equal(mt.last().url, "http://user:s%40cret@mirror.test/api/x");
 
-  const bad = new RequestEngine({ baseUrl: "http://user:secret@mirror.test/?q=1" });
   assert.throws(
-    () => bad.buildUrl("/x"),
-    (err: unknown) => err instanceof HaushaltNetworkError && !err.message.includes("secret") && err.message.includes("***@"),
+    () => new RequestEngine({ baseUrl: "http://user:secret@mirror.test/?q=1" }),
+    (err: unknown) =>
+      err instanceof HaushaltValidationError && !err.message.includes("secret") && err.message.includes("***@"),
   );
 });
 

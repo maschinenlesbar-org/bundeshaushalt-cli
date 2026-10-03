@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { BundeshaushaltClient } from "../src/client/client.js";
 import { HaushaltError, HaushaltValidationError } from "../src/client/errors.js";
-import { assertValid, idProblem, idUnitProblem, yearProblem, type Problem } from "../src/client/validate.js";
+import { assertValid, baseUrlProblem, idProblem, idUnitProblem, yearProblem, type Problem } from "../src/client/validate.js";
 import { maxYear, unitOfId } from "../src/client/enums.js";
 import * as root from "../src/index.js";
 import { run } from "../src/cli/run.js";
@@ -88,4 +88,16 @@ test("yearProblem: an integer from MIN_YEAR to next year", () => {
   const reason = `Expected a year between 2012 and ${next}.`;
   for (const ok of [2012, 2024, next]) assert.equal(yearProblem(ok), undefined, String(ok));
   for (const bad of [2011, next + 1, 2024.5, Number.NaN, "2024"]) assert.equal(yearProblem(bad), reason, String(bad));
+});
+
+test("baseUrlProblem: an absolute http(s) URL with a host and no query or fragment", () => {
+  for (const ok of ["https://bundeshaushalt.de", "http://mirror.test/api/", "http://user:pw@mirror.test/"]) {
+    assert.equal(baseUrlProblem(ok), undefined, ok);
+  }
+  assert.equal(baseUrlProblem("notaurl"), "Expected an absolute http(s) URL.");
+  assert.equal(baseUrlProblem("https:"), "Expected an absolute http(s) URL.");
+  assert.equal(baseUrlProblem(5), "Expected an absolute http(s) URL.");
+  assert.equal(baseUrlProblem("ftp://x.example"), 'Unsupported scheme "ftp:". Expected an http(s) URL.');
+  assert.equal(baseUrlProblem("https://h.example/?q=1"), "A query string or fragment is not allowed.");
+  assert.equal(baseUrlProblem("https://h.example/#f"), "A query string or fragment is not allowed.");
 });

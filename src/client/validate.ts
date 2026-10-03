@@ -56,3 +56,24 @@ export const yearProblem: Problem<unknown> = (year) => {
   }
   return undefined;
 };
+
+/**
+ * A base URL: an absolute `http:`/`https:` URL with a host and no query string or
+ * fragment (the client appends its own path and query). Userinfo is allowed: it is
+ * sent as Basic auth, for a mirror behind a login, and redacted in messages.
+ */
+export const baseUrlProblem: Problem<unknown> = (value) => {
+  let url: URL;
+  try {
+    url = new URL(String(value));
+  } catch {
+    return "Expected an absolute http(s) URL.";
+  }
+  if (typeof value !== "string") return "Expected an absolute http(s) URL.";
+  if (url.protocol !== "http:" && url.protocol !== "https:") {
+    return `Unsupported scheme "${url.protocol}". Expected an http(s) URL.`;
+  }
+  if (!url.host) return "Expected a URL with a host.";
+  if (url.search || url.hash) return "A query string or fragment is not allowed.";
+  return undefined;
+};

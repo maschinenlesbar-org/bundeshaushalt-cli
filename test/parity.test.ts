@@ -92,3 +92,29 @@ test("the year range (MIN_YEAR to next year) is enforced by CLI and library alik
     }
   }
 });
+
+test("a bad base URL is rejected by the client constructor and by --base-url with the same reason, before any request", async () => {
+  const cases: [string, string][] = [
+    ["ftp://x.example", 'Unsupported scheme "ftp:". Expected an http(s) URL.'],
+    ["file:///etc/passwd", 'Unsupported scheme "file:". Expected an http(s) URL.'],
+    ["notaurl", "Expected an absolute http(s) URL."],
+    ["https:", "Expected an absolute http(s) URL."],
+    ["https://h.example/?q=1", "A query string or fragment is not allowed."],
+    ["https://h.example/#f", "A query string or fragment is not allowed."],
+  ];
+  for (const [baseUrl, reason] of cases) {
+    let constructed = false;
+    const p = await parity(["--compact", "--base-url", baseUrl, "expenses", "2024"], (transport) => {
+      const client = new BundeshaushaltClient({ transport, baseUrl });
+      constructed = true;
+      return client.budgetData({ year: 2024, account: "expenses" });
+    });
+    assertParity(p, baseUrl);
+    assert.equal(constructed, false, `${baseUrl}: the constructor must throw`);
+    assert.ok(!p.lib.ok && p.lib.error instanceof HaushaltValidationError, baseUrl);
+    assert.equal((p.lib.error as Error).message, `Invalid base URL "${baseUrl}": ${reason}`);
+    assert.equal(p.cli.code, 1, baseUrl);
+    assert.match(p.cli.err.join("\n"), /option '--base-url <url>' argument .* is invalid\./, baseUrl);
+    assert.ok(p.cli.err.join("\n").includes(reason), `${baseUrl}: ${p.cli.err.join("\n")}`);
+  }
+});
