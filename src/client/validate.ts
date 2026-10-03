@@ -77,3 +77,21 @@ export const baseUrlProblem: Problem<unknown> = (value) => {
   if (url.search || url.hash) return "A query string or fragment is not allowed.";
   return undefined;
 };
+
+/**
+ * A value for an HTTP header (the User-Agent): not blank, and only printable
+ * Latin-1 plus tab. Every other C0 control (CR/LF included), DEL and anything
+ * above U+00FF is rejected, wherever it sits: the whole value is scanned, not a
+ * trimmed copy, so a CR/LF at either end counts like one inside. Node's HTTP layer
+ * could not send these either. Checked by char code so the source stays free of
+ * control bytes.
+ */
+export const headerValueProblem: Problem<unknown> = (value) => {
+  if (typeof value !== "string" || value.trim() === "") return "Expected a non-empty value.";
+  for (let i = 0; i < value.length; i++) {
+    const c = value.charCodeAt(i);
+    if ((c < 0x20 && c !== 0x09) || c === 0x7f) return "Value contains control characters.";
+    if (c > 0xff) return "Value contains characters outside Latin-1 (above U+00FF).";
+  }
+  return undefined;
+};

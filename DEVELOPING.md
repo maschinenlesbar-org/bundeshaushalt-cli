@@ -72,6 +72,14 @@ new BundeshaushaltClient({
 });
 ```
 
+Only an omitted (`undefined`) `baseUrl` or `userAgent` selects the default
+(`DEFAULT_BASE_URL`, `DEFAULT_USER_AGENT`). A blank one is a
+`HaushaltValidationError` from the constructor, as is a bad base URL (see *Base URL
+validation* below) or a `userAgent` with a control character (CR/LF included, at
+either end too) or a character above U+00FF (`headerValueProblem`, applied by the
+exported `assertHeaderValue`); surrounding spaces and tabs are trimmed. The CLI's
+`--base-url` and `--user-agent` parsers apply the same rules.
+
 ### Methods
 
 `client.budgetData({ year, account, quota?, unit?, id? })`. The `AccountValues` /

@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { BundeshaushaltClient } from "../src/client/client.js";
 import { HaushaltError, HaushaltValidationError } from "../src/client/errors.js";
-import { assertValid, baseUrlProblem, idProblem, idUnitProblem, yearProblem, type Problem } from "../src/client/validate.js";
+import { assertValid, baseUrlProblem, headerValueProblem, idProblem, idUnitProblem, yearProblem, type Problem } from "../src/client/validate.js";
 import { maxYear, unitOfId } from "../src/client/enums.js";
 import * as root from "../src/index.js";
 import { run } from "../src/cli/run.js";
@@ -100,4 +100,14 @@ test("baseUrlProblem: an absolute http(s) URL with a host and no query or fragme
   assert.equal(baseUrlProblem("ftp://x.example"), 'Unsupported scheme "ftp:". Expected an http(s) URL.');
   assert.equal(baseUrlProblem("https://h.example/?q=1"), "A query string or fragment is not allowed.");
   assert.equal(baseUrlProblem("https://h.example/#f"), "A query string or fragment is not allowed.");
+});
+
+test("headerValueProblem: non-blank printable Latin-1 plus tab, checked untrimmed", () => {
+  for (const ok of ["ua/1", " a ", "\ta", "my-app/1.0\tüber", "é"]) assert.equal(headerValueProblem(ok), undefined, JSON.stringify(ok));
+  for (const blank of ["", "  ", "\t"]) assert.equal(headerValueProblem(blank), "Expected a non-empty value.", JSON.stringify(blank));
+  for (const ctl of ["a\n", "\ra", "a\r\nb", "a\u0000b", "a\u007fb"]) {
+    assert.equal(headerValueProblem(ctl), "Value contains control characters.", JSON.stringify(ctl));
+  }
+  assert.equal(headerValueProblem("€"), "Value contains characters outside Latin-1 (above U+00FF).");
+  assert.equal(headerValueProblem(5), "Expected a non-empty value.");
 });

@@ -5,6 +5,8 @@ export {
   RequestEngine,
   DEFAULT_BASE_URL,
   validateBaseUrl,
+  assertHeaderValue,
+  DEFAULT_USER_AGENT,
   MAX_RETRIES,
   MAX_RETRY_AFTER_MS,
   parseRetryAfter,
@@ -22,7 +24,7 @@ export {
   HaushaltValidationError,
   redactUrl,
 } from "./errors.js";
-export { assertValid, baseUrlProblem, idProblem, idUnitProblem, yearProblem } from "./validate.js";
+export { assertValid, baseUrlProblem, headerValueProblem, idProblem, idUnitProblem, yearProblem } from "./validate.js";
 export type { Problem } from "./validate.js";
 
 export * from "./enums.js";

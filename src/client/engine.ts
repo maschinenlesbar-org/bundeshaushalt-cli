@@ -4,7 +4,7 @@
 
 import { MAX_TIMEOUT_MS, nodeHttpTransport, type Transport } from "./http.js";
 import { buildQueryString, type QueryParams } from "./query.js";
-import { assertValid, baseUrlProblem } from "./validate.js";
+import { assertValid, baseUrlProblem, headerValueProblem } from "./validate.js";
 import {
   HaushaltApiError,
   HaushaltError,
@@ -14,7 +14,8 @@ import {
 } from "./errors.js";
 
 export const DEFAULT_BASE_URL = "https://bundeshaushalt.de";
-const DEFAULT_USER_AGENT = "bundeshaushalt-cli";
+/** The User-Agent sent when the `userAgent` option is not given. */
+export const DEFAULT_USER_AGENT = "bundeshaushalt-cli";
 
 export interface RawResponse {
   data: Buffer;
@@ -207,31 +208,13 @@ function isJsonContentType(contentType: string): boolean {
 }
 
 /**
- * Normalise a caller-supplied User-Agent into a safe header value.
- *
- * - An empty / whitespace-only value falls back to the default rather than
- *   sending an empty `User-Agent` (which would suppress the default entirely).
- * - A value containing control characters (CR/LF/NUL etc.) is rejected with a
- *   typed error here, instead of letting node:http throw a raw TypeError deep in
- *   the request that surfaces as an ungraceful "Unexpected error".
+ * Check a header value (`headerValueProblem`: not blank, printable Latin-1 plus
+ * tab, the whole value scanned) and return it trimmed. Throws a
+ * HaushaltValidationError `Invalid <name>: <reason>`, rather than letting node:http
+ * throw a raw TypeError deep in the request.
  */
-function normalizeUserAgent(value: string | undefined): string {
-  if (value === undefined) return DEFAULT_USER_AGENT;
-  const trimmed = value.trim();
-  if (trimmed.length === 0) return DEFAULT_USER_AGENT;
-  for (let i = 0; i < trimmed.length; i += 1) {
-    const code = trimmed.charCodeAt(i);
-    // HTTP header values are limited to (printable) Latin-1 plus tab. Reject the
-    // other C0 controls, DEL, and anything beyond U+00FF (emoji, CJK, even U+0100)
-    // here, before node:http throws an opaque TypeError ("Invalid character in
-    // header content") that would otherwise escape as an ungraceful "Unexpected error".
-    if ((code < 0x20 && code !== 0x09) || code === 0x7f || code > 0xff) {
-      throw new HaushaltError(
-        "Invalid User-Agent: only printable Latin-1 characters and tab are allowed.",
-      );
-    }
-  }
-  return trimmed;
+export function assertHeaderValue(name: string, value: string): string {
+  return assertValid(name, value, headerValueProblem).trim();
 }
 
 /**
@@ -259,12 +242,17 @@ export class RequestEngine {
     // An empty / whitespace-only baseUrl falls back to the default rather than
     // collapsing (after trailing-slash stripping) to "" and building a relative
     // URL that `new URL()` rejects with a confusing "Invalid URL".
-    // The base URL is checked here, before any request, so a bad one is a
-    // HaushaltValidationError at construction rather than a "network" error later.
-    const baseUrl = options.baseUrl?.trim() ? options.baseUrl : DEFAULT_BASE_URL;
-    this.baseUrl = validateBaseUrl(baseUrl);
+    // Base URL and User-Agent are checked here, before any request, so a bad one
+    // is a HaushaltValidationError at construction rather than a "network" error
+    // later. Only `undefined` selects the default: a blank value is rejected, not
+    // silently replaced (a blank baseUrl from an unset variable must not quietly
+    // query production).
+    this.baseUrl = validateBaseUrl(options.baseUrl ?? DEFAULT_BASE_URL);
     this.transport = options.transport ?? nodeHttpTransport;
-    this.userAgent = normalizeUserAgent(options.userAgent);
+    this.userAgent =
+      options.userAgent === undefined
+        ? DEFAULT_USER_AGENT
+        : assertHeaderValue("User-Agent", options.userAgent);
     this.timeoutMs = intOption("timeoutMs", options.timeoutMs, 30_000, MAX_TIMEOUT_MS);
     this.maxRetries = intOption("maxRetries", options.maxRetries, 2, MAX_RETRIES);
     this.retryDelayMs = intOption("retryDelayMs", options.retryDelayMs, 200, MAX_RETRY_AFTER_MS);

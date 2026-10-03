@@ -6,7 +6,7 @@ import { InvalidArgumentError } from "commander";
 import type { CliDeps } from "./io.js";
 import { HaushaltError } from "../client/errors.js";
 import { isBidiControl, type EngineOptions } from "../client/engine.js";
-import { baseUrlProblem } from "../client/validate.js";
+import { baseUrlProblem, headerValueProblem } from "../client/validate.js";
 
 /**
  * commander value-parser: a non-negative integer in plain decimal notation.
@@ -48,26 +48,13 @@ export function parseBoundedIntArg(max: number): (value: string) => number {
 }
 
 /**
- * commander value-parser for a value that ends up in an HTTP header (`--user-agent`).
- * A blank value is rejected (the engine would otherwise fall back to the default
- * silently), as are a CR/LF (or any other C0 control or DEL) and any character above
- * U+00FF, which Node's HTTP layer cannot send. All are usage errors before any
- * request. Tab and Latin-1 are allowed, as in HTTP. Checked by char code so the
- * source stays free of control bytes.
+ * commander value-parser for a value that ends up in an HTTP header (`--user-agent`):
+ * the client's own rule (`headerValueProblem`: not blank, printable Latin-1 plus
+ * tab), reported as a usage error before any request.
  */
 export function parseHeaderValue(value: string): string {
-  if (value.trim() === "") {
-    throw new InvalidArgumentError("Expected a non-empty value.");
-  }
-  for (let i = 0; i < value.length; i++) {
-    const c = value.charCodeAt(i);
-    if ((c < 0x20 && c !== 0x09) || c === 0x7f) {
-      throw new InvalidArgumentError("Value contains control characters.");
-    }
-    if (c > 0xff) {
-      throw new InvalidArgumentError("Value contains characters outside Latin-1 (above U+00FF).");
-    }
-  }
+  const reason = headerValueProblem(value);
+  if (reason !== undefined) throw new InvalidArgumentError(reason);
   return value;
 }
 

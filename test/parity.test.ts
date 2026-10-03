@@ -118,3 +118,43 @@ test("a bad base URL is rejected by the client constructor and by --base-url wit
     assert.ok(p.cli.err.join("\n").includes(reason), `${baseUrl}: ${p.cli.err.join("\n")}`);
   }
 });
+
+test("a blank base URL is rejected by client and CLI alike instead of meaning the default", async () => {
+  for (const baseUrl of ["", "   ", "\n"]) {
+    const p = await parity(["--compact", "--base-url", baseUrl, "expenses", "2024"], (transport) =>
+      new BundeshaushaltClient({ transport, baseUrl }).budgetData({ year: 2024, account: "expenses" }),
+    );
+    assertParity(p, JSON.stringify(baseUrl));
+    assert.ok(!p.lib.ok && p.lib.error instanceof HaushaltValidationError, JSON.stringify(baseUrl));
+    assert.equal(p.lib.requests.length, 0);
+    assert.match(p.cli.err.join("\n"), /--base-url/);
+  }
+});
+
+test("a blank User-Agent or one with a control character at either end is rejected by client and CLI alike", async () => {
+  const cases: [string, string][] = [
+    ["", "Expected a non-empty value."],
+    ["  ", "Expected a non-empty value."],
+    ["a\n", "Value contains control characters."],
+    ["\ra", "Value contains control characters."],
+    ["a\nb", "Value contains control characters."],
+    ["🌦", "Value contains characters outside Latin-1 (above U+00FF)."],
+  ];
+  for (const [userAgent, reason] of cases) {
+    const p = await parity(["--compact", "--user-agent", userAgent, "expenses", "2024"], (transport) =>
+      new BundeshaushaltClient({ transport, userAgent }).budgetData({ year: 2024, account: "expenses" }),
+    );
+    assertParity(p, JSON.stringify(userAgent));
+    assert.ok(!p.lib.ok && p.lib.error instanceof HaushaltValidationError, JSON.stringify(userAgent));
+    assert.equal((p.lib.error as Error).message, `Invalid User-Agent: ${reason}`);
+    assert.ok(p.cli.err.join("\n").includes(reason), JSON.stringify(userAgent));
+  }
+  // Controls: surrounding spaces and a tab are allowed and trimmed on both sides.
+  for (const userAgent of [" a ", "\ta", "my-app/1.0\tüber"]) {
+    const p = await parity(["--compact", "--user-agent", userAgent, "expenses", "2024"], (transport) =>
+      new BundeshaushaltClient({ transport, userAgent }).budgetData({ year: 2024, account: "expenses" }),
+    );
+    assertParity(p, JSON.stringify(userAgent));
+    assert.equal(p.lib.requests[0]?.headers?.["User-Agent"], userAgent.trim());
+  }
+});
