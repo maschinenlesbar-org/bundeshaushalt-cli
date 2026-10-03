@@ -62,6 +62,13 @@ export class HaushaltApiError extends HaushaltError {
   }
 }
 
+/**
+ * An input the library rejected before sending any request: a bad parameter or
+ * option value (`Invalid <name>: <reason>`). Thrown by `assertValid`; the CLI
+ * reports it as a usage error.
+ */
+export class HaushaltValidationError extends HaushaltError {}
+
 /** A transport-level failure (DNS, connection reset, timeout, ...). */
 export class HaushaltNetworkError extends HaushaltError {}
 

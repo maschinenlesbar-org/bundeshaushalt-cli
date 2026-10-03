@@ -93,7 +93,8 @@ src/
     query.ts     # dependency-free query-string builder
     http.ts      # the Transport interface + default node:http/https transport
     engine.ts    # URL building, retry/backoff, redirects, JSON decoding, error mapping
-    errors.ts    # HaushaltError / HaushaltApiError / HaushaltNetworkError / HaushaltParseError
+    errors.ts    # HaushaltError / HaushaltApiError / HaushaltNetworkError / HaushaltParseError / HaushaltValidationError
+    validate.ts  # input rules as pure functions (Problem) + assertValid
     client.ts    # BundeshaushaltClient — the budget-data surface over the engine
   cli/
     io.ts        # injectable I/O seam (stdout/stderr)
@@ -173,13 +174,22 @@ auth, for a mirror behind a login; every error message shows the URL through
 Lets the whole CLI run in tests with a mocked client and captured output — no
 subprocess.
 
-**Error types.** [`errors.ts`](src/client/errors.ts): `HaushaltApiError`
+**Error types.** [`errors.ts`](src/client/errors.ts): `HaushaltValidationError`
+(an input rejected before any request, `Invalid <name>: <reason>`), `HaushaltApiError`
 (non-2xx, carries `status`/`detail`/`url`/`method`/`body`), `HaushaltNetworkError`
 (transport failure/timeout), `HaushaltParseError` (bad JSON, or a 2xx body that is
 not an object with `meta` and `detail` objects — `Unexpected response shape from
 /internalapi/budgetData: expected a JSON object with meta and detail.`), all extending
 `HaushaltError`. The CLI maps a `404` to exit code `4` and every other error,
-usage errors included, to `1`.
+usage errors included, to `1`; a `HaushaltValidationError` is printed as
+`Error: <message>`, like a usage error.
+
+**Input rules.** [`validate.ts`](src/client/validate.ts) holds the library's input
+rules as pure, exported functions: a `Problem` returns the reason a value is
+invalid, or `undefined`, and `assertValid(name, value, problem)` throws a
+`HaushaltValidationError` with `Invalid <name>: <reason>`. The client checks its
+inputs with them before any request; the CLI calls the same functions rather than
+keeping its own copies, so the same input gives the same outcome on both sides.
 
 **Enum value sets.** `AccountValues`, `QuotaValues`, `UnitValues` — const arrays
 that double as runtime CLI choice validators and as TypeScript union types
@@ -196,6 +206,8 @@ npm test          # builds, then runs `node --test` over dist/test
 - **`engine.test.ts`** — URL building, JSON decoding, error mapping, 429/503 retry, redirects — mocked transport.
 - **`client.test.ts`** — the budget-data URL/param mapping and optional-parameter pruning — mocked transport.
 - **`cli.test.ts`** — command parsing, the expenses/income shortcuts, validation and exit codes — mocked client.
+- **`validate.test.ts`** — `assertValid`, `HaushaltValidationError` and how `run()` reports it.
+- **`parity.test.ts`** — the same input through the CLI and through the library on one recording mock transport (`parity()` in `test/helpers.ts`) must give the same outcome.
 
 ## Continuous integration
 

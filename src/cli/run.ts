@@ -5,7 +5,7 @@
 import { CommanderError, type Command } from "commander";
 import { buildProgram, defaultDeps } from "./program.js";
 import type { CliDeps } from "./io.js";
-import { HaushaltApiError, HaushaltError } from "../client/errors.js";
+import { HaushaltApiError, HaushaltError, HaushaltValidationError } from "../client/errors.js";
 
 /**
  * Apply exitOverride + output redirection to every command in the tree.
@@ -57,6 +57,12 @@ export async function run(argv: string[], deps: CliDeps = defaultDeps): Promise<
         }
         return 4;
       }
+      return 1;
+    }
+    if (err instanceof HaushaltValidationError) {
+      // An input the library rejected before any request: a usage error, which
+      // exits 1 here like commander's own usage errors.
+      deps.io.err(`Error: ${err.message}`);
       return 1;
     }
     if (err instanceof HaushaltError) {
