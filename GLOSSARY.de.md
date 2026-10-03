@@ -76,7 +76,10 @@ Optional (`--unit`).
 
 **id (Haushaltsstelle).** Steigt in ein einzelnes Element ab, statt die oberste Ansicht zu
 liefern. Den Baum durchlaufen Sie, indem Sie die `id` eines Kindelements aus einer Antwort
-als nächstes `--id` übergeben. Optional.
+als nächstes `--id` übergeben. Optional. Ihr Präfix legt die Einheit fest (siehe
+„Kennungen, Einheiten & Codes“ unten): Ohne Angabe einer Einheit setzt eine `G-`/`F-`-ID
+sie, und eine Einheit, die der ID widerspricht, wird vor jeder Anfrage abgelehnt, vom Client
+wie von der CLI, weil die API ein unpassendes Paar mit `404` beantwortet, auch wenn die ID existiert.
 
 ---
 

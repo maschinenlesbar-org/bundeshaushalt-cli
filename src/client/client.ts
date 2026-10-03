@@ -5,11 +5,11 @@
 //   client.budgetData({ year: 2024, account: "expenses", id: "G-5", unit: "group" })
 
 import { RequestEngine, type EngineOptions } from "./engine.js";
-import { AccountValues, MIN_YEAR, QuotaValues, UnitValues } from "./enums.js";
+import { AccountValues, MIN_YEAR, QuotaValues, UnitValues, unitOfId } from "./enums.js";
 import { HaushaltError, HaushaltParseError } from "./errors.js";
 import type { QueryParams } from "./query.js";
 import type { BudgetData, BudgetParams } from "./types.js";
-import { assertValid, idProblem } from "./validate.js";
+import { assertValid, idProblem, idUnitProblem } from "./validate.js";
 
 // NOTE: This is an undocumented, internal endpoint of bundeshaushalt.de (note the
 // "internalapi" path segment). It is not a published, stable public API and may
@@ -31,16 +31,21 @@ export class BundeshaushaltClient {
    * sets, `id` non-blank, without surrounding whitespace and not a bare `G-`/`F-`
    * prefix (`idProblem`; a HaushaltValidationError). The upper year bound is left to
    * the API (404 for a year it does not have).
+   *
+   * An id's prefix fixes its grouping (`unitOfId`): without `unit`, a `G-`/`F-` id
+   * sends `unit=group`/`unit=function`; a `unit` that contradicts the id is a
+   * HaushaltValidationError (`idUnitProblem`), since the API answers a mismatched
+   * pair with a bare 404 for an id that exists. See `validateBudgetParams`.
    */
   async budgetData(params: BudgetParams): Promise<BudgetData> {
-    checkParams(params);
+    const checked = validateBudgetParams(params);
     const query: QueryParams = {
-      year: params.year,
-      account: params.account,
+      year: checked.year,
+      account: checked.account,
     };
-    if (params.quota !== undefined) query["quota"] = params.quota;
-    if (params.unit !== undefined) query["unit"] = params.unit;
-    if (params.id !== undefined) query["id"] = params.id;
+    if (checked.quota !== undefined) query["quota"] = checked.quota;
+    if (checked.unit !== undefined) query["unit"] = checked.unit;
+    if (checked.id !== undefined) query["id"] = checked.id;
     return assertBudgetData(await this.engine.getJson<unknown>(PATH, query));
   }
 }
@@ -64,14 +69,26 @@ function assertBudgetData(body: unknown): BudgetData {
   return body as unknown as BudgetData;
 }
 
-function checkParams(params: BudgetParams): void {
+/**
+ * Check `budgetData`'s params as it does, before any request, and return them with
+ * the unit a `G-`/`F-` id implies filled in when `unit` is omitted. Throws a
+ * HaushaltError (a HaushaltValidationError for the id rules).
+ */
+export function validateBudgetParams(params: BudgetParams): BudgetParams {
   if (!Number.isSafeInteger(params.year) || params.year < MIN_YEAR) {
     throw new HaushaltError(`Invalid year ${String(params.year)}: expected an integer from ${MIN_YEAR} on.`);
   }
   checkEnum("account", params.account, AccountValues);
   if (params.quota !== undefined) checkEnum("quota", params.quota, QuotaValues);
   if (params.unit !== undefined) checkEnum("unit", params.unit, UnitValues);
-  if (params.id !== undefined) assertValid(`id "${String(params.id)}"`, params.id, idProblem);
+  if (params.id === undefined) return params;
+  const id = assertValid(`id "${String(params.id)}"`, params.id, idProblem);
+  if (params.unit !== undefined) {
+    assertValid(`id "${id}" for unit ${params.unit}`, { id, unit: params.unit }, idUnitProblem);
+    return params;
+  }
+  const unit = unitOfId(id);
+  return unit === "single" ? params : { ...params, unit };
 }
 
 function checkEnum(name: string, value: unknown, allowed: readonly string[]): void {

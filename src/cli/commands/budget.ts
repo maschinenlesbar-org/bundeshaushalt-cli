@@ -6,7 +6,6 @@ import { HaushaltError } from "../../client/errors.js";
 import { AccountValues, QuotaValues, UnitValues, MIN_YEAR } from "../../client/enums.js";
 import type { Account, Quota, Unit } from "../../client/enums.js";
 import type { BudgetParams } from "../../client/types.js";
-import { assertValid, idProblem } from "../../client/validate.js";
 
 /**
  * Upper bound for an accepted year. Derived from the current year (rather than a
@@ -59,37 +58,11 @@ function optionsFrom(opts: Record<string, unknown>): Omit<BudgetParams, "year" |
         `Invalid id "${raw}". The --id value looks like an option; did you forget to supply an id?`,
       );
     }
-    // The id's own shape (non-blank, no surrounding whitespace, not a bare G-/F-)
-    // is the client's rule (idProblem); check it first, before the --unit rule.
-    const id = assertValid(`id "${raw}"`, raw, idProblem);
-    params.id = id;
-    // The prefix fixes the grouping, and the API answers a mismatched pair with a
-    // bare 404 ("not found" for an id that exists): infer --unit when it is omitted,
-    // reject a contradicting one.
-    const idUnit = unitOfId(id);
-    if (params.unit === undefined) {
-      if (idUnit !== "single") params.unit = idUnit;
-    } else if (params.unit !== idUnit) {
-      const why =
-        idUnit === "single"
-          ? `${params.unit} ids start with "${UNIT_PREFIX[params.unit]}" (e.g. "${UNIT_EXAMPLE[params.unit]}")`
-          : `a "${UNIT_PREFIX[idUnit]}" id belongs to --unit ${idUnit}`;
-      throw new HaushaltError(`Invalid id "${raw}" for --unit ${params.unit}: ${why}.`);
-    }
+    // The id rules (its shape, and that its G-/F- prefix fixes --unit, set when
+    // omitted) are the client's: budgetData checks them before any request.
+    params.id = raw;
   }
   return params;
-}
-
-/** The id prefix of each grouping (the API matches it case-insensitively). */
-const UNIT_PREFIX: Record<Unit, string> = { group: "G-", function: "F-", single: "" };
-const UNIT_EXAMPLE: Record<Unit, string> = { group: "G-5", function: "F-0", single: "14" };
-
-/** The grouping an id belongs to, by its prefix: G- group, F- function, none single. */
-function unitOfId(id: string): Unit {
-  const prefix = id.slice(0, 2).toUpperCase();
-  if (prefix === UNIT_PREFIX.group) return "group";
-  if (prefix === UNIT_PREFIX.function) return "function";
-  return "single";
 }
 
 function addBudgetOptions(cmd: Command): Command {

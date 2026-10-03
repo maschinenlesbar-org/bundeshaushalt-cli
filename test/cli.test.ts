@@ -284,10 +284,10 @@ test("--id's G-/F- prefix sets --unit when omitted", async () => {
 
 test("rejects an --id whose prefix contradicts --unit before any request", async () => {
   const cases = [
-    ["single", "G-5", 'Invalid id "G-5" for --unit single: a "G-" id belongs to --unit group.'],
-    ["function", "G-5", 'Invalid id "G-5" for --unit function: a "G-" id belongs to --unit group.'],
-    ["group", "14", 'Invalid id "14" for --unit group: group ids start with "G-" (e.g. "G-5").'],
-    ["function", "14", 'Invalid id "14" for --unit function: function ids start with "F-" (e.g. "F-0").'],
+    ["single", "G-5", 'Invalid id "G-5" for unit single: A "G-" id belongs to unit group.'],
+    ["function", "G-5", 'Invalid id "G-5" for unit function: A "G-" id belongs to unit group.'],
+    ["group", "14", 'Invalid id "14" for unit group: Expected an id starting with "G-" (e.g. "G-5").'],
+    ["function", "14", 'Invalid id "14" for unit function: Expected an id starting with "F-" (e.g. "F-0").'],
   ] as const;
   for (const [unit, id, message] of cases) {
     const cli = makeCli(() => jsonResponse(body));

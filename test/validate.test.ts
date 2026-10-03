@@ -2,7 +2,8 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { BundeshaushaltClient } from "../src/client/client.js";
 import { HaushaltError, HaushaltValidationError } from "../src/client/errors.js";
-import { assertValid, idProblem, type Problem } from "../src/client/validate.js";
+import { assertValid, idProblem, idUnitProblem, type Problem } from "../src/client/validate.js";
+import { unitOfId } from "../src/client/enums.js";
 import * as root from "../src/index.js";
 import { run } from "../src/cli/run.js";
 import type { CliDeps } from "../src/cli/io.js";
@@ -60,4 +61,18 @@ test("idProblem: a non-blank budget number without surrounding whitespace or a b
   assert.equal(idProblem("14\n"), "Surrounding whitespace is not allowed.");
   assert.equal(idProblem("G-"), 'Expected a number after the "G-" prefix, e.g. "G-5".');
   assert.equal(idProblem("f-"), 'Expected a number after the "F-" prefix, e.g. "F-5".');
+});
+
+test("unitOfId reads the grouping from the id prefix, case-insensitively", () => {
+  for (const [id, unit] of [["G-5", "group"], ["g-5", "group"], ["F-0", "function"], ["f-12", "function"], ["14", "single"], ["090168301", "single"]] as const) {
+    assert.equal(unitOfId(id), unit, id);
+  }
+});
+
+test("idUnitProblem: the id prefix must match the unit", () => {
+  assert.equal(idUnitProblem({ id: "G-5", unit: "group" }), undefined);
+  assert.equal(idUnitProblem({ id: "f-0", unit: "function" }), undefined);
+  assert.equal(idUnitProblem({ id: "14", unit: "single" }), undefined);
+  assert.equal(idUnitProblem({ id: "14", unit: "group" }), 'Expected an id starting with "G-" (e.g. "G-5").');
+  assert.equal(idUnitProblem({ id: "G-5", unit: "single" }), 'A "G-" id belongs to unit group.');
 });

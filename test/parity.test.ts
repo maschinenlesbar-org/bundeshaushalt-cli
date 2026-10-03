@@ -38,3 +38,40 @@ test("an id with surrounding whitespace or a bare G-/F- prefix is rejected by CL
     assert.deepEqual(p.cli.err, [`Error: ${(p.lib.error as Error).message}`], JSON.stringify(id));
   }
 });
+
+test("a G-/F- id sets the unit when it is omitted, in CLI and library alike", async () => {
+  const cases: [string, "expenses" | "income", string | null][] = [
+    ["G-5", "expenses", "group"],
+    ["g-5", "expenses", "group"],
+    ["F-0", "expenses", "function"],
+    ["F-0", "income", "function"],
+    ["14", "expenses", null],
+  ];
+  for (const [id, account, unit] of cases) {
+    const p = await parity(["--compact", "budget", "2024", account, "--id", id], (transport) =>
+      new BundeshaushaltClient({ transport }).budgetData({ year: 2024, account, id }),
+    );
+    assertParity(p, `${account} ${id}`);
+    assert.equal(new URL(p.lib.requests[0]!.url).searchParams.get("unit"), unit, `${account} ${id}`);
+  }
+});
+
+test("an id whose prefix contradicts the unit is rejected by CLI and library alike, before any request", async () => {
+  const cases: [string, "single" | "function" | "group", string][] = [
+    ["14", "group", 'Invalid id "14" for unit group: Expected an id starting with "G-" (e.g. "G-5").'],
+    ["14", "function", 'Invalid id "14" for unit function: Expected an id starting with "F-" (e.g. "F-0").'],
+    ["G-5", "function", 'Invalid id "G-5" for unit function: A "G-" id belongs to unit group.'],
+    ["G-5", "single", 'Invalid id "G-5" for unit single: A "G-" id belongs to unit group.'],
+    ["F-0", "group", 'Invalid id "F-0" for unit group: A "F-" id belongs to unit function.'],
+  ];
+  for (const [id, unit, message] of cases) {
+    const p = await parity(["--compact", "expenses", "2024", "--unit", unit, "--id", id], (transport) =>
+      new BundeshaushaltClient({ transport }).budgetData({ year: 2024, account: "expenses", id, unit }),
+    );
+    assertParity(p, `${unit} ${id}`);
+    assert.ok(!p.lib.ok && p.lib.error instanceof HaushaltValidationError, `${unit} ${id}`);
+    assert.equal((p.lib.error as Error).message, message);
+    assert.deepEqual(p.cli.err, [`Error: ${message}`]);
+    assert.equal(p.cli.code, 1);
+  }
+});

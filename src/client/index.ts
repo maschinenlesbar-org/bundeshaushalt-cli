@@ -1,6 +1,6 @@
 // Public entry point for the API client library.
 
-export { BundeshaushaltClient } from "./client.js";
+export { BundeshaushaltClient, validateBudgetParams } from "./client.js";
 export {
   RequestEngine,
   DEFAULT_BASE_URL,
@@ -21,7 +21,7 @@ export {
   HaushaltValidationError,
   redactUrl,
 } from "./errors.js";
-export { assertValid, idProblem } from "./validate.js";
+export { assertValid, idProblem, idUnitProblem } from "./validate.js";
 export type { Problem } from "./validate.js";
 
 export * from "./enums.js";

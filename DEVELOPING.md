@@ -75,7 +75,10 @@ new BundeshaushaltClient({
 ### Methods
 
 `client.budgetData({ year, account, quota?, unit?, id? })`. The `AccountValues` /
-`QuotaValues` / `UnitValues` enums are exported for reference.
+`QuotaValues` / `UnitValues` enums are exported for reference, and so are
+`UNIT_PREFIX` and `unitOfId(id)`: an id's `G-`/`F-` prefix fixes its unit, so
+`budgetData({ year: 2024, account: "expenses", id: "G-5" })` sends `unit=group`,
+and `{ id: "14", unit: "group" }` is rejected before any request.
 
 The response types follow the live wire shape, which varies by level: the top-level
 `detail` has no `id`/`budgetNumber`; `children` is absent at a leaf; `parents` (one
@@ -88,7 +91,7 @@ using them.
 ```
 src/
   client/
-    enums.ts     # Account / Quota / Unit value sets + MIN_YEAR
+    enums.ts     # Account / Quota / Unit value sets, MIN_YEAR, UNIT_PREFIX + unitOfId
     types.ts     # BudgetData / BudgetElement / BudgetMeta + param object
     query.ts     # dependency-free query-string builder
     http.ts      # the Transport interface + default node:http/https transport
@@ -115,8 +118,11 @@ src/
   request — by the client too (year from `MIN_YEAR` on; `id` non-blank, without surrounding
   whitespace and not a bare `G-`/`F-` prefix, `idProblem`), so a library caller gets a
   `HaushaltError` (a `HaushaltValidationError` for the `id`) rather than a request with
-  `account=bogus`, `id=` or `id=G-`, which the API answers with a 503 that would be retried. Only the CLI enforces the upper
-  year bound (next year) and the `--id`/`--unit` rules. The numeric `EngineOptions` must be integers in
+  `account=bogus`, `id=` or `id=G-`, which the API answers with a 503 that would be retried. The
+  client also owns the id/unit rule: a `G-`/`F-` id sets `unit` when it is omitted (`unitOfId`), and
+  a `unit` that contradicts the id is a `HaushaltValidationError` (`idUnitProblem`), because the API
+  answers a mismatched pair with a bare 404 for an id that exists. `validateBudgetParams` applies all
+  of these and is exported. Only the CLI enforces the upper year bound (next year). The numeric `EngineOptions` must be integers in
   range (`timeoutMs` 0..2^31−1, `maxRetries` 0..10, `retryDelayMs` 0..30 000, `maxRedirects` 0..20,
   `maxResponseBytes` 0..`Number.MAX_SAFE_INTEGER`); anything else — `NaN`, `Infinity`, `-1`, `1.5` —
   makes the constructor throw a `HaushaltError` naming the option.

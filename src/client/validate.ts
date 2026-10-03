@@ -3,6 +3,7 @@
 // into a HaushaltValidationError. The client checks its inputs with these before
 // any request, and the CLI calls the same functions instead of keeping copies.
 
+import { UNIT_EXAMPLE, UNIT_PREFIX, unitOfId, type Unit } from "./enums.js";
 import { HaushaltValidationError } from "./errors.js";
 
 /** The reason `value` is invalid (a sentence, e.g. "Expected a non-empty value."), or undefined. */
@@ -33,4 +34,16 @@ export const idProblem: Problem<unknown> = (id) => {
     return `Expected a number after the "${prefix}" prefix, e.g. "${prefix}5".`;
   }
   return undefined;
+};
+
+/**
+ * An `id` together with an explicit `unit`: the id's prefix (`unitOfId`) must name
+ * that unit, since the API answers a mismatched pair with a bare 404.
+ */
+export const idUnitProblem: Problem<{ id: string; unit: Unit }> = ({ id, unit }) => {
+  const idUnit = unitOfId(id);
+  if (idUnit === unit) return undefined;
+  return idUnit === "single"
+    ? `Expected an id starting with "${UNIT_PREFIX[unit]}" (e.g. "${UNIT_EXAMPLE[unit]}").`
+    : `A "${UNIT_PREFIX[idUnit]}" id belongs to unit ${idUnit}.`;
 };

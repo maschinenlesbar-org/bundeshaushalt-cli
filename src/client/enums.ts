@@ -18,5 +18,23 @@ export type Quota = (typeof QuotaValues)[number];
 export const UnitValues = ["single", "function", "group"] as const;
 export type Unit = (typeof UnitValues)[number];
 
+/**
+ * The id prefix of each grouping: `G-` group, `F-` function, none for the budget
+ * structure (`single`). The API matches the prefix case-insensitively and answers
+ * an id/unit pair that disagrees with a bare 404, "not found" for an id that exists.
+ */
+export const UNIT_PREFIX: Readonly<Record<Unit, string>> = { group: "G-", function: "F-", single: "" };
+
+/** An example id of each grouping, for messages. */
+export const UNIT_EXAMPLE: Readonly<Record<Unit, string>> = { group: "G-5", function: "F-0", single: "14" };
+
+/** The grouping an id belongs to, by its prefix (any case): `G-` group, `F-` function, none single. */
+export function unitOfId(id: string): Unit {
+  const prefix = id.slice(0, 2).toUpperCase();
+  if (prefix === UNIT_PREFIX.group) return "group";
+  if (prefix === UNIT_PREFIX.function) return "function";
+  return "single";
+}
+
 /** Earliest year the API serves. */
 export const MIN_YEAR = 2012;

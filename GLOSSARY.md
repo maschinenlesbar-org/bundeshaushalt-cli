@@ -76,7 +76,10 @@ Optional (`--unit`).
 
 **id (budget number).** Drills into one element rather than returning the
 top-level view. Walk the tree by taking a child's `id` from one response and
-passing it back as the next `--id`. Optional.
+passing it back as the next `--id`. Optional. Its prefix fixes the unit (see
+"Identifiers, units & codes" below): without a unit, a `G-`/`F-` id sets it, and a
+unit that contradicts the id is rejected before any request, by the client and the CLI
+alike, because the API answers a mismatched pair with a `404` for an id that exists.
 
 ---
 
