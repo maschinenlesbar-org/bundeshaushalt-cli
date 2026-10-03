@@ -38,3 +38,16 @@ export function unitOfId(id: string): Unit {
 
 /** Earliest year the API serves. */
 export const MIN_YEAR = 2012;
+
+/**
+ * Latest accepted year: next year, derived from the clock (UTC) rather than a
+ * hard-coded literal. Every summer the portal publishes the government's draft
+ * budget (Regierungsentwurf) for the following year (in September 2026 it served
+ * 2027), so the current year alone would lock that newest budget out for months.
+ * Before the draft appears the API answers next year with a 404. Next year also
+ * covers the first hour of 1 January in German time, when UTC still reports the
+ * old year.
+ */
+export function maxYear(now: Date = new Date()): number {
+  return now.getUTCFullYear() + 1;
+}

@@ -48,7 +48,8 @@ und **id**. Die CLI bietet sie als `budget <year> <account>` sowie über die Kur
 `expenses` / `income` an.
 
 **year (Haushaltsjahr).** Ein vierstelliges Haushaltsjahr. Die API liefert Daten ab
-**`2012`** (`MIN_YEAR`); die Obergrenze der CLI ist das nächste Jahr (zur Laufzeit ermittelt),
+**`2012`** (`MIN_YEAR`); die Obergrenze ist im Client wie in der CLI das nächste Jahr
+(`maxYear()`, zur Laufzeit ermittelt),
 weil das Portal jeden Sommer den Regierungsentwurf für das Folgejahr veröffentlicht. Bevor
 dieser Entwurf erscheint, antwortet das nächste Jahr mit `404` (Exit `4`). Pflichtangabe.
 

@@ -47,8 +47,8 @@ and **id**. The CLI surfaces it as `budget <year> <account>` plus the
 `expenses` / `income` shortcuts.
 
 **year (Haushaltsjahr).** A four-digit budget year. The API serves data from
-**`2012`** (`MIN_YEAR`) onward; the CLI's upper bound is next year (derived at
-runtime), because each summer the portal publishes the government's draft budget
+**`2012`** (`MIN_YEAR`) onward; the upper bound, in the client and the CLI alike, is
+next year (`maxYear()`, derived at runtime), because each summer the portal publishes the government's draft budget
 (Regierungsentwurf) for the following year. Before that draft appears, next year
 answers `404` (exit `4`). Required.
 

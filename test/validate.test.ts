@@ -2,8 +2,8 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { BundeshaushaltClient } from "../src/client/client.js";
 import { HaushaltError, HaushaltValidationError } from "../src/client/errors.js";
-import { assertValid, idProblem, idUnitProblem, type Problem } from "../src/client/validate.js";
-import { unitOfId } from "../src/client/enums.js";
+import { assertValid, idProblem, idUnitProblem, yearProblem, type Problem } from "../src/client/validate.js";
+import { maxYear, unitOfId } from "../src/client/enums.js";
 import * as root from "../src/index.js";
 import { run } from "../src/cli/run.js";
 import type { CliDeps } from "../src/cli/io.js";
@@ -75,4 +75,17 @@ test("idUnitProblem: the id prefix must match the unit", () => {
   assert.equal(idUnitProblem({ id: "14", unit: "single" }), undefined);
   assert.equal(idUnitProblem({ id: "14", unit: "group" }), 'Expected an id starting with "G-" (e.g. "G-5").');
   assert.equal(idUnitProblem({ id: "G-5", unit: "single" }), 'A "G-" id belongs to unit group.');
+});
+
+test("maxYear is next year in UTC", () => {
+  assert.equal(maxYear(new Date(Date.UTC(2026, 11, 31, 23, 30))), 2027);
+  assert.equal(maxYear(new Date(Date.UTC(2027, 0, 1, 0, 30))), 2028);
+  assert.equal(maxYear(), new Date().getUTCFullYear() + 1);
+});
+
+test("yearProblem: an integer from MIN_YEAR to next year", () => {
+  const next = maxYear();
+  const reason = `Expected a year between 2012 and ${next}.`;
+  for (const ok of [2012, 2024, next]) assert.equal(yearProblem(ok), undefined, String(ok));
+  for (const bad of [2011, next + 1, 2024.5, Number.NaN, "2024"]) assert.equal(yearProblem(bad), reason, String(bad));
 });

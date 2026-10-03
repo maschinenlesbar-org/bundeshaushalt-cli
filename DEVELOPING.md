@@ -115,14 +115,16 @@ src/
 - The CLI is built around injectable `CliDeps` (client factory + I/O), so the whole program can be
   driven in-process by tests with a mocked client and captured output — no subprocesses.
 - `account`/`quota`/`unit` are validated against their enums and the year is range-checked before any
-  request — by the client too (year from `MIN_YEAR` on; `id` non-blank, without surrounding
-  whitespace and not a bare `G-`/`F-` prefix, `idProblem`), so a library caller gets a
-  `HaushaltError` (a `HaushaltValidationError` for the `id`) rather than a request with
+  request by the client (`validateBudgetParams`, exported), and the CLI relies on it. The year must be
+  an integer from `MIN_YEAR` to next year (`maxYear()`, `yearProblem`); the `id` non-blank, without
+  surrounding whitespace and not a bare `G-`/`F-` prefix (`idProblem`). A library caller gets a
+  `HaushaltError` (a `HaushaltValidationError` for the year and the `id`) rather than a request with
   `account=bogus`, `id=` or `id=G-`, which the API answers with a 503 that would be retried. The
   client also owns the id/unit rule: a `G-`/`F-` id sets `unit` when it is omitted (`unitOfId`), and
   a `unit` that contradicts the id is a `HaushaltValidationError` (`idUnitProblem`), because the API
-  answers a mismatched pair with a bare 404 for an id that exists. `validateBudgetParams` applies all
-  of these and is exported. Only the CLI enforces the upper year bound (next year). The numeric `EngineOptions` must be integers in
+  answers a mismatched pair with a bare 404 for an id that exists. The CLI's own year and id checks are only the
+  four-digit shape of `<year>` and an `--id` that looks like an option (`--id --quota`).
+  The numeric `EngineOptions` must be integers in
   range (`timeoutMs` 0..2^31−1, `maxRetries` 0..10, `retryDelayMs` 0..30 000, `maxRedirects` 0..20,
   `maxResponseBytes` 0..`Number.MAX_SAFE_INTEGER`); anything else — `NaN`, `Infinity`, `-1`, `1.5` —
   makes the constructor throw a `HaushaltError` naming the option.
@@ -201,7 +203,9 @@ keeping its own copies, so the same input gives the same outcome on both sides.
 
 **Enum value sets.** `AccountValues`, `QuotaValues`, `UnitValues` — const arrays
 that double as runtime CLI choice validators and as TypeScript union types
-(`Account`, `Quota`, `Unit`). `MIN_YEAR` (`2012`) is the earliest served year.
+(`Account`, `Quota`, `Unit`). `MIN_YEAR` (`2012`) is the earliest served year and
+`maxYear()` (next year, UTC) the latest accepted one: each summer the portal
+publishes the draft budget for the following year.
 
 ## Testing
 

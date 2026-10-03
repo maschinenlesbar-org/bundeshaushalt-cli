@@ -105,8 +105,9 @@ test("numeric engine options must be integers in range; a bad one throws instead
 
 test("budgetData checks its params before any request", async () => {
   const cases: [Record<string, unknown>, RegExp][] = [
-    [{ year: 1999, account: "expenses" }, /^Invalid year 1999: expected an integer from 2012 on\.$/],
+    [{ year: 1999, account: "expenses" }, /^Invalid year 1999: Expected a year between 2012 and \d{4}\.$/],
     [{ year: 2024.5, account: "expenses" }, /^Invalid year 2024\.5/],
+    [{ year: 9999, account: "expenses" }, /^Invalid year 9999: Expected a year between 2012 and \d{4}\.$/],
     [{ year: 2024, account: "bogus" }, /^Invalid account "bogus": expected one of expenses, income\.$/],
     [{ year: 2024, account: "expenses", quota: "nope" }, /^Invalid quota "nope"/],
     [{ year: 2024, account: "expenses", unit: "x" }, /^Invalid unit "x"/],

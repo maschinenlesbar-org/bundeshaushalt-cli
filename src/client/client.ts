@@ -5,11 +5,11 @@
 //   client.budgetData({ year: 2024, account: "expenses", id: "G-5", unit: "group" })
 
 import { RequestEngine, type EngineOptions } from "./engine.js";
-import { AccountValues, MIN_YEAR, QuotaValues, UnitValues, unitOfId } from "./enums.js";
+import { AccountValues, QuotaValues, UnitValues, unitOfId } from "./enums.js";
 import { HaushaltError, HaushaltParseError } from "./errors.js";
 import type { QueryParams } from "./query.js";
 import type { BudgetData, BudgetParams } from "./types.js";
-import { assertValid, idProblem, idUnitProblem } from "./validate.js";
+import { assertValid, idProblem, idUnitProblem, yearProblem } from "./validate.js";
 
 // NOTE: This is an undocumented, internal endpoint of bundeshaushalt.de (note the
 // "internalapi" path segment). It is not a published, stable public API and may
@@ -27,10 +27,10 @@ export class BundeshaushaltClient {
   /**
    * Budget data for a year + account, optionally scoped by quota/unit/id. The
    * params are checked before any request (a HaushaltError, as a rejected promise):
-   * `year` an integer from `MIN_YEAR` on, `account`/`quota`/`unit` from their value
-   * sets, `id` non-blank, without surrounding whitespace and not a bare `G-`/`F-`
-   * prefix (`idProblem`; a HaushaltValidationError). The upper year bound is left to
-   * the API (404 for a year it does not have).
+   * `year` an integer from `MIN_YEAR` to `maxYear()`, next year (`yearProblem`; a
+   * HaushaltValidationError), `account`/`quota`/`unit` from their value sets, `id`
+   * non-blank, without surrounding whitespace and not a bare `G-`/`F-` prefix
+   * (`idProblem`; a HaushaltValidationError).
    *
    * An id's prefix fixes its grouping (`unitOfId`): without `unit`, a `G-`/`F-` id
    * sends `unit=group`/`unit=function`; a `unit` that contradicts the id is a
@@ -75,9 +75,7 @@ function assertBudgetData(body: unknown): BudgetData {
  * HaushaltError (a HaushaltValidationError for the id rules).
  */
 export function validateBudgetParams(params: BudgetParams): BudgetParams {
-  if (!Number.isSafeInteger(params.year) || params.year < MIN_YEAR) {
-    throw new HaushaltError(`Invalid year ${String(params.year)}: expected an integer from ${MIN_YEAR} on.`);
-  }
+  assertValid(`year ${String(params.year)}`, params.year, yearProblem);
   checkEnum("account", params.account, AccountValues);
   if (params.quota !== undefined) checkEnum("quota", params.quota, QuotaValues);
   if (params.unit !== undefined) checkEnum("unit", params.unit, UnitValues);

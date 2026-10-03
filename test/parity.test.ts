@@ -75,3 +75,20 @@ test("an id whose prefix contradicts the unit is rejected by CLI and library ali
     assert.equal(p.cli.code, 1);
   }
 });
+
+test("the year range (MIN_YEAR to next year) is enforced by CLI and library alike", async () => {
+  const next = new Date().getUTCFullYear() + 1;
+  for (const year of [2011, 2012, next, next + 1, 2099]) {
+    const p = await parity(["--compact", "--max-retries", "0", "expenses", String(year)], (transport) =>
+      new BundeshaushaltClient({ transport, maxRetries: 0 }).budgetData({ year, account: "expenses" }),
+    );
+    assertParity(p, String(year));
+    const inRange = year >= 2012 && year <= next;
+    assert.equal(p.lib.ok, inRange, String(year));
+    if (!inRange) {
+      assert.ok(!p.lib.ok && p.lib.error instanceof HaushaltValidationError, String(year));
+      assert.equal((p.lib.error as Error).message, `Invalid year ${year}: Expected a year between 2012 and ${next}.`);
+      assert.deepEqual(p.cli.err, [`Error: ${(p.lib.error as Error).message}`]);
+    }
+  }
+});

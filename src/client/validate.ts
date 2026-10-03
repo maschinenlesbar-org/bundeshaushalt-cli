@@ -3,7 +3,7 @@
 // into a HaushaltValidationError. The client checks its inputs with these before
 // any request, and the CLI calls the same functions instead of keeping copies.
 
-import { UNIT_EXAMPLE, UNIT_PREFIX, unitOfId, type Unit } from "./enums.js";
+import { MIN_YEAR, UNIT_EXAMPLE, UNIT_PREFIX, maxYear, unitOfId, type Unit } from "./enums.js";
 import { HaushaltValidationError } from "./errors.js";
 
 /** The reason `value` is invalid (a sentence, e.g. "Expected a non-empty value."), or undefined. */
@@ -46,4 +46,13 @@ export const idUnitProblem: Problem<{ id: string; unit: Unit }> = ({ id, unit })
   return idUnit === "single"
     ? `Expected an id starting with "${UNIT_PREFIX[unit]}" (e.g. "${UNIT_EXAMPLE[unit]}").`
     : `A "${UNIT_PREFIX[idUnit]}" id belongs to unit ${idUnit}.`;
+};
+
+/** A budget `year`: an integer from `MIN_YEAR` (2012) to `maxYear()` (next year). */
+export const yearProblem: Problem<unknown> = (year) => {
+  const ceiling = maxYear();
+  if (typeof year !== "number" || !Number.isSafeInteger(year) || year < MIN_YEAR || year > ceiling) {
+    return `Expected a year between ${MIN_YEAR} and ${ceiling}.`;
+  }
+  return undefined;
 };

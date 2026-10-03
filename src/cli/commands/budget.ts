@@ -3,42 +3,23 @@ import { Option } from "commander";
 import type { CliDeps } from "../io.js";
 import { action, assertEnum, renderJson } from "../shared.js";
 import { HaushaltError } from "../../client/errors.js";
-import { AccountValues, QuotaValues, UnitValues, MIN_YEAR } from "../../client/enums.js";
+import { AccountValues, QuotaValues, UnitValues, MIN_YEAR, maxYear } from "../../client/enums.js";
 import type { Account, Quota, Unit } from "../../client/enums.js";
 import type { BudgetParams } from "../../client/types.js";
 
 /**
- * Upper bound for an accepted year. Derived from the current year (rather than a
- * hard-coded literal) so the validator stays meaningful as years advance.
- *
- * Capped at next year: every summer the portal publishes the government's draft
- * budget (Regierungsentwurf) for the following year — in September 2026 it served
- * 2027 — so the current year alone would lock that newest budget out for months.
- * Outside that window the API answers next year with a 404 (exit 4). Next year
- * also covers the first hour of 1 January in German time, when UTC still reports
- * the old year.
+ * Parse a positional year: the raw four-digit shape only, so loose inputs like
+ * "2024.0" or " 2024 " are rejected rather than silently normalised. The range
+ * (MIN_YEAR to next year) is the client's rule (yearProblem), checked before any
+ * request.
  */
-function maxYear(): number {
-  return new Date().getUTCFullYear() + 1;
-}
-
-/** Parse + range-check a positional year (a four-digit integer in range). */
 function requireYear(value: string): number {
-  const ceiling = maxYear();
-  // Validate the raw four-digit shape before coercing, so loose inputs like
-  // "2024.0" or " 2024 " are rejected rather than silently normalised.
   if (!/^\d{4}$/.test(value)) {
     throw new HaushaltError(
-      `Invalid year "${value}". Expected a four-digit year between ${MIN_YEAR} and ${ceiling}.`,
+      `Invalid year "${value}". Expected a four-digit year between ${MIN_YEAR} and ${maxYear()}.`,
     );
   }
-  const n = Number(value);
-  if (n < MIN_YEAR || n > ceiling) {
-    throw new HaushaltError(
-      `Invalid year "${value}". Expected a four-digit year between ${MIN_YEAR} and ${ceiling}.`,
-    );
-  }
-  return n;
+  return Number(value);
 }
 
 /** Build the optional quota/unit/id params shared by all budget commands. */
