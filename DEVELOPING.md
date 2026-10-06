@@ -174,7 +174,17 @@ as `true`/`false`, and encodes spaces as `%20` (not `+`). Only `year` +
 
 **Redirects.** Up to `maxRedirects` (default 5) `3xx` redirects are followed.
 A redirect that would downgrade `https` → `http` is refused, and credential
-headers are stripped when a redirect crosses origins.
+headers are stripped when a redirect crosses origins. The one credential the client
+can send is the userinfo of a base URL you set (`https://user:pw@mirror/`). The engine
+never puts it into the URL a transport sees: it sends it as an `Authorization: Basic`
+header per hop. A redirect to the same origin (scheme, host and port), with a relative
+or an absolute `Location`, keeps it; one that crosses an origin boundary drops it, and a
+`401`/`403` from the target then says so ("the server redirected http→https, which
+dropped the base URL's credentials; use an https base URL"). Userinfo in a `Location`
+is never used. Transports are told `redirect: "manual"` (`HttpRequest.redirect`): the
+engine follows redirects itself, and a response whose `HttpResponse.url` lies on
+another origin (a fetch transport that followed one) is rejected as a
+`HaushaltNetworkError`.
 
 **Base URL validation.** One rule, `baseUrlProblem` ([`validate.ts`](src/client/validate.ts)):
 an absolute `http:`/`https:` URL with a host and no query string or fragment,
@@ -189,8 +199,8 @@ value-parser (`parseBaseUrl` in [`shared.ts`](src/cli/shared.ts)) calls the same
 rule and reports its reason as a usage error naming `--base-url` (exit `1`). The
 default transport re-checks the scheme on every hop, redirects included, and
 reports that as a `HaushaltNetworkError`.
-Userinfo in the base URL (`http://user:pw@mirror/`) is kept and sent as Basic
-auth, for a mirror behind a login; every error message shows the URL through
+Userinfo in the base URL (`http://user:pw@mirror/`) is sent as Basic auth (an
+`Authorization` header, see Redirects), for a mirror behind a login; every error message shows the URL through
 `redactUrl` (`http://***@mirror/...`), so the password never reaches a log. The CLI
 also redacts on output: `run.ts` (`withRedactedOutput`) takes the exact userinfo of
 every argument (`credentialsIn`, exported) and replaces it with `***` in everything it

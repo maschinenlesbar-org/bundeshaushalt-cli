@@ -317,14 +317,19 @@ export class RequestEngine {
    * and own path prefix are kept exactly.
    */
   buildUrl(path: string, query?: QueryParams): string {
+    return this.composeUrl(path, query, true);
+  }
+
+  /** buildUrl, with or without the base URL's userinfo. */
+  private composeUrl(path: string, query: QueryParams | undefined, withUserinfo: boolean): string {
     const base = new URL(this.#baseUrl);
     const basePath = base.pathname.replace(/\/+$/, "");
     const normalizedPath = path.startsWith("/") ? path : `/${path}`;
     const qs = query ? buildQueryString(query) : "";
-    // Keep any userinfo (`http://user:pw@mirror/`): the transport sends it as Basic
-    // auth, for a mirror behind a login. Error messages show it redacted.
+    // buildUrl keeps any userinfo (`http://user:pw@mirror/`); request() leaves it out and
+    // sends it as an Authorization header instead (see basicAuthorization).
     const userinfo =
-      base.username || base.password
+      withUserinfo && (base.username || base.password)
         ? `${base.username}${base.password ? `:${base.password}` : ""}@`
         : "";
     return `${base.protocol}//${userinfo}${base.host}${basePath}${normalizedPath}${qs ? `?${qs}` : ""}`;
@@ -336,7 +341,11 @@ export class RequestEngine {
     path: string,
     options: { query?: QueryParams; accept: string } = { accept: "application/json" },
   ): Promise<RawResponse> {
-    let url = this.buildUrl(path, options.query);
+    // The transport never sees the base URL's userinfo: the engine sends it as an
+    // Authorization header, per hop, so a redirect to the same origin (relative or
+    // absolute) keeps it and one to another origin or scheme drops it. A transport such
+    // as fetch also refuses a URL with credentials outright.
+    let url = this.composeUrl(path, options.query, false);
     let headers: Record<string, string> = {
       Accept: options.accept,
       // Advertise the encodings the transport can decode so an RFC-compliant
@@ -344,6 +353,10 @@ export class RequestEngine {
       "Accept-Encoding": "gzip, deflate, br",
       "User-Agent": this.userAgent,
     };
+    const authorization = basicAuthorization(this.#baseUrl);
+    if (authorization !== undefined) headers["Authorization"] = authorization;
+    /** Why a redirect dropped the base URL's credentials, for a 401/403 message. */
+    let dropped: string | undefined;
 
     let attempt = 0;
     let redirects = 0;
@@ -356,6 +369,7 @@ export class RequestEngine {
           url,
           headers,
           timeoutMs: this.timeoutMs,
+          redirect: "manual",
           ...(this.maxResponseBytes > 0 ? { maxResponseBytes: this.maxResponseBytes } : {}),
         });
       } catch (cause) {
@@ -371,6 +385,18 @@ export class RequestEngine {
             ? this.scrub(reason)
             : `${method} ${redactUrl(url)} failed: ${sanitizeServerText(this.scrub(reason))}`,
           { cause: this.scrubCause(cause) },
+        );
+      }
+
+      // A transport must not follow redirects itself (`redirect: "manual"`): one that did
+      // (fetch's default) may have carried the Authorization header to another host, and
+      // the answer is not the one asked for. Reject it when it says so (`url`).
+      const finalUrl = (response as { url?: unknown }).url;
+      if (typeof finalUrl === "string" && finalUrl !== "" && originOf(finalUrl) !== originOf(url)) {
+        throw new HaushaltNetworkError(
+          `${method} ${redactUrl(url)} failed: the transport followed a redirect to another origin ` +
+            `(${sanitizeServerText(redactUrl(this.scrub(finalUrl)))}); a transport must not follow redirects ` +
+            `(HttpRequest.redirect is "manual").`,
         );
       }
 
@@ -403,7 +429,21 @@ export class RequestEngine {
               `Refusing to follow https->http redirect to ${redactUrl(nextUrl.toString())}`,
             );
           }
-          // Strip credential headers if the redirect crosses origins.
+          // Userinfo in a Location is not used: credentials come from the base URL only,
+          // as the Authorization header, never from a server.
+          nextUrl.username = "";
+          nextUrl.password = "";
+          // Cross-origin credential strip: never forward sensitive headers (the base
+          // URL's Authorization among them) to a different origin — scheme, host or
+          // port — than the one they were issued for. The same origin keeps them,
+          // whether the Location is relative or absolute.
+          const from = new URL(url);
+          if (nextUrl.origin !== from.origin && headers["Authorization"] !== undefined && dropped === undefined) {
+            dropped =
+              from.protocol === "http:" && nextUrl.protocol === "https:" && from.hostname === nextUrl.hostname
+                ? "the server redirected http→https, which dropped the base URL's credentials; use an https base URL"
+                : `the redirect to ${nextUrl.origin} dropped the base URL's credentials (they are sent to their own origin only)`;
+          }
           headers = stripCrossOriginCredentials(headers, url, nextUrl.toString());
           url = nextUrl.toString();
           redirects += 1;
@@ -413,7 +453,7 @@ export class RequestEngine {
 
       const contentType = String(response.headers["content-type"] ?? "");
       if (status < 200 || status >= 300) {
-        throw this.toApiError(method, url, status, response.body);
+        throw this.toApiError(method, url, status, response.body, status === 401 || status === 403 ? dropped : undefined);
       }
 
       return { data: response.body, contentType, status };
@@ -447,7 +487,7 @@ export class RequestEngine {
     }
   }
 
-  private toApiError(method: string, url: string, status: number, body: Buffer): HaushaltApiError {
+  private toApiError(method: string, url: string, status: number, body: Buffer, hint?: string): HaushaltApiError {
     const text = this.scrub(body.toString("utf8"));
     let detail: string | undefined;
     try {
@@ -460,7 +500,28 @@ export class RequestEngine {
     // `detail` came from the response body; strip control characters so a hostile
     // endpoint cannot inject terminal escape sequences via the stderr error message.
     if (detail !== undefined) detail = sanitizeServerText(detail);
+    if (hint !== undefined) detail = detail === undefined ? hint : `${detail}; ${hint}`;
     return new HaushaltApiError({ status, url, method, body: text, detail });
+  }
+}
+
+/**
+ * The `Authorization` header for a URL's userinfo (`Basic base64(user:password)`, both
+ * percent-decoded, as Node's own http client builds it), or undefined without userinfo.
+ */
+function basicAuthorization(url: string): string | undefined {
+  const parsed = new URL(url);
+  if (parsed.username === "" && parsed.password === "") return undefined;
+  const pair = `${decodeURIComponent(parsed.username)}:${decodeURIComponent(parsed.password)}`;
+  return `Basic ${Buffer.from(pair, "utf8").toString("base64")}`;
+}
+
+/** The origin (scheme, host, port) of a URL, or the value itself if it doesn't parse. */
+function originOf(url: string): string {
+  try {
+    return new URL(url).origin;
+  } catch {
+    return url;
   }
 }
 
