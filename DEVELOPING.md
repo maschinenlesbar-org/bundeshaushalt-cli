@@ -177,7 +177,10 @@ A redirect that would downgrade `https` → `http` is refused, and credential
 headers are stripped when a redirect crosses origins.
 
 **Base URL validation.** One rule, `baseUrlProblem` ([`validate.ts`](src/client/validate.ts)):
-an absolute `http:`/`https:` URL with a host and no query string or fragment. The
+an absolute `http:`/`https:` URL with a host and no query string or fragment,
+without surrounding whitespace or inner whitespace/control characters, and with no
+`%` in its userinfo that isn't an escape (a literal `%` is written `%25`; the
+userinfo is percent-decoded for the Basic-auth header). The
 `RequestEngine` constructor applies it through the exported `validateBaseUrl`, so
 a library caller passing a bad `baseUrl` (`file:`, `ftp:`, `notaurl`, `https:`,
 `https://host/?q=1`) gets a `HaushaltValidationError` from `new

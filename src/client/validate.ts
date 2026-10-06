@@ -59,22 +59,37 @@ export const yearProblem: Problem<unknown> = (year) => {
 
 /**
  * A base URL: an absolute `http:`/`https:` URL with a host and no query string or
- * fragment (the client appends its own path and query). Userinfo is allowed: it is
- * sent as Basic auth, for a mirror behind a login, and redacted in messages.
+ * fragment (the client appends its own path and query), without surrounding
+ * whitespace or inner whitespace/control characters (the URL parser would drop or
+ * encode them silently). Userinfo is allowed: it is sent as Basic auth, for a mirror
+ * behind a login, and redacted in messages; a `%` in it must be an escape (`%25` for
+ * a literal one), since it is percent-decoded for the header. The reasons never
+ * repeat the value.
  */
 export const baseUrlProblem: Problem<unknown> = (value) => {
+  if (typeof value !== "string" || value.trim() === "") return "Expected an absolute http(s) URL.";
+  if (value !== value.trim()) return "A base URL cannot have surrounding whitespace.";
+  if (/[\s\u0000-\u001f\u007f]/.test(value)) return "A base URL cannot contain whitespace or control characters.";
   let url: URL;
   try {
-    url = new URL(String(value));
+    url = new URL(value);
   } catch {
     return "Expected an absolute http(s) URL.";
   }
-  if (typeof value !== "string") return "Expected an absolute http(s) URL.";
   if (url.protocol !== "http:" && url.protocol !== "https:") {
     return `Unsupported scheme "${url.protocol}". Expected an http(s) URL.`;
   }
   if (!url.host) return "Expected a URL with a host.";
-  if (url.search || url.hash) return "A query string or fragment is not allowed.";
+  if (url.search || url.hash || /[?#]/.test(value)) return "A query string or fragment is not allowed.";
+  // The userinfo is percent-decoded for the Authorization header; a "%" that isn't an
+  // escape would fail there ("URI malformed") at request time. Reject it here.
+  for (const part of [url.username, url.password]) {
+    try {
+      decodeURIComponent(part);
+    } catch {
+      return 'The user name or password has a "%" that is not followed by two hex digits; write a literal "%" as %25.';
+    }
+  }
   return undefined;
 };
 
