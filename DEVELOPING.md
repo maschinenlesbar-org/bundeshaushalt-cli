@@ -302,7 +302,9 @@ npm test          # builds, then runs `node --test` over dist/test
   header shapes, resets), P6 the retry floor, P7 pipes and exit codes (spawns the built bin),
   P8/P9/P13 charset, 2xx body shapes and error classes, P10 unknown param keys and repeated flags,
   P20 the stderr warning for a plain-`http:` base URL (env-variable and other-secret cases
-  skipped: no environment variable, no key).
+  skipped: no environment variable, no key), P21 the README's relative links (README.md ships
+  to npmjs.com, so a link to a document the `files` allowlist leaves out must be an absolute
+  GitHub URL).
 
 ## Continuous integration
 

@@ -24,7 +24,7 @@ clean JSON you can pipe straight into [`jq`](https://jqlang.github.io/jq/).
 > change or disappear without notice. Treat it as best-effort.
 
 > Want to use this as a TypeScript library or understand how it's built?
-> See **[DEVELOPING.md](DEVELOPING.md)**.
+> See **[DEVELOPING.md](https://github.com/maschinenlesbar-org/bundeshaushalt-cli/blob/main/DEVELOPING.md)**.
 
 ## Install
 
@@ -85,7 +85,7 @@ These apply to `budget`, `expenses`, and `income`:
 
 ## Common tasks
 
-A few recipes to get going — see **[Usage.md](Usage.md)** for the full,
+A few recipes to get going — see **[Usage.md](https://github.com/maschinenlesbar-org/bundeshaushalt-cli/blob/main/Usage.md)** for the full,
 use-case-driven set.
 
 ```bash
@@ -198,10 +198,10 @@ when it carries a `user:password@` (never printed). stdout and the exit code are
 
 ## Learn more
 
-- **[Usage.md](Usage.md)** — full use-case-driven cookbook.
-- **[GLOSSARY.md](GLOSSARY.md)** — every term and domain concept explained.
-- **[DEVELOPING.md](DEVELOPING.md)** — TypeScript library usage, architecture, testing, CI.
-- **[SKILLS.md](SKILLS.md)** — Claude Code Agent Skills bundled with this repo (ministry
+- **[Usage.md](https://github.com/maschinenlesbar-org/bundeshaushalt-cli/blob/main/Usage.md)** — full use-case-driven cookbook.
+- **[GLOSSARY.md](https://github.com/maschinenlesbar-org/bundeshaushalt-cli/blob/main/GLOSSARY.md)** — every term and domain concept explained.
+- **[DEVELOPING.md](https://github.com/maschinenlesbar-org/bundeshaushalt-cli/blob/main/DEVELOPING.md)** — TypeScript library usage, architecture, testing, CI.
+- **[SKILLS.md](https://github.com/maschinenlesbar-org/bundeshaushalt-cli/blob/main/SKILLS.md)** — Claude Code Agent Skills bundled with this repo (ministry
   breakdown, plan-vs-actual comparison, multi-year trends), installable as a plugin.
 
 ## Data license
