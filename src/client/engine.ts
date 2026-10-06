@@ -10,6 +10,7 @@ import {
   HaushaltError,
   HaushaltNetworkError,
   HaushaltParseError,
+  HaushaltValidationError,
   credentialsIn,
   redactCredentials,
   redactUrl,
@@ -28,7 +29,7 @@ export interface RawResponse {
 /**
  * Options for {@link RequestEngine} and the client. The numeric options must be
  * integers within their documented range; anything else (negative, fractional,
- * NaN, Infinity, too large) makes the constructor throw a HaushaltError.
+ * NaN, Infinity, too large) makes the constructor throw a HaushaltValidationError.
  */
 export interface EngineOptions {
   /** Base URL of the API. Defaults to https://bundeshaushalt.de */
@@ -125,6 +126,9 @@ export function isBidiControl(code: number): boolean {
  * cli/shared.ts): `JSON.stringify` alone leaves DEL, C1 and bidi characters raw.
  * Written as a code-point filter so no raw control byte ever appears in this
  * source file.
+ *
+ * The result is cut at MAX_SERVER_TEXT_LENGTH characters (ending in "…"), so a
+ * hostile or broken body can't flood stderr or a CI log with one huge line.
  */
 export function sanitizeServerText(text: string): string {
   let out = "";
@@ -134,8 +138,16 @@ export function sanitizeServerText(text: string): string {
     if (!whitespaceControl && (n <= 0x1f || (n >= 0x7f && n <= 0x9f) || isBidiControl(n))) continue;
     out += ch;
   }
-  return out.replace(/\s+/g, " ").trim();
+  const line = out.replace(/\s+/g, " ").trim();
+  return line.length > MAX_SERVER_TEXT_LENGTH ? `${line.slice(0, MAX_SERVER_TEXT_LENGTH)}…` : line;
 }
+
+/**
+ * Longest server text (in characters) an error message shows: an error `detail`, a
+ * redirect target, an echoed Content-Type or a transport's reason.
+ * `HaushaltApiError.body` keeps the full text.
+ */
+export const MAX_SERVER_TEXT_LENGTH = 500;
 
 /**
  * Longest `Retry-After` the engine waits out before retrying a 429/503. When the
@@ -261,9 +273,22 @@ const MAX_REDIRECTS = 20;
 function intOption(name: string, value: number | undefined, fallback: number, max: number): number {
   if (value === undefined) return fallback;
   if (!Number.isSafeInteger(value) || value < 0 || value > max) {
-    throw new HaushaltError(
-      `Invalid option ${name}: expected an integer from 0 to ${max}, got ${String(value)}.`,
-    );
+    // A string or object is echoed by type, not value: it may be long or carry anything.
+    const shown = typeof value === "number" ? String(value) : `a ${value === null ? "null" : typeof value}`;
+    throw new HaushaltValidationError(`Invalid option ${name}: expected an integer from 0 to ${max}, got ${shown}.`);
+  }
+  return value;
+}
+
+/**
+ * Read a function-valued option (`transport`, `sleep`): `undefined` gives the default,
+ * anything but a function throws a HaushaltValidationError here rather than a raw
+ * TypeError ("this.transport is not a function") at request time.
+ */
+function functionOption<F extends (...args: never[]) => unknown>(name: string, value: F | undefined, fallback: F): F {
+  if (value === undefined) return fallback;
+  if (typeof value !== "function") {
+    throw new HaushaltValidationError(`Invalid option ${name}: expected a function, got ${value === null ? "null" : typeof value}.`);
   }
   return value;
 }
@@ -324,6 +349,8 @@ export class RequestEngine {
   private readonly sleep: (ms: number) => Promise<void>;
 
   constructor(options: EngineOptions = {}) {
+    // A JavaScript caller may pass null for "no options"; treat it like undefined.
+    options = options ?? {};
     // An empty / whitespace-only baseUrl falls back to the default rather than
     // collapsing (after trailing-slash stripping) to "" and building a relative
     // URL that `new URL()` rejects with a confusing "Invalid URL".
@@ -340,7 +367,7 @@ export class RequestEngine {
         return [raw];
       }
     });
-    this.transport = options.transport ?? nodeHttpTransport;
+    this.transport = functionOption("transport", options.transport, nodeHttpTransport);
     this.userAgent =
       options.userAgent === undefined
         ? DEFAULT_USER_AGENT
@@ -355,7 +382,7 @@ export class RequestEngine {
       DEFAULT_MAX_RESPONSE_BYTES,
       Number.MAX_SAFE_INTEGER,
     );
-    this.sleep = options.sleep ?? realSleep;
+    this.sleep = functionOption("sleep", options.sleep, realSleep);
   }
 
   /**
@@ -558,7 +585,16 @@ export class RequestEngine {
           );
         }
         if (typeof location === "string" && location.length > 0) {
-          const nextUrl = new URL(location, url);
+          // A Location that doesn't parse (`http://[::1`) is the server's fault, not a
+          // bug: a typed network error naming the request, not a bare TypeError.
+          let nextUrl: URL;
+          try {
+            nextUrl = new URL(location, url);
+          } catch {
+            throw new HaushaltNetworkError(
+              `Invalid redirect Location "${sanitizeServerText(this.scrub(location))}" for ${method} ${redactUrl(url)}`,
+            );
+          }
           // Only http(s) targets are followed; refuse any other scheme (file:, data:,
           // javascript:) here, before any transport sees it.
           if (nextUrl.protocol !== "http:" && nextUrl.protocol !== "https:") {

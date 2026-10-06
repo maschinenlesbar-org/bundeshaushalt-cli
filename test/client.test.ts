@@ -113,7 +113,7 @@ test("budgetData checks its params before any request", async () => {
     [{ year: 2024, account: "expenses", unit: "x" }, /^Invalid unit "x"/],
     [{ year: 2024, account: "expenses", id: " " }, /^Invalid id " ": Expected a non-empty budget number\.$/],
     [{ year: 2024, account: "expenses", id: " 14 " }, /^Invalid id " 14 ": Surrounding whitespace is not allowed\.$/],
-    [{ year: 2024, account: "expenses", id: "14\n" }, /^Invalid id "14\n": Surrounding whitespace is not allowed\.$/],
+    [{ year: 2024, account: "expenses", id: "14\n" }, /^Invalid id "14\\n": Surrounding whitespace is not allowed\.$/],
     [{ year: 2024, account: "expenses", id: "g-" }, /^Invalid id "g-": Expected a number after the "G-" prefix, e\.g\. "G-5"\.$/],
   ];
   for (const [params, message] of cases) {

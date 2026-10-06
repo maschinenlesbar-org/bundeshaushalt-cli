@@ -4,7 +4,7 @@
 import type { Command } from "commander";
 import { InvalidArgumentError } from "commander";
 import type { CliDeps } from "./io.js";
-import { HaushaltError } from "../client/errors.js";
+import { HaushaltError, HaushaltValidationError } from "../client/errors.js";
 import { isBidiControl, type EngineOptions } from "../client/engine.js";
 import { baseUrlProblem, headerValueProblem } from "../client/validate.js";
 
@@ -60,8 +60,8 @@ export function parseHeaderValue(value: string): string {
 
 /**
  * Validate a positional argument against an allowed set (commander does not
- * support .choices() on positional args). Throws a HaushaltError so run() prints a
- * clear message and exits 1.
+ * support .choices() on positional args). Throws a HaushaltValidationError so run()
+ * prints a clear message and exits 1.
  */
 export function assertEnum<T extends string>(
   value: string,
@@ -69,7 +69,7 @@ export function assertEnum<T extends string>(
   argName: string,
 ): T {
   if (!(allowed as readonly string[]).includes(value)) {
-    throw new HaushaltError(`Invalid ${argName} "${value}". Expected one of: ${allowed.join(", ")}.`);
+    throw new HaushaltValidationError(`Invalid ${argName} "${value}". Expected one of: ${allowed.join(", ")}.`);
   }
   return value as T;
 }

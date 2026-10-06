@@ -56,7 +56,7 @@ test("idProblem: a non-blank budget number without surrounding whitespace or a b
   for (const ok of ["14", "090168301", "G-5", "g-5", "F-0", "f-12"]) assert.equal(idProblem(ok), undefined, ok);
   assert.equal(idProblem(""), "Expected a non-empty budget number.");
   assert.equal(idProblem("  "), "Expected a non-empty budget number.");
-  assert.equal(idProblem(14), "Expected a non-empty budget number.");
+  assert.equal(idProblem(14), 'Expected a string (a budget number such as "14" or "G-5"), got a number.');
   assert.equal(idProblem(" 14 "), "Surrounding whitespace is not allowed.");
   assert.equal(idProblem("14\n"), "Surrounding whitespace is not allowed.");
   assert.equal(idProblem("G-"), 'Expected a number after the "G-" prefix, e.g. "G-5".');
@@ -87,7 +87,8 @@ test("yearProblem: an integer from MIN_YEAR to next year", () => {
   const next = maxYear();
   const reason = `Expected a year between 2012 and ${next}.`;
   for (const ok of [2012, 2024, next]) assert.equal(yearProblem(ok), undefined, String(ok));
-  for (const bad of [2011, next + 1, 2024.5, Number.NaN, "2024"]) assert.equal(yearProblem(bad), reason, String(bad));
+  for (const bad of [2011, next + 1, 2024.5, Number.NaN]) assert.equal(yearProblem(bad), reason, String(bad));
+  assert.equal(yearProblem("2024"), "Expected a number, got a string.");
 });
 
 test("baseUrlProblem: an absolute http(s) URL with a host and no query or fragment", () => {

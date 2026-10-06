@@ -6,7 +6,7 @@
 
 import { RequestEngine, type EngineOptions } from "./engine.js";
 import { AccountValues, QuotaValues, UnitValues, unitOfId } from "./enums.js";
-import { HaushaltError, HaushaltParseError } from "./errors.js";
+import { HaushaltParseError, HaushaltValidationError } from "./errors.js";
 import type { QueryParams } from "./query.js";
 import type { BudgetData, BudgetParams } from "./types.js";
 import { assertValid, idProblem, idUnitProblem, yearProblem } from "./validate.js";
@@ -21,16 +21,16 @@ export class BundeshaushaltClient {
   private readonly engine: RequestEngine;
 
   constructor(options: EngineOptions = {}) {
-    this.engine = new RequestEngine(options);
+    this.engine = new RequestEngine(options ?? {});
   }
 
   /**
    * Budget data for a year + account, optionally scoped by quota/unit/id. The
-   * params are checked before any request (a HaushaltError, as a rejected promise):
-   * `year` an integer from `MIN_YEAR` to `maxYear()`, next year (`yearProblem`; a
-   * HaushaltValidationError), `account`/`quota`/`unit` from their value sets, `id`
-   * non-blank, without surrounding whitespace and not a bare `G-`/`F-` prefix
-   * (`idProblem`; a HaushaltValidationError).
+   * params are checked before any request (a HaushaltValidationError, as a rejected
+   * promise): `year` an integer from `MIN_YEAR` to `maxYear()`, next year
+   * (`yearProblem`), `account`/`quota`/`unit` from their value sets, `id` a non-blank
+   * string without surrounding whitespace and not a bare `G-`/`F-` prefix
+   * (`idProblem`).
    *
    * An id's prefix fixes its grouping (`unitOfId`): without `unit`, a `G-`/`F-` id
    * sends `unit=group`/`unit=function`; a `unit` that contradicts the id is a
@@ -71,16 +71,20 @@ function assertBudgetData(body: unknown): BudgetData {
 
 /**
  * Check `budgetData`'s params as it does, before any request, and return them with
- * the unit a `G-`/`F-` id implies filled in when `unit` is omitted. Throws a
- * HaushaltError (a HaushaltValidationError for the id rules).
+ * the unit a `G-`/`F-` id implies filled in when `unit` is omitted. Every rejected
+ * value is a HaushaltValidationError; a value of the wrong type is named by its type
+ * (`Invalid year "2023": Expected a number, got a string.`).
  */
 export function validateBudgetParams(params: BudgetParams): BudgetParams {
-  assertValid(`year ${String(params.year)}`, params.year, yearProblem);
+  if (typeof params !== "object" || params === null || Array.isArray(params)) {
+    throw new HaushaltValidationError("Invalid params: expected an object with year and account.");
+  }
+  assertValid(`year ${shown(params.year)}`, params.year, yearProblem);
   checkEnum("account", params.account, AccountValues);
   if (params.quota !== undefined) checkEnum("quota", params.quota, QuotaValues);
   if (params.unit !== undefined) checkEnum("unit", params.unit, UnitValues);
   if (params.id === undefined) return params;
-  const id = assertValid(`id "${String(params.id)}"`, params.id, idProblem);
+  const id = assertValid(`id ${shown(params.id)}`, params.id, idProblem);
   if (params.unit !== undefined) {
     assertValid(`id "${id}" for unit ${params.unit}`, { id, unit: params.unit }, idUnitProblem);
     return params;
@@ -91,8 +95,17 @@ export function validateBudgetParams(params: BudgetParams): BudgetParams {
 
 function checkEnum(name: string, value: unknown, allowed: readonly string[]): void {
   if (typeof value !== "string" || !allowed.includes(value)) {
-    throw new HaushaltError(
-      `Invalid ${name} "${String(value)}": expected one of ${allowed.join(", ")}.`,
-    );
+    throw new HaushaltValidationError(`Invalid ${name} ${shown(value)}: expected one of ${allowed.join(", ")}.`);
   }
+}
+
+/**
+ * A rejected value as a message shows it: a string quoted (cut at 50 characters), a
+ * number as is, anything else by its type — so a wrong-typed value can't look valid
+ * (`2023` for the string "2023") and a huge or hostile one isn't echoed whole.
+ */
+function shown(value: unknown): string {
+  if (typeof value === "string") return JSON.stringify(value.length > 50 ? `${value.slice(0, 50)}…` : value);
+  if (typeof value === "number") return String(value);
+  return `(${value === null ? "null" : Array.isArray(value) ? "an array" : `a ${typeof value}`})`;
 }

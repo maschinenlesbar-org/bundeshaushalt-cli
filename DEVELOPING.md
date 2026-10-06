@@ -126,7 +126,9 @@ src/
   request by the client (`validateBudgetParams`, exported), and the CLI relies on it. The year must be
   an integer from `MIN_YEAR` to next year (`maxYear()`, `yearProblem`); the `id` non-blank, without
   surrounding whitespace and not a bare `G-`/`F-` prefix (`idProblem`). A library caller gets a
-  `HaushaltError` (a `HaushaltValidationError` for the year and the `id`) rather than a request with
+  `HaushaltValidationError` for every rejected param — a wrong-typed one named by its type
+  (`Invalid year "2023": Expected a number, got a string.`, `Invalid id 1405: Expected a string …,
+  got a number.`) — rather than a request with
   `account=bogus`, `id=` or `id=G-`, which the API answers with a 503 that would be retried. The
   client also owns the id/unit rule: a `G-`/`F-` id sets `unit` when it is omitted (`unitOfId`), and
   a `unit` that contradicts the id is a `HaushaltValidationError` (`idUnitProblem`), because the API
@@ -135,7 +137,8 @@ src/
   The numeric `EngineOptions` must be integers in
   range (`timeoutMs` 0..2^31−1, `maxRetries` 0..10, `retryDelayMs` 0..30 000, `maxRedirects` 0..20,
   `maxResponseBytes` 0..`Number.MAX_SAFE_INTEGER`); anything else — `NaN`, `Infinity`, `-1`, `1.5` —
-  makes the constructor throw a `HaushaltError` naming the option.
+  makes the constructor throw a `HaushaltValidationError` naming the option, and so does a
+  `transport` or `sleep` that isn't a function.
 
 ### Library / technical terms
 
@@ -248,7 +251,10 @@ real `#private` field (so `console.log(client)`, `util.inspect` and `JSON.string
 don't reveal it), every URL in a message goes through `redactUrl` (which also cuts the
 userinfo out of a value that doesn't parse), and the base URL's userinfo (raw and
 percent-decoded) is scrubbed from error bodies and details, transport error text and
-the `cause` chain. The CLI maps a `404` to exit code `4` and every other error,
+the `cause` chain. A redirect `Location` that doesn't parse is a `HaushaltNetworkError`
+(`Invalid redirect Location "…" for GET <url>`). Server text in a message (an error
+`detail`, a redirect target, a transport's reason) is cut at `MAX_SERVER_TEXT_LENGTH`
+(500) characters; `HaushaltApiError.body` keeps it all. The CLI maps a `404` to exit code `4` and every other error,
 usage errors included, to `1`; a `HaushaltValidationError` is printed as
 `Error: <message>`, like a usage error.
 

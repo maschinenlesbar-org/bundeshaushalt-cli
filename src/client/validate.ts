@@ -27,7 +27,8 @@ export function assertValid<T>(name: string, value: T, problem: Problem<T>): T {
  * that would be retried and read as an outage.
  */
 export const idProblem: Problem<unknown> = (id) => {
-  if (typeof id !== "string" || id.trim() === "") return "Expected a non-empty budget number.";
+  if (typeof id !== "string") return `Expected a string (a budget number such as "14" or "G-5"), got ${typeName(id)}.`;
+  if (id.trim() === "") return "Expected a non-empty budget number.";
   if (id !== id.trim()) return "Surrounding whitespace is not allowed.";
   if (/^[GF]-$/i.test(id)) {
     const prefix = id.toUpperCase();
@@ -51,11 +52,19 @@ export const idUnitProblem: Problem<{ id: string; unit: Unit }> = ({ id, unit })
 /** A budget `year`: an integer from `MIN_YEAR` (2012) to `maxYear()` (next year). */
 export const yearProblem: Problem<unknown> = (year) => {
   const ceiling = maxYear();
-  if (typeof year !== "number" || !Number.isSafeInteger(year) || year < MIN_YEAR || year > ceiling) {
+  if (typeof year !== "number") return `Expected a number, got ${typeName(year)}.`;
+  if (!Number.isSafeInteger(year) || year < MIN_YEAR || year > ceiling) {
     return `Expected a year between ${MIN_YEAR} and ${ceiling}.`;
   }
   return undefined;
 };
+
+/** "a string", "a number", "null", "an array" … for a message about a wrong-typed value. */
+function typeName(value: unknown): string {
+  if (value === null) return "null";
+  if (Array.isArray(value)) return "an array";
+  return typeof value === "object" ? "an object" : `a ${typeof value}`;
+}
 
 /**
  * A base URL: an absolute `http:`/`https:` URL with a host and no query string or
