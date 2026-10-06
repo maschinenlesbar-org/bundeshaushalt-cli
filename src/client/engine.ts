@@ -5,7 +5,7 @@
 import { TextDecoder } from "node:util";
 import { MAX_TIMEOUT_MS, nodeHttpTransport, sizeLimitMessage, type HttpRequest, type HttpResponse, type Transport } from "./http.js";
 import { buildQueryString, type QueryParams } from "./query.js";
-import { assertValid, baseUrlProblem, headerValueProblem } from "./validate.js";
+import { assertKnownKeys, assertValid, baseUrlProblem, headerValueProblem } from "./validate.js";
 import {
   HaushaltApiError,
   HaushaltError,
@@ -70,6 +70,19 @@ export interface EngineOptions {
 }
 
 const DEFAULT_MAX_RESPONSE_BYTES = 100 * 1024 * 1024;
+
+/** Every EngineOptions key; any other key makes the constructor throw. */
+const ENGINE_OPTION_NAMES = [
+  "baseUrl",
+  "transport",
+  "userAgent",
+  "timeoutMs",
+  "maxRetries",
+  "retryDelayMs",
+  "maxRedirects",
+  "maxResponseBytes",
+  "sleep",
+] as const satisfies ReadonlyArray<keyof EngineOptions>;
 
 /**
  * Headers that must never be replayed to a different origin on a redirect.
@@ -352,6 +365,8 @@ export class RequestEngine {
   constructor(options: EngineOptions = {}) {
     // A JavaScript caller may pass null for "no options"; treat it like undefined.
     options = options ?? {};
+    // An unknown key (`timeout` for `timeoutMs`) used to be ignored and the default applied.
+    assertKnownKeys("client options", options, ENGINE_OPTION_NAMES);
     // An empty / whitespace-only baseUrl falls back to the default rather than
     // collapsing (after trailing-slash stripping) to "" and building a relative
     // URL that `new URL()` rejects with a confusing "Invalid URL".

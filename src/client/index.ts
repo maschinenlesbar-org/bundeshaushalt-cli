@@ -27,7 +27,7 @@ export {
   credentialsIn,
   redactCredentials,
 } from "./errors.js";
-export { assertValid, baseUrlProblem, headerValueProblem, idProblem, idUnitProblem, yearProblem } from "./validate.js";
+export { assertKnownKeys, assertValid, baseUrlProblem, headerValueProblem, idProblem, idUnitProblem, yearProblem } from "./validate.js";
 export type { Problem } from "./validate.js";
 
 export * from "./enums.js";

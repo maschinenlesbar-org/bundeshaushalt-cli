@@ -126,7 +126,9 @@ src/
   request by the client (`validateBudgetParams`, exported), and the CLI relies on it. The year must be
   an integer from `MIN_YEAR` to next year (`maxYear()`, `yearProblem`); the `id` non-blank, without
   surrounding whitespace and not a bare `G-`/`F-` prefix (`idProblem`). A library caller gets a
-  `HaushaltValidationError` for every rejected param — a wrong-typed one named by its type
+  `HaushaltValidationError` for every rejected param — an unknown key (`Id` for `id`, with a "did
+  you mean" hint; `assertKnownKeys`, exported, also checks the constructor's options), a
+  wrong-typed one named by its type
   (`Invalid year "2023": Expected a number, got a string.`, `Invalid id 1405: Expected a string …,
   got a number.`) — rather than a request with
   `account=bogus`, `id=` or `id=G-`, which the API answers with a 503 that would be retried. The

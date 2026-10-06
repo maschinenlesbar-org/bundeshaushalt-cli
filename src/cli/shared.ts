@@ -48,6 +48,34 @@ export function parseBoundedIntArg(max: number): (value: string) => number {
 }
 
 /**
+ * Wrap a value-parser so its option may be given only once: commander keeps the last of a
+ * repeated option and drops the others without a word (`--id 14 --id 06` asked for 06 only,
+ * `--timeout 5000 --timeout 0` ran without a timeout). A repeat is a usage error naming the
+ * flag. A fresh program is built per `run()`, so the state lives as long as one parse.
+ */
+export function once<T>(flag: string, parse: (value: string) => T): (value: string) => T {
+  let seen = false;
+  return (value: string) => {
+    if (seen) throw new InvalidArgumentError(`${flag} was given more than once; give it once.`);
+    seen = true;
+    return parse(value);
+  };
+}
+
+/**
+ * commander value-parser for an option with a fixed set of values, the check
+ * `Option.choices()` does (and with its message), so it can be combined with `once`.
+ */
+export function parseChoice(allowed: readonly string[]): (value: string) => string {
+  return (value: string) => {
+    if (!allowed.includes(value)) {
+      throw new InvalidArgumentError(`Allowed choices are ${allowed.join(", ")}.`);
+    }
+    return value;
+  };
+}
+
+/**
  * commander value-parser for a value that ends up in an HTTP header (`--user-agent`):
  * the client's own rule (`headerValueProblem`: not blank, printable Latin-1 plus
  * tab), reported as a usage error before any request.

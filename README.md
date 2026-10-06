@@ -137,7 +137,8 @@ bundeshaushalt --compact expenses 2024 | jq -c '.children[]'
 
 `--compact` (and every global option) works **before or after** the command —
 both `bundeshaushalt --compact expenses 2024` and `bundeshaushalt expenses 2024 --compact`
-do the same thing.
+do the same thing. An option that takes a value may be given only once: a repeat
+(`--id 14 --id 06`) is a usage error rather than "the last one wins".
 
 **Exit codes** make the CLI easy to use in scripts:
 

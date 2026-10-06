@@ -10,7 +10,7 @@ import { defaultIO } from "./io.js";
 import { BundeshaushaltClient } from "../client/client.js";
 import { MAX_TIMEOUT_MS } from "../client/http.js";
 import { MAX_RETRIES } from "../client/engine.js";
-import { parseIntArg, parseBoundedIntArg, parseBaseUrl, parseHeaderValue } from "./shared.js";
+import { once, parseIntArg, parseBoundedIntArg, parseBaseUrl, parseHeaderValue } from "./shared.js";
 import { registerBudgetCommands } from "./commands/budget.js";
 
 /**
@@ -48,19 +48,24 @@ export function buildProgram(deps: CliDeps = defaultDeps): Command {
     // on the root, matching the docs' promise that they apply to every command.
     .configureHelp({ showGlobalOptions: true })
     .version(VERSION)
-    .option("--base-url <url>", "API base URL", parseBaseUrl, "https://bundeshaushalt.de")
-    .option("--timeout <ms>", "time limit per request in milliseconds, whole response included (0 = no limit)", parseBoundedIntArg(MAX_TIMEOUT_MS), 30_000)
-    .option("--user-agent <ua>", "User-Agent header value", parseHeaderValue)
+    .option("--base-url <url>", "API base URL", once("--base-url", parseBaseUrl), "https://bundeshaushalt.de")
+    .option(
+      "--timeout <ms>",
+      "time limit per request in milliseconds, whole response included (0 = no limit)",
+      once("--timeout", parseBoundedIntArg(MAX_TIMEOUT_MS)),
+      30_000,
+    )
+    .option("--user-agent <ua>", "User-Agent header value", once("--user-agent", parseHeaderValue))
     .option(
       "--max-retries <n>",
       "retries for transient 429/503 responses and reset connections (0..10; each waits the server's Retry-After, up to 30 s)",
-      parseBoundedIntArg(MAX_RETRIES),
+      once("--max-retries", parseBoundedIntArg(MAX_RETRIES)),
       2,
     )
     .option(
       "--max-response-bytes <n>",
       "cap response body size in bytes (0 = unlimited; 100 MiB)",
-      parseIntArg,
+      once("--max-response-bytes", parseIntArg),
       100 * 1024 * 1024,
     )
     .option("--compact", "print JSON on a single line instead of pretty-printed")

@@ -9,7 +9,7 @@ import { AccountValues, QuotaValues, UnitValues, unitOfId } from "./enums.js";
 import { HaushaltParseError, HaushaltValidationError } from "./errors.js";
 import type { QueryParams } from "./query.js";
 import type { BudgetData, BudgetParams } from "./types.js";
-import { assertValid, idProblem, idUnitProblem, yearProblem } from "./validate.js";
+import { assertKnownKeys, assertValid, idProblem, idUnitProblem, yearProblem } from "./validate.js";
 
 // NOTE: This is an undocumented, internal endpoint of bundeshaushalt.de (note the
 // "internalapi" path segment). It is not a published, stable public API and may
@@ -79,6 +79,9 @@ export function validateBudgetParams(params: BudgetParams): BudgetParams {
   if (typeof params !== "object" || params === null || Array.isArray(params)) {
     throw new HaushaltValidationError("Invalid params: expected an object with year and account.");
   }
+  // A misspelt key (`Id`, `quota ` from a config file) used to be dropped silently, so the
+  // call answered for the whole year instead of the element asked for.
+  assertKnownKeys("params", params, BUDGET_PARAM_NAMES);
   assertValid(`year ${shown(params.year)}`, params.year, yearProblem);
   checkEnum("account", params.account, AccountValues);
   if (params.quota !== undefined) checkEnum("quota", params.quota, QuotaValues);
@@ -92,6 +95,9 @@ export function validateBudgetParams(params: BudgetParams): BudgetParams {
   const unit = unitOfId(id);
   return unit === "single" ? params : { ...params, unit };
 }
+
+/** Every BudgetParams key; any other key is a HaushaltValidationError. */
+const BUDGET_PARAM_NAMES = ["year", "account", "quota", "unit", "id"] as const satisfies ReadonlyArray<keyof BudgetParams>;
 
 function checkEnum(name: string, value: unknown, allowed: readonly string[]): void {
   if (typeof value !== "string" || !allowed.includes(value)) {

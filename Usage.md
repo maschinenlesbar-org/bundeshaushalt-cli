@@ -180,7 +180,9 @@ including usage errors.
 
 ## Global options
 
-These apply to every command and may appear **before or after** it:
+These apply to every command and may appear **before or after** it. An option that
+takes a value (global or per-command) may be given only once: a repeat (`--id 14 --id 06`,
+`--timeout 5000 --timeout 0`) is a usage error (exit `1`) rather than "the last one wins".
 
 | Option | Description |
 | --- | --- |

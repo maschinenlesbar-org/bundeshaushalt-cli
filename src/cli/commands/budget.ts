@@ -1,7 +1,7 @@
 import type { Command } from "commander";
 import { Option } from "commander";
 import type { CliDeps } from "../io.js";
-import { action, assertEnum, renderJson } from "../shared.js";
+import { action, assertEnum, once, parseChoice, renderJson } from "../shared.js";
 import { HaushaltValidationError } from "../../client/errors.js";
 import { AccountValues, QuotaValues, UnitValues, MIN_YEAR, maxYear } from "../../client/enums.js";
 import type { Account, Quota, Unit } from "../../client/enums.js";
@@ -49,18 +49,20 @@ function optionsFrom(opts: Record<string, unknown>): Omit<BudgetParams, "year" |
 function addBudgetOptions(cmd: Command): Command {
   return cmd
     .addOption(
-      new Option("--quota <quota>", "planned vs realised (default target)").choices([
-        ...QuotaValues,
-      ]),
+      // choices() for the help text; the parser repeats its check and rejects a repeat.
+      new Option("--quota <quota>", "planned vs realised (default target)")
+        .choices([...QuotaValues])
+        .argParser(once("--quota", parseChoice(QuotaValues))),
     )
     .addOption(
-      new Option("--unit <unit>", "how elements are grouped (default single)").choices([
-        ...UnitValues,
-      ]),
+      new Option("--unit <unit>", "how elements are grouped (default single)")
+        .choices([...UnitValues])
+        .argParser(once("--unit", parseChoice(UnitValues))),
     )
     .option(
       "--id <id>",
       'element id: "G-…" a group, "F-…" a function, unprefixed the budget structure; must match --unit, which it sets when omitted',
+      once("--id", (value: string) => value),
     );
 }
 
