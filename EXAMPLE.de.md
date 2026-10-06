@@ -3,8 +3,8 @@
 Echte Beispiele für die Claude-Code-Skills des Plugins `bundeshaushalt`, eines pro Skill: eine
 Anfrage, die `bundeshaushalt`-Befehle, die der Skill ausgeführt hat, und Claudes Antwort.
 
-Jedes Beispiel lief am 15. September 2026 mit `bundeshaushalt` 0.0.6 gegen die Live-API, außer
-budget-trend, das am 26. September 2026 mit 0.0.10 neu lief.
+Jedes Beispiel lief gegen die Live-API: budget-ministry-breakdown und budget-plan-vs-actual am
+6. Oktober 2026 mit `bundeshaushalt` 0.2.0, budget-trend am 26. September 2026 mit 0.0.10.
 Die Daten ändern sich, Ihre Ergebnisse werden also abweichen; mit den gezeigten IDs und
 Schlüsseln können Sie die Anfragen selbst ausprobieren. Lange Listen sind gekürzt.
 
@@ -64,9 +64,8 @@ Als Nächstes angeboten: derselbe Haushalt nach Gruppen (`--unit group`) oder Fu
 
 ```bash
 bundeshaushalt --compact expenses 2026 --quota actual    # Exit 4: HTTP 404, Ist 2026 noch nicht veröffentlicht
-bundeshaushalt --compact expenses 2025 --quota actual    # Exit 0: jüngstes Jahr mit Ist-Werten
+bundeshaushalt --compact expenses 2025 --quota actual > bh-actual.json   # Exit 0: jüngstes Jahr mit Ist-Werten
 bundeshaushalt --compact expenses 2025 --quota target > bh-target.json
-bundeshaushalt --compact expenses 2025 --quota actual > bh-actual.json
 jq -n --slurpfile t bh-target.json --slurpfile a bh-actual.json '…'   # children über id verbinden, delta = actual − target
 bundeshaushalt --compact expenses 2024                   # Einzelplan 24 fehlt in der Liste für 2024
 ```

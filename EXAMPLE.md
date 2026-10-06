@@ -3,8 +3,8 @@
 Real examples for the Claude Code skills of the `bundeshaushalt` plugin, one per skill: a request,
 the `bundeshaushalt` commands the skill ran, and the answer Claude gave.
 
-Every example ran against the live API on 15 September 2026 with `bundeshaushalt` 0.0.6, except
-budget-trend, re-run on 26 September 2026 with 0.0.10.
+Every example ran against the live API: budget-ministry-breakdown and budget-plan-vs-actual on
+6 October 2026 with `bundeshaushalt` 0.2.0, budget-trend on 26 September 2026 with 0.0.10.
 The data changes, so your results will differ; the ids and keys shown work for trying the
 requests yourself. Long lists are shortened.
 
@@ -64,9 +64,8 @@ Next steps offered: the same budget by economic group (`--unit group`) or functi
 
 ```bash
 bundeshaushalt --compact expenses 2026 --quota actual    # exit 4: HTTP 404, 2026 Ist not published yet
-bundeshaushalt --compact expenses 2025 --quota actual    # exit 0: latest year with actuals
+bundeshaushalt --compact expenses 2025 --quota actual > bh-actual.json   # exit 0: latest year with actuals
 bundeshaushalt --compact expenses 2025 --quota target > bh-target.json
-bundeshaushalt --compact expenses 2025 --quota actual > bh-actual.json
 jq -n --slurpfile t bh-target.json --slurpfile a bh-actual.json '…'   # join children on id, delta = actual − target
 bundeshaushalt --compact expenses 2024                   # Einzelplan 24 is not in the 2024 list
 ```
