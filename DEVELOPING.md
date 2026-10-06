@@ -286,6 +286,13 @@ npm test          # builds, then runs `node --test` over dist/test
 - **`cli.test.ts`** — command parsing, the expenses/income shortcuts, validation and exit codes — mocked client.
 - **`validate.test.ts`** — `assertValid`, `HaushaltValidationError` and how `run()` reports it.
 - **`parity.test.ts`** — the same input through the CLI and through the library on one recording mock transport (`parity()` in `test/helpers.ts`) must give the same outcome.
+- **`conformance-p*.test.ts`** — the checks shared across the `*-cli` repos (fix plan
+  `.reviews/2026-10-05-exploratory/fix-plan.md` in the workspace), one file per pattern, the same
+  code in every repo apart from an adapter block at the top: P1 credential redaction in CLI output,
+  P2 in library objects and errors, P3 credentials across redirects, P4/P19 base-URL validation
+  (P19 skipped: no environment variable), P5 the transport contract (timeout, size cap, body types,
+  header shapes, resets), P6 the retry floor, P7 pipes and exit codes (spawns the built bin),
+  P8/P9/P13 charset, 2xx body shapes and error classes, P10 unknown param keys and repeated flags.
 
 ## Continuous integration
 
