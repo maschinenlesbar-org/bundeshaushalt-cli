@@ -211,7 +211,14 @@ subprocess.
 (transport failure/timeout), `HaushaltParseError` (bad JSON, or a 2xx body that is
 not an object with `meta` and `detail` objects — `Unexpected response shape from
 /internalapi/budgetData: expected a JSON object with meta and detail.`), all extending
-`HaushaltError`. The CLI maps a `404` to exit code `4` and every other error,
+`HaushaltError`. Whatever an injected transport throws becomes a
+`HaushaltNetworkError` (`GET <url> failed: <reason>`, the original as `cause`). No
+error and no client shows the base URL's password: the engine keeps the base URL in a
+real `#private` field (so `console.log(client)`, `util.inspect` and `JSON.stringify`
+don't reveal it), every URL in a message goes through `redactUrl` (which also cuts the
+userinfo out of a value that doesn't parse), and the base URL's userinfo (raw and
+percent-decoded) is scrubbed from error bodies and details, transport error text and
+the `cause` chain. The CLI maps a `404` to exit code `4` and every other error,
 usage errors included, to `1`; a `HaushaltValidationError` is printed as
 `Error: <message>`, like a usage error.
 
