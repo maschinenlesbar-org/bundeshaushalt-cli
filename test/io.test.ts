@@ -39,10 +39,10 @@ test("another stdout write error (stdout closed) exits 1 instead of reporting su
   assert.deepEqual(written, ["Output error: write EBADF\n"]);
 });
 
-test("EPIPE on stderr exits 0 as well", () => {
+test("EPIPE on stderr is ignored, so the run's own exit code stands", () => {
   const s = setup();
   s.stderr.emit("error", writeError("EPIPE"));
-  assert.deepEqual(s.exits, [0]);
+  assert.deepEqual(s.exits, []);
 });
 
 test("another stderr write error exits 1", () => {

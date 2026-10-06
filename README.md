@@ -147,6 +147,10 @@ do the same thing.
 | `4` | not found (`404`): an unknown budget item id, a year the portal has no data for, or — with `--quota actual` — a year whose realised figures aren't published yet |
 | `1` | any other error — including bad usage / invalid arguments |
 
+A reader that stops early (`bundeshaushalt expenses 2024 | head -c 100`) is ordinary
+use: the CLI exits `0` quietly. If stderr's reader is gone (`2>&1 | true`), a failed run
+still exits with its own code.
+
 ## Troubleshooting
 
 - **`command not found: bundeshaushalt`** — the global npm bin directory isn't
