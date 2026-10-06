@@ -188,7 +188,14 @@ default transport re-checks the scheme on every hop, redirects included, and
 reports that as a `HaushaltNetworkError`.
 Userinfo in the base URL (`http://user:pw@mirror/`) is kept and sent as Basic
 auth, for a mirror behind a login; every error message shows the URL through
-`redactUrl` (`http://***@mirror/...`), so the password never reaches a log.
+`redactUrl` (`http://***@mirror/...`), so the password never reaches a log. The CLI
+also redacts on output: `run.ts` (`withRedactedOutput`) takes the exact userinfo of
+every argument (`credentialsIn`, exported) and replaces it with `***` in everything it
+prints — commander's usage errors, which echo rejected values (a `--base-url` with a
+query, a port typo, an unencoded `#`), and the unknown-command message for a URL typed
+where the command goes — so a password with spaces, quotes, `#`, `?` or `/` is caught
+as well as an ordinary one. `redactUrl` falls back to the same text-based cut
+(`redactCredentials`, exported) for a value that doesn't parse as a URL.
 
 **CliDeps / CliIO.** The dependency-injection seam for the CLI
 ([`io.ts`](src/cli/io.ts)): a client factory plus an I/O object (`out`/`err`).

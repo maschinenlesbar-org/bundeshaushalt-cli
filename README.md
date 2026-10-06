@@ -16,7 +16,7 @@ clean JSON you can pipe straight into [`jq`](https://jqlang.github.io/jq/).
 - **Works out of the box** — no account, no API key, no configuration. Install and query.
 - **Clean JSON output** — pretty-printed by default, `--compact` for one-line/scripting.
 - **Three commands** — `budget`, `expenses`, and `income` (the last two are convenient shortcuts).
-- **Nothing to configure** — the endpoint is public and unauthenticated; nothing to leak.
+- **Nothing to configure** — the endpoint is public and unauthenticated. A mirror behind a login can be used with `--base-url https://user:pw@mirror.example`; the password is shown as `***` in everything the CLI prints.
 - **Data from 2012 onward** — planned and realised figures, every budget year the portal has published.
 
 > **Note.** The tool calls an *undocumented internal endpoint* of the portal
@@ -179,7 +179,7 @@ These apply to every command and may be given before *or* after it:
 | `-V, --version` | Print the version number |
 | `-h, --help` | Show help for the program or a command |
 | `--compact` | Print JSON on a single line instead of pretty-printed |
-| `--base-url <url>` | API base URL (default `https://bundeshaushalt.de`) |
+| `--base-url <url>` | API base URL (default `https://bundeshaushalt.de`). Credentials in it (`https://user:pw@mirror.example`) are sent as HTTP Basic auth, for a mirror behind a login, and shown as `***` in everything the CLI prints |
 | `--timeout <ms>` | Time limit per request in milliseconds, reading the whole response included (`0` = no limit; default `30000`) |
 | `--user-agent <ua>` | `User-Agent` header value |
 | `--max-retries <n>` | Retries for transient `429`/`503` responses, `0`..`10` (default `2`); each waits the server's `Retry-After` (up to 30 s; a longer one is not retried), else 200 ms × attempt |
