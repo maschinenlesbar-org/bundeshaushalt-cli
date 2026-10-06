@@ -154,11 +154,14 @@ built-in `http`/`https`; tests inject a mock. This is the only HTTP seam.
 
 **Retry / backoff.** Transient `429` (rate limit) and `503` responses are
 retried automatically, up to `--max-retries` (`0`..`MAX_RETRIES`, 10). Each retry
-waits the response's `Retry-After` — delay-seconds or an IMF-fixdate HTTP-date,
-parsed strictly by the exported `parseRetryAfter` — or, without a usable one,
-`retryDelayMs × attempt` (200 ms, 400 ms, …). A `Retry-After` longer than
-`MAX_RETRY_AFTER_MS` (30 s) is not retried: the error surfaces at once rather than
-retrying inside the window the server asked us to wait out. `HaushaltApiError`
+waits `retryDelayMs × attempt` (200 ms, 400 ms, …), or longer when the response's
+`Retry-After` — delay-seconds or an IMF-fixdate HTTP-date, parsed strictly by the
+exported `parseRetryAfter` — asks for more: `Retry-After` can lengthen a wait, never
+shorten it, so `0` or a date in the past doesn't make a zero-delay burst. A
+`Retry-After` longer than `MAX_RETRY_AFTER_MS` (30 s) is not retried: the error
+surfaces at once rather than retrying inside the window the server asked us to wait
+out, and its message names the requested wait ("the server asked to wait 120 s
+(Retry-After), longer than the 30 s the client waits; retrying sooner won't help"). `HaushaltApiError`
 exposes `isRetryable` (true for `429`/`503`). A reset connection (`ECONNRESET`/`EPIPE`/
 `ECONNABORTED`, or undici's `UND_ERR_SOCKET`, anywhere in the error's `cause` chain —
 `isTransientNetworkError`, exported) is retried with the linear backoff too, whichever
