@@ -211,6 +211,14 @@ engine follows redirects itself, and a response whose `HttpResponse.url` lies on
 another origin (a fetch transport that followed one) is rejected as a
 `HaushaltNetworkError`.
 
+**Plain `http:` gets a warning, not a refusal.** `cleartextProblem(baseUrl, secrets)`
+(engine, exported) returns one sentence naming the host (`url.host`, never the userinfo)
+and what travels unencrypted — the base URL's credentials when it carries userinfo — or
+`undefined` for `https:`, an unparseable URL and loopback hosts (`localhost`,
+`127.0.0.0/8`, `::1`). The CLI's `action()` wrapper (`shared.ts`, `warnOnCleartext`)
+prints it once per run as `warning: <sentence>` on stderr, after the options are parsed
+and before the first request; `--help`, `--version` and usage errors never get there.
+
 **Base URL validation.** One rule, `baseUrlProblem` ([`validate.ts`](src/client/validate.ts)):
 an absolute `http:`/`https:` URL with a host and no query string or fragment,
 without surrounding whitespace or inner whitespace/control characters, and with no
@@ -292,7 +300,9 @@ npm test          # builds, then runs `node --test` over dist/test
   P2 in library objects and errors, P3 credentials across redirects, P4/P19 base-URL validation
   (P19 skipped: no environment variable), P5 the transport contract (timeout, size cap, body types,
   header shapes, resets), P6 the retry floor, P7 pipes and exit codes (spawns the built bin),
-  P8/P9/P13 charset, 2xx body shapes and error classes, P10 unknown param keys and repeated flags.
+  P8/P9/P13 charset, 2xx body shapes and error classes, P10 unknown param keys and repeated flags,
+  P20 the stderr warning for a plain-`http:` base URL (env-variable and other-secret cases
+  skipped: no environment variable, no key).
 
 ## Continuous integration
 

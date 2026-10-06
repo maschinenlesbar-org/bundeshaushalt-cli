@@ -195,6 +195,12 @@ takes a value (global or per-command) may be given only once: a repeat (`--id 14
 | `--compact` | Print JSON on a single line instead of pretty-printed |
 | `-h, --help` | Show help for the program or a command |
 
+A base URL on plain `http:` to a host other than loopback (`localhost`, `127.0.0.0/8`,
+`::1`) works, but the CLI writes one line to stderr before the first request, e.g.
+`warning: requests to mirror.example are sent unencrypted (http:, not https:)`, or
+`warning: the base URL's credentials are sent unencrypted to mirror.example (http:, not https:)`
+when it carries a `user:password@` (never printed). stdout and the exit code are unchanged.
+
 Per-command options (on `budget`, `expenses`, `income`):
 
 | Option | Values | Description |

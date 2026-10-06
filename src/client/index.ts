@@ -5,6 +5,7 @@ export {
   RequestEngine,
   DEFAULT_BASE_URL,
   validateBaseUrl,
+  cleartextProblem,
   assertHeaderValue,
   DEFAULT_USER_AGENT,
   MAX_RETRIES,

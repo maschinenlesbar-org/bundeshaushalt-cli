@@ -190,6 +190,12 @@ These apply to every command and may be given before *or* after it:
 | `--max-retries <n>` | Retries for transient `429`/`503` responses and reset connections, `0`..`10` (default `2`); each waits 200 ms × attempt, or longer when the server's `Retry-After` asks (up to 30 s; a longer one is not retried, and the error names the requested wait) |
 | `--max-response-bytes <n>` | Cap response body size in bytes (`0` = unlimited; default 100 MiB) |
 
+A base URL on plain `http:` to a host other than loopback (`localhost`, `127.0.0.0/8`,
+`::1`) works, but the CLI writes one line to stderr before the first request, e.g.
+`warning: requests to mirror.example are sent unencrypted (http:, not https:)`, or
+`warning: the base URL's credentials are sent unencrypted to mirror.example (http:, not https:)`
+when it carries a `user:password@` (never printed). stdout and the exit code are unchanged.
+
 ## Learn more
 
 - **[Usage.md](Usage.md)** — full use-case-driven cookbook.
