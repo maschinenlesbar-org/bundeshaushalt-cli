@@ -32,7 +32,7 @@ clean JSON you can pipe straight into [`jq`](https://jqlang.github.io/jq/).
 npm i -g @maschinenlesbar.org/bundeshaushalt-cli
 ```
 
-This installs the **`bundeshaushalt`** command. Requires **Node.js 20+**.
+This installs the **`bundeshaushalt`** command. Requires **Node.js 22.12+**.
 
 Check it works:
 
