@@ -13,6 +13,7 @@ import {
   HaushaltValidationError,
 } from "../src/client/errors.js";
 import { makeMockTransport, jsonResponse, rawResponse, redirectResponse } from "./helpers.js";
+import type { HttpResponse } from "../src/client/http.js";
 
 // Built via char codes so no raw control bytes ever appear in this source file.
 const ESC = String.fromCharCode(0x1b);
@@ -348,4 +349,52 @@ test("the body is decoded by its declared charset and a UTF-8 BOM is ignored", a
     () => new RequestEngine({ transport: unknown.transport }).getJson("/x"),
     (err: unknown) => err instanceof HaushaltParseError && err.message === 'Unsupported response charset "x-nope" from /x.',
   );
+});
+
+test("custom transports: header names in any case are read (Location, Content-Type)", async () => {
+  let n = 0;
+  const mt = makeMockTransport(() =>
+    n++ === 0
+      ? { status: 302, headers: { Location: "/moved" } as unknown as HttpResponse["headers"], body: Buffer.alloc(0) }
+      : { status: 200, headers: { "Content-Type": "text/html" } as unknown as HttpResponse["headers"], body: Buffer.from("<html>") },
+  );
+  const e = new RequestEngine({ baseUrl: "https://example.test", transport: mt.transport });
+  await assert.rejects(
+    () => e.getJson("/x"),
+    (err) => err instanceof HaushaltParseError && /Content-Type "text\/html"/.test(err.message),
+  );
+  assert.equal(new URL(mt.last().url).pathname, "/moved");
+});
+
+test("custom transports: a Uint8Array error body keeps its detail and text", async () => {
+  const body = new Uint8Array(Buffer.from('{"detail":"no such id"}'));
+  const mt = makeMockTransport(() => ({ status: 404, headers: { "content-type": "application/json" }, body: body as Buffer }));
+  const e = new RequestEngine({ baseUrl: "https://example.test", transport: mt.transport });
+  await assert.rejects(
+    () => e.getJson("/x"),
+    (err) => err instanceof HaushaltApiError && err.detail === "no such id" && err.body === '{"detail":"no such id"}',
+  );
+});
+
+test("custom transports: a string body or missing headers is a HaushaltNetworkError, not a raw TypeError", async () => {
+  for (const response of [
+    { status: 200, headers: {}, body: "{}" },
+    { status: 200, body: Buffer.from("{}") },
+    { status: 0, headers: {}, body: Buffer.from("{}") },
+  ]) {
+    const e = new RequestEngine({ transport: async () => response as unknown as HttpResponse });
+    await assert.rejects(() => e.getJson("/x"), HaushaltNetworkError);
+  }
+});
+
+test("a redirect to a non-http(s) target is refused before the transport sees it", async () => {
+  for (const location of ["file:///etc/passwd", "data:text/plain,hi", "javascript:alert(1)", "ftp://example.test/x"]) {
+    const mt = makeMockTransport(() => redirectResponse(location));
+    const e = new RequestEngine({ baseUrl: "https://example.test", transport: mt.transport });
+    await assert.rejects(
+      () => e.getJson("/x"),
+      (err) => err instanceof HaushaltNetworkError && /unsupported protocol/.test(err.message),
+    );
+    assert.equal(mt.calls.length, 1, location);
+  }
 });

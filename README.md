@@ -182,7 +182,7 @@ These apply to every command and may be given before *or* after it:
 | `--base-url <url>` | API base URL (default `https://bundeshaushalt.de`). Credentials in it (`https://user:pw@mirror.example`) are sent as HTTP Basic auth, for a mirror behind a login, and shown as `***` in everything the CLI prints |
 | `--timeout <ms>` | Time limit per request in milliseconds, reading the whole response included (`0` = no limit; default `30000`) |
 | `--user-agent <ua>` | `User-Agent` header value |
-| `--max-retries <n>` | Retries for transient `429`/`503` responses, `0`..`10` (default `2`); each waits the server's `Retry-After` (up to 30 s; a longer one is not retried), else 200 ms × attempt |
+| `--max-retries <n>` | Retries for transient `429`/`503` responses and reset connections, `0`..`10` (default `2`); each waits the server's `Retry-After` (up to 30 s; a longer one is not retried), else 200 ms × attempt |
 | `--max-response-bytes <n>` | Cap response body size in bytes (`0` = unlimited; default 100 MiB) |
 
 ## Learn more

@@ -169,8 +169,8 @@ bundeshaushalt expenses 2024 \
   --user-agent "my-budget-report/1.0"
 ```
 
-Transient `429`/`503` responses are retried automatically (default 2 retries, at
-most 10), honouring the server's `Retry-After` up to 30 s.
+Transient `429`/`503` responses and reset connections are retried automatically
+(default 2 retries, at most 10), honouring the server's `Retry-After` up to 30 s.
 Exit codes: `0` success, `4` on a `404` from the API (an unknown id, a year
 without data, or `--quota actual` for a year whose realised figures aren't
 published yet), `1` for other errors,
@@ -188,7 +188,7 @@ These apply to every command and may appear **before or after** it:
 | `--base-url <url>` | API base URL (default `https://bundeshaushalt.de`). Credentials in it (`https://user:pw@mirror.example`) are sent as HTTP Basic auth, for a mirror behind a login, and shown as `***` in everything the CLI prints |
 | `--timeout <ms>` | Time limit per request in milliseconds, reading the whole response included (`0` = no limit; default `30000`) |
 | `--user-agent <ua>` | `User-Agent` header value |
-| `--max-retries <n>` | Retries for transient `429`/`503` responses, `0`..`10` (default `2`); each waits the server's `Retry-After` (up to 30 s; a longer one is not retried), else 200 ms × attempt |
+| `--max-retries <n>` | Retries for transient `429`/`503` responses and reset connections, `0`..`10` (default `2`); each waits the server's `Retry-After` (up to 30 s; a longer one is not retried), else 200 ms × attempt |
 | `--max-response-bytes <n>` | Cap response body size in bytes (`0` = unlimited; default 100 MiB) |
 | `--compact` | Print JSON on a single line instead of pretty-printed |
 | `-h, --help` | Show help for the program or a command |
