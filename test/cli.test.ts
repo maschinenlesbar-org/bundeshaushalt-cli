@@ -387,3 +387,33 @@ test("commander's output is one record per line, and every failed run has an ERR
   await run([], bare.deps);
   assert.match(bare.err[0] ?? "", /ERROR \[bundeshaushalt\.cli\] missing command: `bundeshaushalt <subcommand>`$/);
 });
+
+test("a repeated --log-format is reported in the format commander kept, the first (L6)", async () => {
+  for (const [first, second] of [["jsonl", "text"], ["text", "jsonl"]]) {
+    const cli = makeCli(() => jsonResponse(body));
+    assert.equal(await run(["--log-format", first!, "--log-format", second!, "expenses", "2024"], cli.deps), 1);
+    const line = cli.err[0] ?? "";
+    if (first === "jsonl") {
+      const record = JSON.parse(line) as Record<string, unknown>;
+      assert.deepEqual([record["level"], record["topic"]], ["ERROR", "bundeshaushalt.cli"]);
+      assert.match(record["msg"] as string, /--log-format was given more than once/);
+    } else {
+      assert.match(line, /^\S+Z ERROR \[bundeshaushalt\.cli\] .*--log-format was given more than once/);
+    }
+  }
+});
+
+test("an option's value that looks like --log-format sets no format, in a parse error too (B03-1, L6)", async () => {
+  // commander takes "--log-format=text" as the User-Agent: the real flag, jsonl, counts.
+  const real = makeCli(() => jsonResponse({}, 404));
+  assert.equal(await run(["--log-format", "jsonl", "--user-agent", "--log-format=text", "income", "2025"], real.deps), 4);
+  assert.equal((JSON.parse(real.err[0] ?? "") as Record<string, unknown>)["level"], "ERROR");
+  // commander takes "--log-format" as the User-Agent and then fails on the command "jsonl".
+  const ua = makeCli(() => jsonResponse(body));
+  assert.equal(await run(["--user-agent", "--log-format", "jsonl", "expenses", "2024"], ua.deps), 1);
+  assert.match(ua.err[0] ?? "", /^\S+Z ERROR \[bundeshaushalt\.cli\] /);
+  // --base-url swallows the flag: its rejection is logged in text.
+  const base = makeCli(() => jsonResponse(body));
+  assert.equal(await run(["--base-url", "--log-format=jsonl", "expenses", "2024"], base.deps), 1);
+  assert.match(base.err[0] ?? "", /^\S+Z ERROR \[bundeshaushalt\.cli\] option '--base-url <url>'/);
+});
