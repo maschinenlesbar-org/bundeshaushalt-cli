@@ -400,5 +400,8 @@ wrapped in `once()` like the other global options. `CliDeps.now` makes the times
 testable. stdout carries data only. A failed write to stdout other than a closed pipe
 (`handleOutputErrors`, in the bin shim, outside `run()`) is an ERROR record of
 `bundeshaushalt.output` (`Could not write to stdout: …`), in the format argv asks for
-(`processLogger`). Conformance test P23 checks all of this,
+(`processLogger`). Node's own process warnings (`NODE_TLS_REJECT_UNAUTHORIZED=0`) are WARN
+records of `bundeshaushalt.cli` too: the bin shim installs `installWarningLog`, which
+removes Node's default `warning` listener and logs `(node) <name>: <message>` through the
+same logger. Conformance test P23 checks all of this,
 and its body is shared across the *-cli repos.
