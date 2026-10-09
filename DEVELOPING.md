@@ -281,7 +281,8 @@ characters; `quoteValue`, which redacts the value's userinfo before the cut, so 
 never leaves part of a password behind), so `err.message` stays bounded for a library
 caller too. The CLI maps a `404` to exit code `4` and every other error,
 usage errors included, to `1`; a `HaushaltValidationError` is logged as an `ERROR`
-record of `bundeshaushalt.cli`, like a usage error.
+record of `bundeshaushalt.cli`, like a usage error, and a `HaushaltParseError` (a
+malformed answer) as one of `bundeshaushalt.api`, like an error status.
 
 **Input rules.** [`validate.ts`](src/client/validate.ts) holds the library's input
 rules as pure, exported functions: a `Problem` returns the reason a value is
@@ -377,7 +378,9 @@ forge another one or steer the terminal. Before that a lone surrogate (half a
 character, which jq rejects, stopping the whole stream) becomes U+FFFD (`toWellFormed`),
 and a message longer than `MAX_RECORD_MESSAGE` (4000 characters, exported) is cut at a
 code point and ends in `… (N more characters)`. The areas are `cli` (usage errors, commander's messages, unexpected errors),
-`api` (the API's error answers, and the `--quota actual` hint after a 404 as `INFO`),
+`api` (the API's answers: an error status, and the `--quota actual` hint after a 404 as
+`INFO`, and a malformed answer, a `HaushaltParseError`: bad JSON, an empty body, the wrong
+shape or content type, an unknown charset),
 `http` (network errors, the cleartext warning) and `output` (a failed write to stdout).
 Code logs through `logOf(deps)` and never
 writes diagnostics with `io.err` directly. `run()` builds the logger from argv before

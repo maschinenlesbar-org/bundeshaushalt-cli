@@ -179,6 +179,19 @@ given twice).
 
 ---
 
+## The log on stderr
+
+**Log record.** Every diagnostic line the CLI writes to stderr: a timestamp, a level
+(`ERROR`, `WARN`, `INFO`) and a topic `bundeshaushalt.<area>`, as text (log4j style) or
+with `--log-format jsonl` as one JSON object per line. The areas: `cli` (usage errors,
+commander's messages, unexpected errors), `api` (the API's answers: an error status and the
+`--quota actual` hint after a 404, and a malformed answer — bad JSON, an empty body, the
+wrong shape or content type), `http` (the connection, the cleartext warning) and `output`
+(a failed write to stdout). A record is always one line; control characters in it are
+escaped.
+
+---
+
 > **Library & internals.** Terms for the TypeScript client and its internals —
 > `BundeshaushaltClient`, the request engine, transport, retry/backoff, error
 > types, query builder — now live in **[DEVELOPING.md](DEVELOPING.md)**.
