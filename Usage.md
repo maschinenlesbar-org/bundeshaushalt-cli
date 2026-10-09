@@ -193,12 +193,13 @@ takes a value (global or per-command) may be given only once: a repeat (`--id 14
 | `--max-retries <n>` | Retries for transient `429`/`503` responses and reset connections, `0`..`10` (default `2`); each waits 200 ms × attempt, or longer when the server's `Retry-After` asks (up to 30 s; a longer one is not retried, and the error names the requested wait) |
 | `--max-response-bytes <n>` | Cap response body size in bytes (`0` = unlimited; default 100 MiB) |
 | `--compact` | Print JSON on a single line instead of pretty-printed |
+| `--log-format <format>` | How errors, warnings and notes are written to stderr: `text` (default; log4j style, `2026-10-09T14:03:12.481Z WARN  [bundeshaushalt.http] …`) or `jsonl` (one JSON object per line: `ts`, `level`, `topic`, `msg`). stdout is not affected |
 | `-h, --help` | Show help for the program or a command |
 
 A base URL on plain `http:` to a host other than loopback (`localhost`, `127.0.0.0/8`,
-`::1`) works, but the CLI writes one line to stderr before the first request, e.g.
-`warning: requests to mirror.example are sent unencrypted (http:, not https:)`, or
-`warning: the base URL's credentials are sent unencrypted to mirror.example (http:, not https:)`
+`::1`) works, but the CLI writes one warning record to stderr before the first request, e.g.
+`… WARN  [bundeshaushalt.http] requests to mirror.example are sent unencrypted (http:, not https:)`, or
+`… WARN  [bundeshaushalt.http] the base URL's credentials are sent unencrypted to mirror.example (http:, not https:)`
 when it carries a `user:password@` (never printed). stdout and the exit code are unchanged.
 
 Per-command options (on `budget`, `expenses`, `income`):

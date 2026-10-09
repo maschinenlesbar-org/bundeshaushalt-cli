@@ -108,7 +108,8 @@ src/
     validate.ts  # input rules as pure functions (Problem) + assertValid
     client.ts    # BundeshaushaltClient — the budget-data surface over the engine
   cli/
-    io.ts        # injectable I/O seam (stdout/stderr)
+    io.ts        # injectable I/O seam (stdout/stderr), the logger and the clock
+    log.ts       # the stderr log: records with ts, level, topic; --log-format text|jsonl
     shared.ts    # option parsers, global-option resolver, JSON renderer
     commands/    # budget + expenses/income shortcuts
     program.ts   # assembles the commander program from injectable deps
@@ -216,7 +217,7 @@ another origin (a fetch transport that followed one) is rejected as a
 and what travels unencrypted — the base URL's credentials when it carries userinfo — or
 `undefined` for `https:`, an unparseable URL and loopback hosts (`localhost`,
 `127.0.0.0/8`, `::1`). The CLI's `action()` wrapper (`shared.ts`, `warnOnCleartext`)
-prints it once per run as `warning: <sentence>` on stderr, after the options are parsed
+logs it once per run as a `WARN` record of `bundeshaushalt.http` on stderr, after the options are parsed
 and before the first request; `--help`, `--version` and usage errors never get there.
 
 **Base URL validation.** One rule, `baseUrlProblem` ([`validate.ts`](src/client/validate.ts)):
@@ -265,8 +266,8 @@ the `cause` chain. A redirect `Location` that doesn't parse is a `HaushaltNetwor
 (`Invalid redirect Location "…" for GET <url>`). Server text in a message (an error
 `detail`, a redirect target, a transport's reason) is cut at `MAX_SERVER_TEXT_LENGTH`
 (500) characters; `HaushaltApiError.body` keeps it all. The CLI maps a `404` to exit code `4` and every other error,
-usage errors included, to `1`; a `HaushaltValidationError` is printed as
-`Error: <message>`, like a usage error.
+usage errors included, to `1`; a `HaushaltValidationError` is logged as an `ERROR`
+record of `bundeshaushalt.cli`, like a usage error.
 
 **Input rules.** [`validate.ts`](src/client/validate.ts) holds the library's input
 rules as pure, exported functions: a `Problem` returns the reason a value is
@@ -304,7 +305,7 @@ npm test          # builds, then runs `node --test` over dist/test
   P20 the stderr warning for a plain-`http:` base URL (env-variable and other-secret cases
   skipped: no environment variable, no key), P21 the README's relative links (README.md ships
   to npmjs.com, so a link to a document the `files` allowlist leaves out must be an absolute
-  GitHub URL).
+  GitHub URL), P23 the log records on stderr and `--log-format` (its `USAGE_EXIT` is `1`).
 
 ## Continuous integration
 
@@ -344,3 +345,21 @@ npm run serve                        # http://127.0.0.1:4000/bundeshaushalt-cli/
 Dual-licensed under **[AGPL-3.0-or-later](LICENSE)** or a commercial license — see
 **[LICENSING.md](LICENSING.md)**. This project does **not** accept external code
 contributions; see **[CONTRIBUTING.md](CONTRIBUTING.md)**.
+
+## The log on stderr
+
+Every diagnostic line on stderr is a log record (`src/cli/log.ts`): a timestamp, a level
+(`ERROR`, `WARN`, `INFO`) and a topic, `bundeshaushalt.<area>`. `--log-format text` (the
+default) writes it log4j style, `<ISO 8601 UTC> <LEVEL padded to 5> [<topic>] <message>`;
+`--log-format jsonl` writes one JSON object per line with exactly `ts`, `level`, `topic`
+and `msg`. The areas are `cli` (usage errors, commander's messages, unexpected errors),
+`api` (the API's error answers, and the `--quota actual` hint after a 404 as `INFO`) and
+`http` (network errors, the cleartext warning). Code logs through `logOf(deps)` and never
+writes diagnostics with `io.err` directly. `run()` builds the logger from argv before
+commander parses it, so commander's own usage errors are records too, and on top of the
+redacted `io.err`, so a secret is kept out of the log in either format. `--log-format` is
+wrapped in `once()` like the other global options. `CliDeps.now` makes the timestamps
+testable. stdout carries data only. Only the bin shim's `Output error: …` line
+(`handleOutputErrors`, a failed write to stdout) stays a plain line: it is written
+straight to `process.stderr`, outside `run()`. Conformance test P23 checks all of this,
+and its body is shared across the *-cli repos.

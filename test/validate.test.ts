@@ -7,6 +7,7 @@ import { maxYear, unitOfId } from "../src/client/enums.js";
 import * as root from "../src/index.js";
 import { run } from "../src/cli/run.js";
 import type { CliDeps } from "../src/cli/io.js";
+import { untimed } from "./helpers.js";
 
 const nonEmpty: Problem<string> = (v) => (v.trim() === "" ? "Expected a non-empty value." : undefined);
 
@@ -37,7 +38,7 @@ test("the package root exports assertValid and HaushaltValidationError", () => {
   assert.equal(root.HaushaltValidationError, HaushaltValidationError);
 });
 
-test("run() prints a HaushaltValidationError from an action as 'Error: <message>' and exits 1", async () => {
+test("run() logs a HaushaltValidationError from an action as an ERROR record and exits 1", async () => {
   const err: string[] = [];
   const client = new BundeshaushaltClient({
     transport: async () => {
@@ -49,7 +50,7 @@ test("run() prints a HaushaltValidationError from an action as 'Error: <message>
   };
   const deps: CliDeps = { io: { out: () => {}, err: (s) => err.push(s) }, createClient: () => client };
   assert.equal(await run(["expenses", "2024"], deps), 1);
-  assert.deepEqual(err, ["Error: Invalid thing: Expected a non-empty value."]);
+  assert.deepEqual(err.map(untimed), ["ERROR [bundeshaushalt.cli] Invalid thing: Expected a non-empty value."]);
 });
 
 test("idProblem: a non-blank budget number without surrounding whitespace or a bare G-/F- prefix", () => {

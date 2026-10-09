@@ -116,6 +116,22 @@ bundeshaushalt expenses 2015 --quota actual
 Every command prints **pretty JSON to stdout**. Errors and diagnostics go to
 stderr, so piping stdout into `jq` stays clean.
 
+Each line on stderr is a **log record**: a timestamp (UTC), a level (`ERROR`, `WARN`,
+`INFO`) and a topic, the program and the area it comes from (`bundeshaushalt.cli` for usage
+errors, `bundeshaushalt.api` for the API's answers and the hint after them, `bundeshaushalt.http` for
+the connection). By default it is written log4j style; `--log-format jsonl` writes one
+JSON object per line instead:
+
+```text
+2026-10-09T14:03:12.481Z WARN  [bundeshaushalt.http] requests to mirror.example are sent unencrypted (http:, not https:)
+2026-10-09T14:03:12.902Z ERROR [bundeshaushalt.api] HTTP 404 for GET https://bundeshaushalt.de/internalapi/budgetData?…
+2026-10-09T14:03:12.903Z INFO  [bundeshaushalt.api] with --quota actual, a 404 also means that year's realised figures are not published yet …
+```
+
+```bash
+bundeshaushalt --log-format jsonl expenses 2026 --quota actual 2>log.jsonl   # {"ts":"…","level":"ERROR","topic":"bundeshaushalt.api","msg":"HTTP 404 …"}
+```
+
 ```bash
 # Compare planned vs. realised headline totals for 2023
 bundeshaushalt expenses 2023 --quota target  --compact | jq '.detail.value'
@@ -184,6 +200,7 @@ These apply to every command and may be given before *or* after it:
 | `-V, --version` | Print the version number |
 | `-h, --help` | Show help for the program or a command |
 | `--compact` | Print JSON on a single line instead of pretty-printed |
+| `--log-format <format>` | How errors, warnings and notes are written to stderr: `text` (default; log4j style, `2026-10-09T14:03:12.481Z WARN  [bundeshaushalt.http] …`) or `jsonl` (one JSON object per line: `ts`, `level`, `topic`, `msg`). stdout is not affected |
 | `--base-url <url>` | API base URL (default `https://bundeshaushalt.de`). Credentials in it (`https://user:pw@mirror.example`) are sent as HTTP Basic auth, for a mirror behind a login, and shown as `***` in everything the CLI prints |
 | `--timeout <ms>` | Time limit per request in milliseconds, reading the whole response included (`0` = no limit; default `30000`) |
 | `--user-agent <ua>` | `User-Agent` header value |
@@ -191,9 +208,9 @@ These apply to every command and may be given before *or* after it:
 | `--max-response-bytes <n>` | Cap response body size in bytes (`0` = unlimited; default 100 MiB) |
 
 A base URL on plain `http:` to a host other than loopback (`localhost`, `127.0.0.0/8`,
-`::1`) works, but the CLI writes one line to stderr before the first request, e.g.
-`warning: requests to mirror.example are sent unencrypted (http:, not https:)`, or
-`warning: the base URL's credentials are sent unencrypted to mirror.example (http:, not https:)`
+`::1`) works, but the CLI writes one warning record to stderr before the first request, e.g.
+`… WARN  [bundeshaushalt.http] requests to mirror.example are sent unencrypted (http:, not https:)`, or
+`… WARN  [bundeshaushalt.http] the base URL's credentials are sent unencrypted to mirror.example (http:, not https:)`
 when it carries a `user:password@` (never printed). stdout and the exit code are unchanged.
 
 ## Learn more

@@ -73,6 +73,18 @@ export function constantJson(body: unknown, status = 200): MockTransport {
   return makeMockTransport(() => jsonResponse(body, status));
 }
 
+// ---- the log on stderr -------------------------------------------------------
+
+/**
+ * stderr with each text record's timestamp taken off: `ERROR [bundeshaushalt.api] HTTP 404 …`.
+ * The format itself — timestamp, level, topic — is the conformance test's
+ * (conformance-p23-log-format); the other tests check what was said, at which level
+ * and under which topic.
+ */
+export function untimed(text: string): string {
+  return text.replace(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z /gm, "");
+}
+
 /** What the CLI did with one argv: exit code, captured output, requests sent. */
 export interface CliOutcome {
   code: number;
@@ -112,7 +124,7 @@ export async function parity(
     createClient: (opts) => new BundeshaushaltClient({ ...opts, transport: mt.transport }),
   };
   const code = await run(argv, deps);
-  const cli: CliOutcome = { code, out, err, requests: mt.calls.splice(0) };
+  const cli: CliOutcome = { code, out, err: err.map(untimed), requests: mt.calls.splice(0) };
   let lib: LibOutcome;
   try {
     const value = await libCall(mt.transport);

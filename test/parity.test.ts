@@ -35,7 +35,7 @@ test("an id with surrounding whitespace or a bare G-/F- prefix is rejected by CL
     assert.equal(p.cli.code, 1, JSON.stringify(id));
     assert.equal(p.lib.requests.length, 0, JSON.stringify(id));
     assert.ok(!p.lib.ok && p.lib.error instanceof HaushaltValidationError, JSON.stringify(id));
-    assert.deepEqual(p.cli.err, [`Error: ${(p.lib.error as Error).message}`], JSON.stringify(id));
+    assert.deepEqual(p.cli.err, [`ERROR [bundeshaushalt.cli] ${(p.lib.error as Error).message}`], JSON.stringify(id));
   }
 });
 
@@ -71,7 +71,7 @@ test("an id whose prefix contradicts the unit is rejected by CLI and library ali
     assertParity(p, `${unit} ${id}`);
     assert.ok(!p.lib.ok && p.lib.error instanceof HaushaltValidationError, `${unit} ${id}`);
     assert.equal((p.lib.error as Error).message, message);
-    assert.deepEqual(p.cli.err, [`Error: ${message}`]);
+    assert.deepEqual(p.cli.err, [`ERROR [bundeshaushalt.cli] ${message}`]);
     assert.equal(p.cli.code, 1);
   }
 });
@@ -88,7 +88,7 @@ test("the year range (MIN_YEAR to next year) is enforced by CLI and library alik
     if (!inRange) {
       assert.ok(!p.lib.ok && p.lib.error instanceof HaushaltValidationError, String(year));
       assert.equal((p.lib.error as Error).message, `Invalid year ${year}: Expected a year between 2012 and ${next}.`);
-      assert.deepEqual(p.cli.err, [`Error: ${(p.lib.error as Error).message}`]);
+      assert.deepEqual(p.cli.err, [`ERROR [bundeshaushalt.cli] ${(p.lib.error as Error).message}`]);
     }
   }
 });

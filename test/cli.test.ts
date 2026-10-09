@@ -4,7 +4,7 @@ import { run } from "../src/cli/run.js";
 import { BundeshaushaltClient } from "../src/client/client.js";
 import type { CliDeps } from "../src/cli/io.js";
 import type { HttpRequest, HttpResponse } from "../src/client/http.js";
-import { makeMockTransport, jsonResponse, rawResponse } from "./helpers.js";
+import { makeMockTransport, jsonResponse, rawResponse, untimed } from "./helpers.js";
 
 const body = { meta: {}, detail: {}, children: [] };
 
@@ -170,7 +170,7 @@ test("rejects an empty --id before any request", async () => {
   const code = await run(["budget", "2024", "expenses", "--id", "  "], cli.deps);
   assert.notEqual(code, 0);
   assert.equal(cli.mt.calls.length, 0);
-  assert.equal(cli.err.join("\n"), 'Error: Invalid id "  ": Expected a non-empty budget number.');
+  assert.equal(untimed(cli.err.join("\n")), 'ERROR [bundeshaushalt.cli] Invalid id "  ": Expected a non-empty budget number.');
 });
 
 test("--timeout accepts up to the largest timer Node supports and rejects more", async () => {
@@ -238,14 +238,14 @@ test("a deeply nested response fails pretty-printing cleanly and still prints wi
   const pretty = makeCli(deep);
   assert.equal(await run(["expenses", "2024"], pretty.deps), 1);
   assert.deepEqual(pretty.out, []);
-  assert.equal(pretty.err.join("\n"), "Error: The response is nested too deeply to pretty-print; try --compact.");
+  assert.equal(untimed(pretty.err.join("\n")), "ERROR [bundeshaushalt.cli] The response is nested too deeply to pretty-print; try --compact.");
 
   // Compact serialisation goes much deeper (it prints this one on current Node);
   // should a runtime's stack still be too small, it must fail just as cleanly.
   const compact = makeCli(deep);
   const code = await run(["--compact", "expenses", "2024"], compact.deps);
   if (code === 0) assert.ok(compact.out.join("").includes(nested));
-  else assert.equal(compact.err.join("\n"), "Error: The response is nested too deeply to print.");
+  else assert.equal(untimed(compact.err.join("\n")), "ERROR [bundeshaushalt.cli] The response is nested too deeply to print.");
 });
 
 test("bidi controls in server data are escaped in the JSON output", async () => {
@@ -261,17 +261,19 @@ test("a null 2xx body exits 1 with a parse error, not success", async () => {
   const cli = makeCli(() => jsonResponse(null));
   assert.equal(await run(["--compact", "expenses", "2024"], cli.deps), 1);
   assert.deepEqual(cli.out, []);
-  assert.match(cli.err.join("\n"), /^Error: Unexpected response shape from \/internalapi\/budgetData/);
+  assert.match(untimed(cli.err.join("\n")), /^ERROR \[bundeshaushalt\.cli\] Unexpected response shape from \/internalapi\/budgetData/);
 });
 
 test("a 404 for --quota actual hints that realised figures may not be published yet", async () => {
   const actual = makeCli(() => jsonResponse({}, 404));
   assert.equal(await run(["expenses", "2026", "--quota", "actual"], actual.deps), 4);
-  assert.match(actual.err.join("\n"), /^Hint: with --quota actual, a 404 also means/m);
+  assert.match(untimed(actual.err.join("\n")), /^ERROR \[bundeshaushalt\.api\] HTTP 404 /);
+  assert.match(untimed(actual.err.join("\n")), /^INFO  \[bundeshaushalt\.api\] with --quota actual, a 404 also means/m);
 
   const target = makeCli(() => jsonResponse({}, 404));
   assert.equal(await run(["expenses", "2026", "--id", "99"], target.deps), 4);
-  assert.doesNotMatch(target.err.join("\n"), /Hint:/);
+  assert.doesNotMatch(target.err.join("\n"), /with --quota actual/);
+  assert.deepEqual(target.err.map(untimed).map((line) => line.split(" ")[0]), ["ERROR"]);
 });
 
 test("--id's G-/F- prefix sets --unit when omitted", async () => {
@@ -293,7 +295,7 @@ test("rejects an --id whose prefix contradicts --unit before any request", async
     const cli = makeCli(() => jsonResponse(body));
     assert.equal(await run(["budget", "2024", "expenses", "--unit", unit, "--id", id], cli.deps), 1, id);
     assert.equal(cli.mt.calls.length, 0, id);
-    assert.equal(cli.err.join("\n"), `Error: ${message}`);
+    assert.equal(untimed(cli.err.join("\n")), `ERROR [bundeshaushalt.cli] ${message}`);
   }
   const ok = makeCli(() => jsonResponse(body));
   assert.equal(await run(["budget", "2024", "expenses", "--unit", "group", "--id", "g-5"], ok.deps), 0);
