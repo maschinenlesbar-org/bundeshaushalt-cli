@@ -78,6 +78,35 @@ export function cutText(text: string, max: number): string {
   return text.slice(0, end);
 }
 
+/**
+ * The longest value (in characters) an own message quotes from the user's input: a
+ * year, an account, an id. A longer one is cut and ends in "…", so a library caller's
+ * `err.message` stays bounded too. Server text has its own limit,
+ * `MAX_SERVER_TEXT_LENGTH` (500, engine.ts).
+ */
+export const MAX_QUOTED_LENGTH = 200;
+
+/**
+ * `text` cut to `max` characters (code points, so never inside a surrogate pair),
+ * marked with "…" when cut.
+ */
+export function cutForMessage(text: string, max: number): string {
+  let units = 0;
+  for (let chars = 0; units < text.length && chars < max; chars++) {
+    units += (text.codePointAt(units) as number) > 0xffff ? 2 : 1;
+  }
+  return units >= text.length ? text : `${text.slice(0, units)}…`;
+}
+
+/**
+ * A value an own message quotes from the user's input: its userinfo redacted
+ * ({@link redactUrl}) before it is cut at `max` (default {@link MAX_QUOTED_LENGTH}), so
+ * the cut can't leave part of a password behind without the `@` that marks it.
+ */
+export function quoteValue(value: string, max: number = MAX_QUOTED_LENGTH): string {
+  return cutForMessage(redactUrl(value), max);
+}
+
 function isHighSurrogate(c: number): boolean {
   return c >= 0xd800 && c <= 0xdbff;
 }

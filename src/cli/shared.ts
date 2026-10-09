@@ -4,7 +4,7 @@
 import type { Command } from "commander";
 import { InvalidArgumentError } from "commander";
 import { logOf, type CliDeps } from "./io.js";
-import { HaushaltError, HaushaltValidationError } from "../client/errors.js";
+import { HaushaltError, HaushaltValidationError, quoteValue } from "../client/errors.js";
 import { cleartextProblem, DEFAULT_BASE_URL, isBidiControl, type EngineOptions } from "../client/engine.js";
 import { baseUrlProblem, headerValueProblem } from "../client/validate.js";
 
@@ -97,7 +97,7 @@ export function assertEnum<T extends string>(
   argName: string,
 ): T {
   if (!(allowed as readonly string[]).includes(value)) {
-    throw new HaushaltValidationError(`Invalid ${argName} "${value}". Expected one of: ${allowed.join(", ")}.`);
+    throw new HaushaltValidationError(`Invalid ${argName} "${quoteValue(value)}". Expected one of: ${allowed.join(", ")}.`);
   }
   return value as T;
 }

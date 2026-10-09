@@ -6,7 +6,7 @@
 
 import { RequestEngine, type EngineOptions } from "./engine.js";
 import { AccountValues, QuotaValues, UnitValues, unitOfId } from "./enums.js";
-import { HaushaltParseError, HaushaltValidationError, cutText } from "./errors.js";
+import { HaushaltParseError, HaushaltValidationError, quoteValue } from "./errors.js";
 import type { QueryParams } from "./query.js";
 import type { BudgetData, BudgetParams } from "./types.js";
 import { assertKnownKeys, assertValid, idProblem, idUnitProblem, yearProblem } from "./validate.js";
@@ -89,7 +89,7 @@ export function validateBudgetParams(params: BudgetParams): BudgetParams {
   if (params.id === undefined) return params;
   const id = assertValid(`id ${shown(params.id)}`, params.id, idProblem);
   if (params.unit !== undefined) {
-    assertValid(`id "${id}" for unit ${params.unit}`, { id, unit: params.unit }, idUnitProblem);
+    assertValid(`id ${shown(id)} for unit ${params.unit}`, { id, unit: params.unit }, idUnitProblem);
     return params;
   }
   const unit = unitOfId(id);
@@ -106,12 +106,13 @@ function checkEnum(name: string, value: unknown, allowed: readonly string[]): vo
 }
 
 /**
- * A rejected value as a message shows it: a string quoted (cut at 50 characters), a
- * number as is, anything else by its type — so a wrong-typed value can't look valid
- * (`2023` for the string "2023") and a huge or hostile one isn't echoed whole.
+ * A rejected value as a message shows it: a string quoted (its userinfo redacted, then
+ * cut at 50 characters), a number as is, anything else by its type — so a wrong-typed
+ * value can't look valid (`2023` for the string "2023") and a huge or hostile one isn't
+ * echoed whole.
  */
 function shown(value: unknown): string {
-  if (typeof value === "string") return JSON.stringify(value.length > 50 ? `${cutText(value, 50)}…` : value);
+  if (typeof value === "string") return JSON.stringify(quoteValue(value, 50));
   if (typeof value === "number") return String(value);
   return `(${value === null ? "null" : Array.isArray(value) ? "an array" : `a ${typeof value}`})`;
 }

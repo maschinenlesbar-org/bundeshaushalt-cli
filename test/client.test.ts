@@ -140,3 +140,18 @@ test("a 2xx body without the meta/detail envelope raises HaushaltParseError", as
     );
   }
 });
+
+test("the library quotes a rejected id at most 200 characters long, redacted before the cut (L3)", async () => {
+  const mt = constantJson(body);
+  const client = clientWith(mt);
+  await assert.rejects(client.budgetData({ year: 2024, account: "expenses", unit: "group", id: `1${"9".repeat(5000)}` }), (err: Error) => {
+    assert.ok(err.message.length < 400, `${err.message.length}`);
+    assert.match(err.message, /^Invalid id "19+…" for unit group/);
+    return true;
+  });
+  await assert.rejects(client.budgetData({ year: 2024, account: "expenses", unit: "group", id: `https://u:${"p".repeat(300)}@h.example` }), (err: Error) => {
+    assert.ok(!err.message.includes("ppp"), err.message.slice(0, 200));
+    return true;
+  });
+  assert.equal(mt.calls.length, 0);
+});

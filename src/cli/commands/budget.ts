@@ -2,7 +2,7 @@ import type { Command } from "commander";
 import { Option } from "commander";
 import type { CliDeps } from "../io.js";
 import { action, assertEnum, once, parseChoice, renderJson } from "../shared.js";
-import { HaushaltValidationError } from "../../client/errors.js";
+import { HaushaltValidationError, quoteValue } from "../../client/errors.js";
 import { AccountValues, QuotaValues, UnitValues, MIN_YEAR, maxYear } from "../../client/enums.js";
 import type { Account, Quota, Unit } from "../../client/enums.js";
 import type { BudgetParams } from "../../client/types.js";
@@ -16,7 +16,7 @@ import type { BudgetParams } from "../../client/types.js";
 function requireYear(value: string): number {
   if (!/^\d{4}$/.test(value)) {
     throw new HaushaltValidationError(
-      `Invalid year "${value}". Expected a four-digit year between ${MIN_YEAR} and ${maxYear()}.`,
+      `Invalid year "${quoteValue(value)}". Expected a four-digit year between ${MIN_YEAR} and ${maxYear()}.`,
     );
   }
   return Number(value);
@@ -36,7 +36,7 @@ function optionsFrom(opts: Record<string, unknown>): Omit<BudgetParams, "year" |
     // flag as the id and sends `id=--quota` to the API. Reject it locally.
     if (raw.startsWith("-")) {
       throw new HaushaltValidationError(
-        `Invalid id "${raw}". The --id value looks like an option; did you forget to supply an id?`,
+        `Invalid id "${quoteValue(raw)}". The --id value looks like an option; did you forget to supply an id?`,
       );
     }
     // The id rules (its shape, and that its G-/F- prefix fixes --unit, set when

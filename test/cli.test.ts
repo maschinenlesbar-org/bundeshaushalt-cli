@@ -326,3 +326,29 @@ test("a year, account or id the user typed with a line break or a control is ech
     assert.ok(line.includes("\\n2026-10-09T01:00:00.000Z INFO"), line);
   }
 });
+
+test("a rejected year, account or id is quoted at most 200 characters long in the CLI's own messages (L3)", async () => {
+  const long = "9".repeat(5000);
+  for (const argv of [
+    ["expenses", `1${long}`],
+    ["budget", "2024", `x${long}`],
+    ["expenses", "2024", "--id", `-${long}`],
+    ["expenses", "2024", "--unit", "group", "--id", `1${long}`],
+  ]) {
+    const cli = makeCli(() => jsonResponse(body));
+    assert.equal(await run(argv, cli.deps), 1, argv.join(" ").slice(0, 40));
+    assert.equal(cli.mt.calls.length, 0);
+    const record = cli.err[0] ?? "";
+    const own = record.slice(record.indexOf("Invalid "));
+    assert.match(own, /^Invalid (year|account|id) "[^"…]{1,200}…"/, own.slice(0, 300));
+    assert.ok(own.length < 450, `${own.length}: ${own.slice(0, 300)}`);
+  }
+});
+
+test("a quoted value is redacted before it is cut, so no part of a password is left without its @", async () => {
+  const cli = makeCli(() => jsonResponse(body));
+  const value = `https://u:${"p".repeat(300)}@h.example`;
+  assert.equal(await run(["budget", "2024", value], cli.deps), 1);
+  assert.ok(!cli.err.join("\n").includes("ppp"), cli.err.join("\n").slice(0, 300));
+  assert.match(cli.err.join("\n"), /Invalid account "https:\/\/\*\*\*@h\.example\/?"/);
+});
