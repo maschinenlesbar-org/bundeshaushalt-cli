@@ -371,3 +371,19 @@ test("an a:b@c argument (a User-Agent, an account) is neither a credential in th
   assert.deepEqual(credentialsIn("run:2026-10-09@x"), []);
   assert.deepEqual(credentialsIn("https://alice:pw@host"), ["alice:pw"]);
 });
+
+test("commander's output is one record per line, and every failed run has an ERROR (B01-2)", async () => {
+  for (const argv of [["expense", "2024"], ["budget", "2024"], [], ["help", "expens"], ["expenses", "2024", "--quota", "x"]]) {
+    const cli = makeCli(() => jsonResponse(body));
+    assert.equal(await run(argv, cli.deps), 1, argv.join(" "));
+    assert.match(cli.err[0] ?? "", /^\S+ ERROR \[bundeshaushalt\.cli\] /, `${argv.join(" ")}:\n${cli.err.join("\n")}`);
+    for (const line of cli.err) assert.match(line, /^\S+ (ERROR|INFO ) \[bundeshaushalt\.cli\] .*\S/, line);
+    assert.ok(cli.err.every((line) => !line.includes("\\n")), cli.err.join("\n"));
+  }
+  const typo = makeCli(() => jsonResponse(body));
+  await run(["expense", "2024"], typo.deps);
+  assert.match(typo.err[0] ?? "", /unknown command 'expense' \(Did you mean expenses\?\)$/);
+  const bare = makeCli(() => jsonResponse(body));
+  await run([], bare.deps);
+  assert.match(bare.err[0] ?? "", /ERROR \[bundeshaushalt\.cli\] missing command: `bundeshaushalt <subcommand>`$/);
+});

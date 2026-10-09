@@ -380,7 +380,11 @@ code point and ends in `… (N more characters)`. The areas are `cli` (usage err
 `api` (the API's error answers, and the `--quota actual` hint after a 404 as `INFO`) and
 `http` (network errors, the cleartext warning). Code logs through `logOf(deps)` and never
 writes diagnostics with `io.err` directly. `run()` builds the logger from argv before
-commander parses it, so commander's own usage errors are records too, and with the run's
+commander parses it, so commander's own usage errors are records too: its `error: …` an
+ERROR of `cli` (a `(Did you mean …?)` line joined to it), the help it shows after one an
+INFO record per line, and the program run without a command (or `help <unknown name>`) an
+ERROR "missing command: `bundeshaushalt <subcommand>`" before that help, so every failed
+run has an ERROR record (`writeCommanderErr`). The log is built with the run's
 redaction (`withRedactedOutput`), which replaces a secret in the message only, before it
 is escaped: the frame is never touched, and a secret is kept out of the log in either
 format. `--log-format` is
