@@ -112,6 +112,10 @@ Error: HTTP 503 for GET https://bundeshaushalt.de/internalapi/budgetData?year=20
 year 2016 failed (exit 1)
 ```
 
+Die `Error:`-Zeile ist stderr, wie es der Build 0.2.0 ausgab. Seit dem Log auf stderr schreibt die
+CLI denselben Fehler als einen `ERROR`-Eintrag von `bundeshaushalt.api` (Zeitstempel, Stufe, Thema,
+dann `HTTP 503 for GET …`); die Schleife oben hängt nicht von seiner Form ab.
+
 Später antwortete das Portal wieder, also wurde das eine fehlgeschlagene Jahr einzeln abgerufen (19:45 UTC):
 
 ```bash
