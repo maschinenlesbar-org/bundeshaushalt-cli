@@ -352,3 +352,10 @@ test("a quoted value is redacted before it is cut, so no part of a password is l
   assert.ok(!cli.err.join("\n").includes("ppp"), cli.err.join("\n").slice(0, 300));
   assert.match(cli.err.join("\n"), /Invalid account "https:\/\/\*\*\*@h\.example\/?"/);
 });
+
+test("a credential URL with DEL and a space, echoed in Invalid account, is redacted in jsonl too (B04-1)", async () => {
+  const cli = makeCli(() => jsonResponse(body));
+  const code = await run(["--log-format", "jsonl", "budget", "2024", "http://u:PWX X\u007fz@h.example"], cli.deps);
+  assert.equal(code, 1);
+  assert.ok(!cli.err.join("\n").includes("PWX"), cli.err.join("\n"));
+});
