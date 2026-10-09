@@ -11,6 +11,8 @@ import {
   HaushaltNetworkError,
   HaushaltParseError,
   HaushaltValidationError,
+  cutText,
+  toWellFormed,
 } from "../src/client/errors.js";
 import { makeMockTransport, jsonResponse, rawResponse, redirectResponse } from "./helpers.js";
 import type { HttpResponse } from "../src/client/http.js";
@@ -396,5 +398,23 @@ test("a redirect to a non-http(s) target is refused before the transport sees it
       (err) => err instanceof HaushaltNetworkError && /unsupported protocol/.test(err.message),
     );
     assert.equal(mt.calls.length, 1, location);
+  }
+});
+
+test("cutText never cuts inside a surrogate pair; toWellFormed replaces half a character", () => {
+  assert.equal(cutText("ab\u{1f600}cd", 3), "ab");
+  assert.equal(cutText("ab\u{1f600}cd", 4), "ab\u{1f600}");
+  assert.equal(cutText("short", 10), "short");
+  assert.equal(toWellFormed("a\ud83d b\ude00 \u{1f600}"), "a\ufffd b\ufffd \u{1f600}");
+});
+
+test("a server detail cut at 500 characters keeps the message well-formed", async () => {
+  for (const detail of ["\u{1f600}".repeat(600), "a" + "\u{1f600}".repeat(600)]) {
+    const engine = new RequestEngine({ transport: makeMockTransport(() => jsonResponse({ detail }, 500)).transport, maxRetries: 0 });
+    await assert.rejects(engine.getJson("/internalapi/budgetData"), (err: Error) => {
+      assert.equal(toWellFormed(err.message), err.message);
+      assert.match(err.message, /…$/);
+      return true;
+    });
   }
 });

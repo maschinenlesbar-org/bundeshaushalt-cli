@@ -6,7 +6,7 @@
 
 import { RequestEngine, type EngineOptions } from "./engine.js";
 import { AccountValues, QuotaValues, UnitValues, unitOfId } from "./enums.js";
-import { HaushaltParseError, HaushaltValidationError } from "./errors.js";
+import { HaushaltParseError, HaushaltValidationError, cutText } from "./errors.js";
 import type { QueryParams } from "./query.js";
 import type { BudgetData, BudgetParams } from "./types.js";
 import { assertKnownKeys, assertValid, idProblem, idUnitProblem, yearProblem } from "./validate.js";
@@ -111,7 +111,7 @@ function checkEnum(name: string, value: unknown, allowed: readonly string[]): vo
  * (`2023` for the string "2023") and a huge or hostile one isn't echoed whole.
  */
 function shown(value: unknown): string {
-  if (typeof value === "string") return JSON.stringify(value.length > 50 ? `${value.slice(0, 50)}…` : value);
+  if (typeof value === "string") return JSON.stringify(value.length > 50 ? `${cutText(value, 50)}…` : value);
   if (typeof value === "number") return String(value);
   return `(${value === null ? "null" : Array.isArray(value) ? "an array" : `a ${typeof value}`})`;
 }

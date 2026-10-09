@@ -265,7 +265,8 @@ percent-decoded) is scrubbed from error bodies and details, transport error text
 the `cause` chain. A redirect `Location` that doesn't parse is a `HaushaltNetworkError`
 (`Invalid redirect Location "…" for GET <url>`). Server text in a message (an error
 `detail`, a redirect target, a transport's reason) is cut at `MAX_SERVER_TEXT_LENGTH`
-(500) characters; `HaushaltApiError.body` keeps it all. The CLI maps a `404` to exit code `4` and every other error,
+(500) characters, never inside a surrogate pair (`cutText`), so the message stays
+well-formed; `HaushaltApiError.body` keeps it all. The CLI maps a `404` to exit code `4` and every other error,
 usage errors included, to `1`; a `HaushaltValidationError` is logged as an `ERROR`
 record of `bundeshaushalt.cli`, like a usage error.
 
@@ -359,7 +360,9 @@ the message (text) or the whole JSON object (jsonl), which writes CR and LF as `
 every other C0 control but TAB, DEL and C1 as `\u00XX`, and U+2028, U+2029 and the bidi
 controls as `\uXXXX`, so no text that reaches a record, by whatever path (a server's text,
 a year, account or id the user typed and the CLI echoes in `Invalid …`), can split it,
-forge another one or steer the terminal. The areas are `cli` (usage errors, commander's messages, unexpected errors),
+forge another one or steer the terminal. Before that a lone surrogate (half a
+character, which jq rejects, stopping the whole stream) becomes U+FFFD (`toWellFormed`).
+The areas are `cli` (usage errors, commander's messages, unexpected errors),
 `api` (the API's error answers, and the `--quota actual` hint after a 404 as `INFO`) and
 `http` (network errors, the cleartext warning). Code logs through `logOf(deps)` and never
 writes diagnostics with `io.err` directly. `run()` builds the logger from argv before

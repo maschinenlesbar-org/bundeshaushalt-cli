@@ -4,7 +4,7 @@
 // any request, and the CLI calls the same functions instead of keeping copies.
 
 import { MIN_YEAR, UNIT_EXAMPLE, UNIT_PREFIX, maxYear, unitOfId, type Unit } from "./enums.js";
-import { HaushaltValidationError } from "./errors.js";
+import { HaushaltValidationError, cutText } from "./errors.js";
 
 /** The reason `value` is invalid (a sentence, e.g. "Expected a non-empty value."), or undefined. */
 export type Problem<T = unknown> = (value: T) => string | undefined;
@@ -137,7 +137,7 @@ export function assertKnownKeys(name: string, options: unknown, known: readonly 
     const value = (options as Record<string | symbol, unknown>)[key];
     if (typeof key === "string" && known.includes(key)) continue;
     if (value === undefined && typeof key === "string" && key !== "__proto__") continue;
-    const label = typeof key === "string" ? JSON.stringify(key.length > 50 ? `${key.slice(0, 50)}…` : key) : String(key);
+    const label = typeof key === "string" ? JSON.stringify(key.length > 50 ? `${cutText(key, 50)}…` : key) : String(key);
     const lower = typeof key === "string" ? key.toLowerCase() : "";
     const hint = known.find(
       (k) => k.toLowerCase() === lower || (lower !== "" && (k.toLowerCase().includes(lower) || lower.includes(k.toLowerCase()))),

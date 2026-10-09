@@ -14,6 +14,7 @@ import {
   HaushaltValidationError,
   credentialsIn,
   redactCredentials,
+  cutText,
   redactUrl,
 } from "./errors.js";
 
@@ -141,7 +142,8 @@ export function isBidiControl(code: number): boolean {
  * Written as a code-point filter so no raw control byte ever appears in this
  * source file.
  *
- * The result is cut at MAX_SERVER_TEXT_LENGTH characters (ending in "…"), so a
+ * The result is cut at MAX_SERVER_TEXT_LENGTH characters (ending in "…"; never inside a
+ * surrogate pair, `cutText`), so a
  * hostile or broken body can't flood stderr or a CI log with one huge line.
  */
 export function sanitizeServerText(text: string): string {
@@ -153,7 +155,7 @@ export function sanitizeServerText(text: string): string {
     out += ch;
   }
   const line = out.replace(/\s+/g, " ").trim();
-  return line.length > MAX_SERVER_TEXT_LENGTH ? `${line.slice(0, MAX_SERVER_TEXT_LENGTH)}…` : line;
+  return line.length > MAX_SERVER_TEXT_LENGTH ? `${cutText(line, MAX_SERVER_TEXT_LENGTH)}…` : line;
 }
 
 /**
