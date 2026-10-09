@@ -432,3 +432,13 @@ test("the --quota actual hint follows what the user asked, also after a redirect
   assert.equal(await run(["budget", "2024", "income"], target.deps), 4);
   assert.doesNotMatch(target.err.join("\n"), /with --quota actual/);
 });
+
+test("a credential URL given as --id is redacted in the 404 record, where it is percent-encoded (B04-2)", async () => {
+  for (const format of ["text", "jsonl"]) {
+    const cli = makeCli(() => jsonResponse({}, 404));
+    assert.equal(await run(["--log-format", format, "income", "2023", "--id", "http://u:PWXplain@h.example"], cli.deps), 4);
+    const all = cli.err.join("\n");
+    assert.ok(!all.includes("PWX"), `${format}: ${all}`);
+    assert.match(all, /id=http%3A%2F%2F\*\*\*%40h\.example/, all);
+  }
+});

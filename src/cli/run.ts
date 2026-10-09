@@ -102,6 +102,25 @@ function flagValues(argv: readonly string[], flags: readonly string[]): string[]
   return found;
 }
 
+/**
+ * A userinfo as it reads inside a query string: a URL given as an option value that the
+ * client sends as a parameter (`--id https://u:pw@host` becomes
+ * `id=https%3A%2F%2Fu%3Apw%40host`) is echoed in that form by the request URL of an
+ * error. Both encodings are listed: the client's (`buildQueryString`, form-encoding with
+ * `%20` for a space) and `encodeURIComponent`'s. The `@` after it reads `%40`.
+ */
+function queryEncodedForms(userinfo: string): string[] {
+  const form = new URLSearchParams({ v: userinfo }).toString().slice("v=".length).replace(/\+/g, "%20");
+  return [...new Set([form, encodeURIComponent(userinfo)])].filter((encoded) => encoded !== userinfo);
+}
+
+/** `text` with every query-encoded userinfo (`queryEncodedForms`) before `%40` replaced by `***`. */
+function redactQueryEncoded(text: string, encoded: readonly string[]): string {
+  let out = text;
+  for (const form of encoded) out = out.split(`${form}%40`).join("***%40");
+  return out;
+}
+
 /** The secrets of a run, and the two ways they are replaced. */
 export interface Redaction {
   /** stdout text: the userinfo of every URL-like argument replaced (`***@`). */
@@ -126,12 +145,14 @@ export function redactionFor(argv: readonly string[]): Redaction {
   const secrets = new Set<string>();
   const echoed = new Set<string>();
   const passwords = new Set<string>();
+  const encoded = new Set<string>();
   // A base URL typed without its scheme is read as if it had one.
   const baseUrls = flagValues(argv, BASE_URL_FLAGS).map((value) => (/^[A-Za-z][A-Za-z0-9+.-]*:\/\//.test(value) ? value : `http://${value}`));
   for (const source of [...values, ...baseUrls]) {
     for (const secret of credentialsIn(source)) {
       secrets.add(secret);
       secrets.add(JSON.stringify(secret).slice(1, -1));
+      for (const form of queryEncodedForms(secret)) encoded.add(form);
       // What a server echoes back: the Basic value and the decoded user:password on
       // stdout and stderr, the password alone (it may well occur in the data) on stderr.
       const [basic, pair, password] = echoedCredentialForms(secret);
@@ -145,7 +166,9 @@ export function redactionFor(argv: readonly string[]): Redaction {
   // Longest first, so a password never leaves half of the user:password around it.
   const echoedList = [...echoed].sort((a, b) => b.length - a.length);
   const passwordList = [...passwords].sort((a, b) => b.length - a.length);
-  const out = (text: string): string => redactSecrets(redactUserinfo(redactCredentials(text, list)), echoedList);
+  const encodedList = [...encoded];
+  const out = (text: string): string =>
+    redactSecrets(redactUserinfo(redactQueryEncoded(redactCredentials(text, list), encodedList)), echoedList);
   return { out, err: (text) => redactSecrets(out(text), passwordList) };
 }
 
