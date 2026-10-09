@@ -5,6 +5,7 @@ import { BundeshaushaltClient } from "../src/client/client.js";
 import type { CliDeps } from "../src/cli/io.js";
 import type { HttpRequest, HttpResponse } from "../src/client/http.js";
 import { makeMockTransport, jsonResponse, rawResponse, untimed } from "./helpers.js";
+import { credentialsIn } from "../src/client/errors.js";
 
 const body = { meta: {}, detail: {}, children: [] };
 
@@ -358,4 +359,15 @@ test("a credential URL with DEL and a space, echoed in Invalid account, is redac
   const code = await run(["--log-format", "jsonl", "budget", "2024", "http://u:PWX X\u007fz@h.example"], cli.deps);
   assert.equal(code, 1);
   assert.ok(!cli.err.join("\n").includes("PWX"), cli.err.join("\n"));
+});
+
+test("an a:b@c argument (a User-Agent, an account) is neither a credential in the log nor rewritten in the JSON on stdout (L14)", async () => {
+  const cli = makeCli(() => jsonResponse({ ...body, detail: { label: "run:2026-10-09@x" } }));
+  assert.equal(await run(["--user-agent", "run:2026-10-09@x", "expenses", "2024"], cli.deps), 0);
+  assert.match(cli.out.join("\n"), /"label": "run:2026-10-09@x"/);
+  const typed = makeCli(() => jsonResponse(body));
+  assert.equal(await run(["budget", "2024", "run:2026-10-09@x"], typed.deps), 1);
+  assert.ok(typed.err.some((line) => line.includes('"run:2026-10-09@x"')), typed.err.join("\n"));
+  assert.deepEqual(credentialsIn("run:2026-10-09@x"), []);
+  assert.deepEqual(credentialsIn("https://alice:pw@host"), ["alice:pw"]);
 });

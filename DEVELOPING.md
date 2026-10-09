@@ -237,15 +237,18 @@ Userinfo in the base URL (`http://user:pw@mirror/`) is sent as Basic auth (an
 `Authorization` header, see Redirects), for a mirror behind a login; every error message shows the URL through
 `redactUrl` (`http://***@mirror/...`), so the password never reaches a log. The CLI
 also redacts on output: `run.ts` (`redactionFor`, `withRedactedOutput`) takes the exact
-userinfo of every argument (`credentialsIn`, exported) and replaces it with `***` in
-everything it prints. The log replaces it in each record's *message*, before the record
-is cut and escaped, and writes to the raw stderr: the frame (time, level, topic) is never
-touched, and a password with DEL, C1 or bidi characters is matched in its raw form
-— commander's usage errors, which echo rejected values (a `--base-url` with a
-query, a port typo, an unencoded `#`), and the unknown-command message for a URL typed
-where the command goes — so a password with spaces, quotes, `#`, `?` or `/` is caught
-as well as an ordinary one. `redactUrl` falls back to the same text-based cut
-(`redactCredentials`, exported) for a value that doesn't parse as a URL.
+userinfo of every URL argument (`credentialsIn`, exported) and replaces it with `***` in
+everything it prints — commander's usage errors, which echo rejected values (a
+`--base-url` with a query, a port typo, an unencoded `#`), and the unknown-command message
+for a URL typed where the command goes — so a password with spaces, quotes, `#`, `?` or
+`/` is caught as well as an ordinary one. Only a value that starts with a scheme counts (a
+bare `a:b@c` is an account, an id or a User-Agent as often as a credential), except as the
+`--base-url` value, where a `user:password@host` typed without its scheme is still a
+credential. The log replaces it in each record's *message*, before the record is cut and
+escaped, and writes to the raw stderr: the frame (time, level, topic) is never touched,
+and a password with DEL, C1 or bidi characters is matched in its raw form. `redactUrl`
+falls back to the same text-based cut (`redactCredentials`, exported) for a value that
+doesn't parse as a URL.
 
 **CliDeps / CliIO.** The dependency-injection seam for the CLI
 ([`io.ts`](src/cli/io.ts)): a client factory plus an I/O object (`out`/`err`).
