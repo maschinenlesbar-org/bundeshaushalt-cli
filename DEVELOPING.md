@@ -377,8 +377,9 @@ forge another one or steer the terminal. Before that a lone surrogate (half a
 character, which jq rejects, stopping the whole stream) becomes U+FFFD (`toWellFormed`),
 and a message longer than `MAX_RECORD_MESSAGE` (4000 characters, exported) is cut at a
 code point and ends in `… (N more characters)`. The areas are `cli` (usage errors, commander's messages, unexpected errors),
-`api` (the API's error answers, and the `--quota actual` hint after a 404 as `INFO`) and
-`http` (network errors, the cleartext warning). Code logs through `logOf(deps)` and never
+`api` (the API's error answers, and the `--quota actual` hint after a 404 as `INFO`),
+`http` (network errors, the cleartext warning) and `output` (a failed write to stdout).
+Code logs through `logOf(deps)` and never
 writes diagnostics with `io.err` directly. `run()` builds the logger from argv before
 commander parses it (`logFormatFromArgv`, used only for the records of a parse error: the
 first `--log-format` counts, and the value of an option that takes one is skipped, as
@@ -393,7 +394,8 @@ redaction (`withRedactedOutput`), which replaces a secret in the message only, b
 is escaped: the frame is never touched, and a secret is kept out of the log in either
 format. `--log-format` is
 wrapped in `once()` like the other global options. `CliDeps.now` makes the timestamps
-testable. stdout carries data only. Only the bin shim's `Output error: …` line
-(`handleOutputErrors`, a failed write to stdout) stays a plain line: it is written
-straight to `process.stderr`, outside `run()`. Conformance test P23 checks all of this,
+testable. stdout carries data only. A failed write to stdout other than a closed pipe
+(`handleOutputErrors`, in the bin shim, outside `run()`) is an ERROR record of
+`bundeshaushalt.output` (`Could not write to stdout: …`), in the format argv asks for
+(`processLogger`). Conformance test P23 checks all of this,
 and its body is shared across the *-cli repos.
