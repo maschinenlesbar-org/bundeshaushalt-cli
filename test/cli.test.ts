@@ -442,3 +442,11 @@ test("a credential URL given as --id is redacted in the 404 record, where it is 
     assert.match(all, /id=http%3A%2F%2F\*\*\*%40h\.example/, all);
   }
 });
+
+test("a subcommand's value option does not swallow the program's --log-format, in a parse error too (L6)", async () => {
+  // commander takes the program's --log-format out of argv first; --id is left without its value.
+  const cli = makeCli(() => jsonResponse(body));
+  assert.notEqual(await run(["income", "2023", "--id", "--log-format", "jsonl"], cli.deps), 0);
+  assert.ok(cli.err.length > 0 && cli.err.every((line) => line.startsWith("{")), cli.err.join("\n"));
+  assert.match((JSON.parse(cli.err[0] ?? "") as Record<string, unknown>)["msg"] as string, /--id <id>' argument missing/);
+});
