@@ -4,7 +4,7 @@ import { run } from "../src/cli/run.js";
 import { BundeshaushaltClient } from "../src/client/client.js";
 import type { CliDeps } from "../src/cli/io.js";
 import type { HttpRequest, HttpResponse } from "../src/client/http.js";
-import { makeMockTransport, jsonResponse, rawResponse, untimed } from "./helpers.js";
+import { makeMockTransport, jsonResponse, rawResponse, redirectResponse, untimed } from "./helpers.js";
 import { credentialsIn } from "../src/client/errors.js";
 
 const body = { meta: {}, detail: {}, children: [] };
@@ -416,4 +416,19 @@ test("an option's value that looks like --log-format sets no format, in a parse 
   const base = makeCli(() => jsonResponse(body));
   assert.equal(await run(["--base-url", "--log-format=jsonl", "expenses", "2024"], base.deps), 1);
   assert.match(base.err[0] ?? "", /^\S+Z ERROR \[bundeshaushalt\.cli\] option '--base-url <url>'/);
+});
+
+test("the --quota actual hint follows what the user asked, also after a redirect that drops the query (B02-2)", async () => {
+  // The portal (or a mirror) redirects to a URL without the query; the 404 comes from there.
+  const responder = (req: { url: string }) =>
+    new URL(req.url).pathname.startsWith("/moved") ? jsonResponse({}, 404) : redirectResponse("/moved/internalapi/budgetData");
+  const actual = makeCli(responder);
+  assert.equal(await run(["budget", "2024", "income", "--quota", "actual"], actual.deps), 4);
+  assert.match(untimed(actual.err.join("\n")), /^ERROR \[bundeshaushalt\.api\] HTTP 404 for GET https:\/\/bundeshaushalt\.de\/moved\//);
+  assert.match(untimed(actual.err.join("\n")), /^INFO  \[bundeshaushalt\.api\] with --quota actual, a 404 also means/m);
+  // Without --quota actual no hint, whatever the final URL says.
+  const target = makeCli((req) =>
+    new URL(req.url).pathname.startsWith("/moved") ? jsonResponse({}, 404) : redirectResponse("/moved/internalapi/budgetData?quota=actual"));
+  assert.equal(await run(["budget", "2024", "income"], target.deps), 4);
+  assert.doesNotMatch(target.err.join("\n"), /with --quota actual/);
 });

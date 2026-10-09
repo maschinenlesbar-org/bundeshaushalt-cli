@@ -75,15 +75,6 @@ function valueOptionsOf(command: Command, names: Set<string> = new Set()): Set<s
   return names;
 }
 
-/** True when the request URL asked for realised figures (`quota=actual`). */
-function requestedActual(url: string): boolean {
-  try {
-    return new URL(url).searchParams.get("quota") === "actual";
-  } catch {
-    return false;
-  }
-}
-
 /**
  * Replace the userinfo of every URL in `text` with `***`, the form `redactUrl` gives
  * (`https://user:secret@host` becomes `https://***@host`). Text-based, so it also covers
@@ -219,9 +210,14 @@ export async function run(argv: string[], deps: CliDeps = defaultDeps): Promise<
   // commander's parse of a value). Ancestors' hooks run first, so this precedes every
   // other preAction check.
   const log = deps.log;
+  // The --quota the user asked for, from what commander parsed: the hint after a 404
+  // follows the request the user made, not the URL of the final response (a redirect
+  // may drop the query string).
+  let quota: unknown;
   program.hook("preAction", (_program, actionCommand) => {
     const format = (actionCommand.optsWithGlobals() as { logFormat?: LogFormat }).logFormat;
     if (log !== undefined) log.format = format ?? DEFAULT_LOG_FORMAT;
+    quota = (actionCommand.opts() as { quota?: unknown }).quota;
   });
 
   try {
@@ -239,7 +235,7 @@ export async function run(argv: string[], deps: CliDeps = defaultDeps): Promise<
       if (err.status === 404) {
         // The API answers a year whose realised figures are not published yet with
         // the same bare 404 as an unknown id; say so, since no id may be involved.
-        if (requestedActual(err.url)) {
+        if (quota === "actual") {
           log.info(
             "api",
             "with --quota actual, a 404 also means that year's realised figures " +

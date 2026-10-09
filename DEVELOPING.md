@@ -379,7 +379,8 @@ character, which jq rejects, stopping the whole stream) becomes U+FFFD (`toWellF
 and a message longer than `MAX_RECORD_MESSAGE` (4000 characters, exported) is cut at a
 code point and ends in `… (N more characters)`. The areas are `cli` (usage errors, commander's messages, unexpected errors),
 `api` (the API's answers: an error status, and the `--quota actual` hint after a 404 as
-`INFO`, and a malformed answer, a `HaushaltParseError`: bad JSON, an empty body, the wrong
+`INFO` — chosen from the `--quota` commander parsed, so a redirect that drops the query
+string doesn't lose it — and a malformed answer, a `HaushaltParseError`: bad JSON, an empty body, the wrong
 shape or content type, an unknown charset),
 `http` (network errors, the cleartext warning) and `output` (a failed write to stdout).
 Code logs through `logOf(deps)` and never
