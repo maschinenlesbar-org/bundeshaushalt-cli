@@ -324,7 +324,8 @@ npm test          # builds, then runs `node --test` over dist/test
   P20 the stderr warning for a plain-`http:` base URL (env-variable and other-secret cases
   skipped: no environment variable, no key), P21 the README's relative links (README.md ships
   to npmjs.com, so a link to a document the `files` allowlist leaves out must be an absolute
-  GitHub URL), P23 the log records on stderr and `--log-format` (its `USAGE_EXIT` is `1`).
+  GitHub URL), P23 the log records on stderr and `--log-format` (its `USAGE_EXIT` is `1`, `OUTPUT_OPTION`
+  undefined: no `-o`; `secretArgv` makes the secret a base-URL password).
 
 ## Continuous integration
 
