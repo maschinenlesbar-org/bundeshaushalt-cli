@@ -186,7 +186,7 @@ given twice).
 with `--log-format jsonl` as one JSON object per line. The areas: `cli` (usage errors,
 commander's messages, unexpected errors), `api` (the API's answers: an error status and the
 `--quota actual` hint after a 404, and a malformed answer — bad JSON, an empty body, the
-wrong shape or content type), `http` (the connection, the cleartext warning) and `output`
+wrong shape or content type), `http` (the connection, the cleartext warning, and one WARN per retry before it waits) and `output`
 (a failed write to stdout). A record is always one line; control characters in it are
 escaped.
 
