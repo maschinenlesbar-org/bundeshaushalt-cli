@@ -306,3 +306,23 @@ test("--help says that --timeout 0 means no limit", async () => {
   assert.equal(await run(["--help"], cli.deps), 0);
   assert.match(cli.out.join("\n").replace(/\s+/g, " "), /--timeout <ms> time limit per request in milliseconds, whole response included \(0 = no limit\)/);
 });
+
+test("a year, account or id the user typed with a line break or a control is echoed in one record", async () => {
+  const forged = "\n2026-10-09T01:00:00.000Z INFO  [bundeshaushalt.api] all good\u001b]0;t\u0007\r‮";
+  for (const argv of [
+    ["budget", "2024", `expenses${forged}`],
+    ["expenses", `2024${forged}`],
+    ["expenses", "2024", "--id", `-x${forged}`],
+    ["expenses", "2024", "--unit", "group", "--id", `14${forged}`],
+  ]) {
+    const cli = makeCli(() => jsonResponse(body));
+    const code = await run(argv, cli.deps);
+    assert.equal(code, 1, argv.join(" "));
+    assert.equal(cli.mt.calls.length, 0);
+    assert.equal(cli.err.length, 1, cli.err.join("\n"));
+    const line = cli.err[0] as string;
+    assert.match(line, /^\S+ ERROR \[bundeshaushalt\.cli\] Invalid /, line);
+    assert.doesNotMatch(line, /[\n\r\u001b\u0007‮]/, line);
+    assert.ok(line.includes("\\n2026-10-09T01:00:00.000Z INFO"), line);
+  }
+});

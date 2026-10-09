@@ -293,6 +293,8 @@ npm test          # builds, then runs `node --test` over dist/test
 - **`engine.test.ts`** — URL building, JSON decoding, error mapping, 429/503 retry, redirects — mocked transport.
 - **`client.test.ts`** — the budget-data URL/param mapping and optional-parameter pruning — mocked transport.
 - **`cli.test.ts`** — command parsing, the expenses/income shortcuts, validation and exit codes — mocked client.
+- **`log.test.ts`** — the record helpers of `src/cli/log.ts` on their own (`escapeForRecord`,
+  `formatLogRecord`); the CLI-level checks are P23's.
 - **`validate.test.ts`** — `assertValid`, `HaushaltValidationError` and how `run()` reports it.
 - **`parity.test.ts`** — the same input through the CLI and through the library on one recording mock transport (`parity()` in `test/helpers.ts`) must give the same outcome.
 - **`conformance-p*.test.ts`** — the checks shared across the `*-cli` repos (fix plan
@@ -352,7 +354,12 @@ Every diagnostic line on stderr is a log record (`src/cli/log.ts`): a timestamp,
 (`ERROR`, `WARN`, `INFO`) and a topic, `bundeshaushalt.<area>`. `--log-format text` (the
 default) writes it log4j style, `<ISO 8601 UTC> <LEVEL padded to 5> [<topic>] <message>`;
 `--log-format jsonl` writes one JSON object per line with exactly `ts`, `level`, `topic`
-and `msg`. The areas are `cli` (usage errors, commander's messages, unexpected errors),
+and `msg`. A record is always one line: `formatLogRecord` runs `escapeForRecord` over
+the message (text) or the whole JSON object (jsonl), which writes CR and LF as `\r`/`\n`,
+every other C0 control but TAB, DEL and C1 as `\u00XX`, and U+2028, U+2029 and the bidi
+controls as `\uXXXX`, so no text that reaches a record, by whatever path (a server's text,
+a year, account or id the user typed and the CLI echoes in `Invalid …`), can split it,
+forge another one or steer the terminal. The areas are `cli` (usage errors, commander's messages, unexpected errors),
 `api` (the API's error answers, and the `--quota actual` hint after a 404 as `INFO`) and
 `http` (network errors, the cleartext warning). Code logs through `logOf(deps)` and never
 writes diagnostics with `io.err` directly. `run()` builds the logger from argv before
