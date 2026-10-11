@@ -13,7 +13,7 @@ npm i -g @maschinenlesbar.org/bundeshaushalt-cli
 ```
 
 The installed binary is **`bundeshaushalt`**. (Without a global install you can
-run it as `node dist/src/cli/index.js`.)
+run it as `node apps/cli/dist/src/cli/index.js`.)
 
 ```bash
 bundeshaushalt --help

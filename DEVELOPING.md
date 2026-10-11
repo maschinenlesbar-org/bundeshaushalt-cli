@@ -27,14 +27,14 @@ The package ships both a CLI (`bundeshaushalt`) and a typed API client
 
 ```bash
 npm install
-npm run build        # compiles TypeScript to dist/
+npm run build        # compiles every workspace (tsc -b) to its dist/
 ```
 
 Run the locally built CLI without a global install:
 
 ```bash
-node dist/src/cli/index.js --help
-# or, after `npm link`:
+node apps/cli/dist/src/cli/index.js --help    # or: npm start -- --help
+# or, after `npm link --workspace apps/cli`:
 bundeshaushalt --help
 ```
 
@@ -96,9 +96,46 @@ using them.
 
 ## Architecture
 
+The repository is an **npm workspace** with two folders: `apps/` holds the programs it
+publishes, `packages/` the libraries they are built from.
+
 ```
-src/
-  client/
+package.json         # private workspace manifest: no version, never packed
+apps/cli/            # @maschinenlesbar.org/bundeshaushalt-cli — the published package
+  package.json       # its version, bin, files, bundleDependencies
+  src/index.ts       # library entry: re-exports @maschinenlesbar.org/bundeshaushalt-client
+  src/cli/           # the CLI (below)
+  test/              # CLI tests and every conformance-*.test.ts
+packages/client/     # @maschinenlesbar.org/bundeshaushalt-client — private, bundled into the CLI
+  src/               # the API client (below)
+  test/              # tests that only touch the client, + the transport helpers
+tools/pack/          # prepack/postpack: bundle the client and commander into the tarball
+tools/bump.mjs       # version bump + commit + tag (npm run bump)
+tsconfig.docs.json   # TypeDoc only: the package entry, with the client read from its sources
+```
+
+- **The client is its own package** so a later MCP app can share it with the CLI. It is
+  never published on its own: `apps/cli`'s `prepack` copies it (and commander) into the
+  app's `node_modules`, and `bundleDependencies` ships it inside the tarball. The library
+  entry re-exports the client's `"."`, so `import { BundeshaushaltClient } from
+  "@maschinenlesbar.org/bundeshaushalt-cli"` is unchanged.
+- **The client's exports:** `"."` is the public library surface (`src/index.ts`);
+  `"./internal/*"` maps to any module (`…/bundeshaushalt-client/internal/engine`) for what
+  the CLI needs beyond that; `"./test/*"` reaches the client's test helpers from the CLI's
+  tests (not bundled). Only `"."` is part of the library.
+- **Dependencies point one way:** the app depends on the client, the client on nothing
+  in the workspace.
+- **The version lives in `apps/cli/package.json`.** The root has none; a plain
+  `npm version` at the root is refused. Release with `npm run bump -- <patch|minor|major>`,
+  which bumps the app, commits (the bare version as the message) and tags `vX.Y.Z`.
+- **TypeScript:** `tsconfig.base.json` holds the compiler options; every workspace has a
+  `tsconfig.json` (`src/`) and a `tsconfig.test.json` (`test/`), and the root
+  `tsconfig.json`/`tsconfig.test.json` reference them, built with `tsc -b`.
+
+The client (`packages/client/src/`) and the CLI (`apps/cli/src/`):
+
+```
+packages/client/src/
     enums.ts     # Account / Quota / Unit value sets, MIN_YEAR, UNIT_PREFIX + unitOfId
     types.ts     # BudgetData / BudgetElement / BudgetMeta + param object
     query.ts     # dependency-free query-string builder
@@ -107,7 +144,8 @@ src/
     errors.ts    # HaushaltError / HaushaltApiError / HaushaltNetworkError / HaushaltParseError / HaushaltValidationError
     validate.ts  # input rules as pure functions (Problem) + assertValid
     client.ts    # BundeshaushaltClient — the budget-data surface over the engine
-  cli/
+    index.ts     # the client's public surface (the library entry re-exports it)
+apps/cli/src/cli/
     io.ts        # injectable I/O seam (stdout/stderr), the logger and the clock
     log.ts       # the stderr log: records with ts, level, topic; --log-format text|jsonl
     shared.ts    # option parsers, global-option resolver, JSON renderer
@@ -145,17 +183,17 @@ src/
 
 ### Library / technical terms
 
-**API client.** [`BundeshaushaltClient`](src/client/client.ts) — the typed
+**API client.** [`BundeshaushaltClient`](packages/client/src/client.ts) — the typed
 wrapper over the budget-data endpoint. Usable as a library independently of the
 CLI. Exposes a single method, `budgetData(...)`.
 
-**Request engine.** [`RequestEngine`](src/client/engine.ts) — builds URLs,
+**Request engine.** [`RequestEngine`](packages/client/src/engine.ts) — builds URLs,
 serialises queries, applies retry/backoff, follows redirects, decodes JSON and
 maps errors. Sits between the client and the transport. `DEFAULT_BASE_URL` is
 `https://bundeshaushalt.de`.
 
 **Transport.** A single function `(HttpRequest) => Promise<HttpResponse>`
-([`http.ts`](src/client/http.ts)). The default (`nodeHttpTransport`) uses Node's
+([`http.ts`](packages/client/src/http.ts)). The default (`nodeHttpTransport`) uses Node's
 built-in `http`/`https`; tests inject a mock. This is the only HTTP seam.
 
 **Retry / backoff.** Transient `429` (rate limit) and `503` responses are
@@ -177,7 +215,7 @@ Each retry is announced: the engine option `onRetry(event: RetryEvent)` (exporte
 redacted) `}`) is called once per retry right before the sleep, never when there is none, and
 a throw in it is swallowed. The CLI's `action()` sets it to log one `WARN` record of
 `bundeshaushalt.http`, `HTTP 503 from <host>: retry 1 of 3 in 2 s` (`retryMessage`; host only, whole
-seconds, ms under 1 s). Tests: `test/retry-hook.test.ts`, `test/retry-log.test.ts`.
+seconds, ms under 1 s). Tests: `packages/client/test/retry-hook.test.ts`, `apps/cli/test/retry-log.test.ts`.
 
 **Transport contract.** The engine enforces its limits for every transport, not only
 the built-in one: each call runs under the `timeoutMs` deadline (the request carries
@@ -199,7 +237,7 @@ the size limit of <n> bytes (maxResponseBytes; --max-response-bytes on the CLI)`
 **RawResponse.** The engine's raw-response shape (`data`/`contentType`/`status`)
 — exported for completeness; the budget endpoint returns decoded JSON.
 
-**Query builder.** [`buildQueryString`](src/client/query.ts) — a dependency-free
+**Query builder.** [`buildQueryString`](packages/client/src/query.ts) — a dependency-free
 serialiser: omits `undefined`/`null`, repeats keys for arrays, renders booleans
 as `true`/`false`, and encodes spaces as `%20` (not `+`). Only `year` +
 `account` are always sent; `quota`, `unit` and `id` are included only when set.
@@ -226,7 +264,7 @@ and what travels unencrypted — the base URL's credentials when it carries user
 logs it once per run as a `WARN` record of `bundeshaushalt.http` on stderr, after the options are parsed
 and before the first request; `--help`, `--version` and usage errors never get there.
 
-**Base URL validation.** One rule, `baseUrlProblem` ([`validate.ts`](src/client/validate.ts)):
+**Base URL validation.** One rule, `baseUrlProblem` ([`validate.ts`](packages/client/src/validate.ts)):
 an absolute `http:`/`https:` URL with a host and no query string or fragment,
 without surrounding whitespace or inner whitespace/control characters, and with no
 `%` in its userinfo that isn't an escape (a literal `%` is written `%25`; the
@@ -235,7 +273,7 @@ userinfo is percent-decoded for the Basic-auth header). The
 a library caller passing a bad `baseUrl` (`file:`, `ftp:`, `notaurl`, `https:`,
 `https://host/?q=1`) gets a `HaushaltValidationError` from `new
 BundeshaushaltClient(...)`, before any request. The CLI's `--base-url`
-value-parser (`parseBaseUrl` in [`shared.ts`](src/cli/shared.ts)) calls the same
+value-parser (`parseBaseUrl` in [`shared.ts`](apps/cli/src/cli/shared.ts)) calls the same
 rule and reports its reason as a usage error naming `--base-url` (exit `1`). The
 default transport re-checks the scheme on every hop, redirects included, and
 reports that as a `HaushaltNetworkError`.
@@ -259,11 +297,11 @@ falls back to the same text-based cut (`redactCredentials`, exported) for a valu
 doesn't parse as a URL.
 
 **CliDeps / CliIO.** The dependency-injection seam for the CLI
-([`io.ts`](src/cli/io.ts)): a client factory plus an I/O object (`out`/`err`).
+([`io.ts`](apps/cli/src/cli/io.ts)): a client factory plus an I/O object (`out`/`err`).
 Lets the whole CLI run in tests with a mocked client and captured output — no
 subprocess.
 
-**Error types.** [`errors.ts`](src/client/errors.ts): `HaushaltValidationError`
+**Error types.** [`errors.ts`](packages/client/src/errors.ts): `HaushaltValidationError`
 (an input rejected before any request, `Invalid <name>: <reason>`), `HaushaltApiError`
 (non-2xx, carries `status`/`detail`/`url`/`method`/`body`), `HaushaltNetworkError`
 (transport failure/timeout), `HaushaltParseError` (bad JSON, or a 2xx body that is
@@ -292,7 +330,7 @@ usage errors included, to `1`; a `HaushaltValidationError` is logged as an `ERRO
 record of `bundeshaushalt.cli`, like a usage error, and a `HaushaltParseError` (a
 malformed answer) as one of `bundeshaushalt.api`, like an error status.
 
-**Input rules.** [`validate.ts`](src/client/validate.ts) holds the library's input
+**Input rules.** [`validate.ts`](packages/client/src/validate.ts) holds the library's input
 rules as pure, exported functions: a `Problem` returns the reason a value is
 invalid, or `undefined`, and `assertValid(name, value, problem)` throws a
 `HaushaltValidationError` with `Invalid <name>: <reason>`. The client checks its
@@ -308,18 +346,23 @@ publishes the draft budget for the following year.
 ## Testing
 
 ```bash
-npm test          # builds, then runs `node --test` over dist/test
+npm test          # builds, then runs `node --test` over each workspace's dist/test
+npm run coverage  # the same tests in one run, with a coverage report
+node --test apps/cli/dist/test/cli.test.js   # one file, after a build
 ```
+
+The client's tests are in `packages/client/test/` (`query`, `http`, `engine`, `client`,
+`retry-hook`), everything that drives the CLI is in `apps/cli/test/`.
 
 - **`query.test.ts`** — query-string serialisation.
 - **`http.test.ts`** — the default transport against a real loopback `http.createServer`.
 - **`engine.test.ts`** — URL building, JSON decoding, error mapping, 429/503 retry, redirects — mocked transport.
 - **`client.test.ts`** — the budget-data URL/param mapping and optional-parameter pruning — mocked transport.
 - **`cli.test.ts`** — command parsing, the expenses/income shortcuts, validation and exit codes — mocked client.
-- **`log.test.ts`** — the record helpers of `src/cli/log.ts` on their own (`escapeForRecord`,
+- **`log.test.ts`** — the record helpers of `apps/cli/src/cli/log.ts` on their own (`escapeForRecord`,
   `formatLogRecord`); the CLI-level checks are P23's.
 - **`validate.test.ts`** — `assertValid`, `HaushaltValidationError` and how `run()` reports it.
-- **`parity.test.ts`** — the same input through the CLI and through the library on one recording mock transport (`parity()` in `test/helpers.ts`) must give the same outcome.
+- **`parity.test.ts`** — the same input through the CLI and through the library on one recording mock transport (`parity()` in `apps/cli/test/helpers.ts`) must give the same outcome.
 - **`conformance-p*.test.ts`** — the checks shared across the `*-cli` repos (fix plan
   `.reviews/2026-10-05-exploratory/fix-plan.md` in the workspace), one file per pattern, the same
   code in every repo apart from an adapter block at the top: P1 credential redaction in CLI output,
@@ -337,9 +380,13 @@ npm test          # builds, then runs `node --test` over dist/test
 
 GitHub Actions workflows under `.github/workflows/`:
 
-- **ci.yml** — type-check, build and test on Node 22/24 for every push and PR.
-- **release.yml** — on a `v*` tag: verify the tag matches `package.json`, test, `npm pack`, and create a GitHub Release with the tarball.
-- **publish.yml** — manual dispatch from the release tag (`gh workflow run publish.yml --ref vX.Y.Z`; the version is the tag's): publish to npm via OIDC **Trusted Publishing** (no stored `NPM_TOKEN`) with provenance.
+- **ci.yml** — type-check, build and test on Node 22/24 for every push and PR; then pack the
+  real tarball, check the pack left nothing behind, install it globally with the registry out
+  of reach and run the bin.
+- **release.yml** — on a `v*` tag (made by `npm run bump`): verify the tag matches
+  `apps/cli/package.json`, test, write the SBOMs (scoped to the `apps/cli` workspace), then
+  `npm pack --workspace apps/cli`, and create a GitHub Release with the tarball.
+- **publish.yml** — manual dispatch from the release tag (`gh workflow run publish.yml --ref vX.Y.Z`; the version is the tag's): `npm publish --workspace apps/cli` via OIDC **Trusted Publishing** (no stored `NPM_TOKEN`) with provenance.
 - **docs.yml** — build the project website (`site/`, English and German) with the TypeDoc API docs
   under `/api/`, and deploy both to GitHub Pages on each `v*` tag.
   TypeDoc runs from the isolated, lockfile-pinned `tools/docs/` toolchain because it
@@ -356,7 +403,9 @@ TypeDoc API reference under `/api/`. Its content comes from this repository: the
 and quick start, the command tree of the built CLI (`site/scripts/cli-reference.mjs`),
 `Usage.md`, `GLOSSARY.md` and its German version `GLOSSARY.de.md`, the skills, and the skill
 examples in `EXAMPLE.md` and `EXAMPLE.de.md`. The only repo-specific files are
-`site/_config.yml` and `site/_data/project.yml` (the German intro and the access requirements);
+`site/_config.yml` (which also says where the published manifest and the built program are:
+`manifest: apps/cli/package.json`, `program: apps/cli/dist/src/cli/program.js`) and
+`site/_data/project.yml` (the German intro and the access requirements);
 the rest of `site/` is identical in every maschinenlesbar.org CLI, so change it in all of them
 together. When the README intro changes, update the German intro in `site/_data/project.yml`.
 
@@ -374,7 +423,7 @@ contributions; see **[CONTRIBUTING.md](CONTRIBUTING.md)**.
 
 ## The log on stderr
 
-Every diagnostic line on stderr is a log record (`src/cli/log.ts`): a timestamp, a level
+Every diagnostic line on stderr is a log record (`apps/cli/src/cli/log.ts`): a timestamp, a level
 (`ERROR`, `WARN`, `INFO`) and a topic, `bundeshaushalt.<area>`. `--log-format text` (the
 default) writes it log4j style, `<ISO 8601 UTC> <LEVEL padded to 5> [<topic>] <message>`;
 `--log-format jsonl` writes one JSON object per line with exactly `ts`, `level`, `topic`
