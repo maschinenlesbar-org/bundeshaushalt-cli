@@ -81,8 +81,16 @@ new BundeshaushaltClient({
   userAgent: "my-app/1.0",
   transport: customTransport, // inject your own HTTP transport
   onWarning: (message) => console.warn(message), // an answer delivered changed (U+FFFD), see below
+  bigIntegerKeys: new Set(["id64"]),           // members whose numbers may pass 2^53: delivered as strings
 });
 ```
+
+A number a double can't carry exactly is a `HaushaltParseError`, never a changed value (see
+*Error types*). A member named in `bigIntegerKeys` (a set or list of non-empty member names,
+copied; default none, since the budget's amounts are far below 2^53) is the one exception: its
+number value is delivered as its exact literal, as written, as a JSON string, whatever its size,
+so its type is stable. The engine does both in one linear scan of the text before `JSON.parse`
+(`scanNumbers`, which quotes the declared values in place; no reviver).
 
 Text is never changed silently: bytes that aren't valid in the answer's charset and lone
 surrogates written as JSON escapes (`\ud800`) become U+FFFD (the result is well-formed, so `jq`
