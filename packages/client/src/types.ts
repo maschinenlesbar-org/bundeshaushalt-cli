@@ -94,8 +94,8 @@ export interface BudgetParams {
   /** Four-digit year (>= 2012). */
   year: number;
   account: Account;
-  quota?: Quota;
-  unit?: Unit;
+  quota?: Quota | undefined;
+  unit?: Unit | undefined;
   /** Budget number id; `G-` prefix for groups, `F-` for functions. */
-  id?: string;
+  id?: string | undefined;
 }

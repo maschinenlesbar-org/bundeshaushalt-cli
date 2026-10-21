@@ -72,6 +72,11 @@ new BundeshaushaltClient({
 });
 ```
 
+Every option, and every optional param of `budgetData`, is typed `?: T | undefined`: an option
+given as `undefined` means the same as an omitted one, so `{ baseUrl:
+process.env.BUNDESHAUSHALT_BASE_URL }` compiles in a consumer with `exactOptionalPropertyTypes`
+(`packages/client/test/types.test.ts` compiles such a consumer against the built declarations).
+
 Only an omitted (`undefined`) `baseUrl` or `userAgent` selects the default
 (`DEFAULT_BASE_URL`, `DEFAULT_USER_AGENT`). A blank one is a
 `HaushaltValidationError` from the constructor, as is a bad base URL (see *Base URL
@@ -360,12 +365,13 @@ node --test apps/cli/dist/test/cli.test.js   # one file, after a build
 ```
 
 The client's tests are in `packages/client/test/` (`query`, `http`, `engine`, `client`,
-`retry-hook`), everything that drives the CLI is in `apps/cli/test/`.
+`retry-hook`, `types`), everything that drives the CLI is in `apps/cli/test/`.
 
 - **`query.test.ts`** — query-string serialisation.
 - **`http.test.ts`** — the default transport against a real loopback `http.createServer`.
 - **`engine.test.ts`** — URL building, JSON decoding, error mapping, 429/503 retry, redirects — mocked transport.
 - **`client.test.ts`** — the budget-data URL/param mapping and optional-parameter pruning — mocked transport.
+- **`types.test.ts`** — a consumer with `exactOptionalPropertyTypes` compiled by `tsc` against the built declarations (it starts a process, so it gets 30 s), and every option given as `undefined` meaning its default.
 - **`cli.test.ts`** — command parsing, the expenses/income shortcuts, validation and exit codes — mocked client.
 - **`log.test.ts`** — the record helpers of `apps/cli/src/cli/log.ts` on their own (`escapeForRecord`,
   `formatLogRecord`); the CLI-level checks are P23's.
