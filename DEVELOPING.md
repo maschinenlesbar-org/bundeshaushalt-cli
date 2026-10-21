@@ -176,7 +176,7 @@ packages/client/src/
     query.ts     # dependency-free query-string builder
     http.ts      # the Transport interface + default node:http/https transport
     engine.ts    # URL building, retry/backoff, redirects, JSON decoding, error mapping
-    errors.ts    # HaushaltError / HaushaltApiError / HaushaltNetworkError / HaushaltParseError / HaushaltValidationError
+    errors.ts    # HaushaltError / HaushaltApiError / HaushaltNotFoundError / HaushaltNetworkError / HaushaltParseError / HaushaltValidationError
     validate.ts  # input rules as pure functions (Problem) + assertValid
     client.ts    # BundeshaushaltClient — the budget-data surface over the engine
     index.ts     # the client's public surface (the library entry re-exports it)
@@ -357,7 +357,11 @@ subprocess.
 
 **Error types.** [`errors.ts`](packages/client/src/errors.ts): `HaushaltValidationError`
 (an input rejected before any request, `Invalid <name>: <reason>`), `HaushaltApiError`
-(non-2xx, carries `status`/`detail`/`url`/`method`/`body`), `HaushaltNetworkError`
+(non-2xx, carries `status`/`detail`/`url`/`method`/`body`), `HaushaltNotFoundError` (an
+`id` the API answered with HTTP 200 and an empty element, `detail: {}`, instead of a 404 — an
+income group on the expenses side, `G-1`, or a zero-padded group, `G-05`, whose `meta` is all
+`null` too; carries `id`; `GET <url>: no budget element "G-1": the API answered with an empty
+element.`; the CLI exits `4`, as for a 404), `HaushaltNetworkError`
 (transport failure/timeout), `HaushaltParseError` (bad JSON, or a 2xx body that is
 not an object with `meta` and `detail` objects — `GET <url>: unexpected response shape:
 expected a JSON object with meta and detail.` — or that holds a
@@ -394,7 +398,8 @@ escaped too, so a refused `a\u200bb` never reads like `"ab"`; the value's userin
 before the cut, so a cut never leaves part of a password behind, and the "…" of a cut follows
 the closing quote. So `err.message` stays bounded for a library caller too. commander's own
 echo of a rejected value (`--quota`, `--unit`) is escaped the same way (`escapeCommanderError`
-in `run.ts`). The CLI maps a `404` to exit code `4` and every other error,
+in `run.ts`). The CLI maps a `404` and a `HaushaltNotFoundError` to exit code `4` (an ERROR
+record of `bundeshaushalt.api`) and every other error,
 usage errors included, to `1`; a `HaushaltValidationError` is logged as an `ERROR`
 record of `bundeshaushalt.cli`, like a usage error, and a `HaushaltParseError` (a
 malformed answer) as one of `bundeshaushalt.api`, like an error status.

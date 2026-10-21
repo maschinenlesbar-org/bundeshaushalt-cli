@@ -80,7 +80,8 @@ A year may legitimately have no figure for your element:
 - **`--quota actual` for recent years → HTTP `404` (exit `4`)** = realised data not
   published yet. For a target-based trend you won't hit this; if the user insists on actuals,
   stop the series at the **last year that returns `0`** and say later years aren't published.
-- **`--id` 404 for some years** = that element id didn't exist that year (e.g. Einzelplan
+- **`--id` exit `4` for some years** (a `404`, or an empty element the CLI reports the same
+  way) = that element id didn't exist that year (e.g. Einzelplan
   `24`, Bundesministerium für Digitales und Staatsmodernisierung, exists only from 2025).
   Record the year as a gap rather than aborting the whole series.
 - **Match by `id`, not by label.** Einzelplan numbers stay stable while ministry names change

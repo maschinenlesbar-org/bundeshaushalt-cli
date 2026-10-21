@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { BundeshaushaltClient } from "../src/client.js";
-import { HaushaltApiError, HaushaltError, HaushaltParseError } from "../src/errors.js";
+import { HaushaltApiError, HaushaltError, HaushaltNotFoundError, HaushaltParseError } from "../src/errors.js";
 import type { BudgetData, BudgetParams } from "../src/types.js";
 import { makeMockTransport, jsonResponse, constantJson } from "./helpers.js";
 
@@ -9,7 +9,7 @@ function clientWith(mt: ReturnType<typeof makeMockTransport>): BundeshaushaltCli
   return new BundeshaushaltClient({ transport: mt.transport });
 }
 
-const body = { meta: {}, detail: {}, children: [] };
+const body = { meta: {}, detail: { label: "Sollwerte" }, children: [] };
 
 test("budgetData sends year + account", async () => {
   const mt = constantJson(body);
@@ -183,4 +183,34 @@ test("an id is sent as a token: trimmed and in composed Unicode (D8)", async () 
   const mt = constantJson({ meta: {}, detail: { label: "x" } });
   await clientWith(mt).budgetData({ year: 2024, account: "expenses", id: " G-5 " });
   assert.equal(new URL(mt.last().url).searchParams.get("unit"), "group");
+});
+
+test("an id the API answers with an empty element (HTTP 200, detail {}) is a HaushaltNotFoundError, never a result (Bug 2)", async () => {
+  // As the live portal answered `--id G-1` on the expenses side (an income group) and `--id G-05`
+  // (all of meta null): 200, an empty detail, no children.
+  const parents = [[{ id: null, label: "Sollwerte des Haushaltsjahres 2024" }], [{ id: "G-6", label: "6 Ausgaben für Zuweisungen" }]];
+  const answers: Array<[string, unknown]> = [
+    ["G-1", { meta: { year: 2024, unit: "group", account: "expenses", levelCur: 1, levelMax: 4 }, detail: {}, parents }],
+    ["G-05", { meta: { year: null, unit: null, account: null, levelCur: null, levelMax: null }, detail: {}, parents }],
+  ];
+  for (const [id, answer] of answers) {
+    const mt = constantJson(answer);
+    await assert.rejects(
+      () => clientWith(mt).budgetData({ year: 2024, account: "expenses", id }),
+      (e: unknown) =>
+        e instanceof HaushaltNotFoundError &&
+        e.id === id &&
+        e.message ===
+          `GET https://bundeshaushalt.de/internalapi/budgetData?year=2024&account=expenses&unit=group&id=${id}: ` +
+            `no budget element ${JSON.stringify(id)}: the API answered with an empty element.`,
+      id,
+    );
+    assert.equal(mt.calls.length, 1, id);
+  }
+  // Without an id the answer is the year's top level, never looked up: an empty detail stays as it is.
+  const top = await clientWith(constantJson({ meta: {}, detail: {} })).budgetData({ year: 2024, account: "expenses" });
+  assert.deepEqual(top.detail, {});
+  // An element that exists has a detail.
+  const found = await clientWith(constantJson({ meta: {}, detail: { label: "Einzelplan", value: 1 } })).budgetData({ year: 2024, account: "expenses", id: "14" });
+  assert.equal(found.detail.label, "Einzelplan");
 });

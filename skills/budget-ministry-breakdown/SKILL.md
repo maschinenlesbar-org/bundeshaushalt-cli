@@ -135,7 +135,8 @@ the single amount plus the `related` cross-references, don't claim "no breakdown
   "realised figures not published yet", *not* "nothing was spent". Fall back to `target`
   and say so. (For the plan-vs-actual comparison itself, use the **budget-plan-vs-actual**
   skill.)
-- **A 404 (exit `4`) on `--id` = bad id for that year/account/unit combo.** Re-fetch a
+- **Exit `4` on `--id` = bad id for that year/account/unit combo** — a `404`, or an id the
+  portal answers with an empty element (`G-1` on the expenses side, `G-05`). Re-fetch a
   fresh list and pick a valid `id`; not every id exists in every year (e.g. Einzelplan `24`
   only from 2025).
 - **`income` and `expenses` totals are equal** (the federal budget is balanced by

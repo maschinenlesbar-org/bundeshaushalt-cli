@@ -231,6 +231,22 @@ export class HaushaltApiError extends HaushaltError {
  */
 export class HaushaltValidationError extends HaushaltError {}
 
+/**
+ * The API has no element for the `id` asked for, although it answered HTTP 200: the portal
+ * answers some ids that name nothing (an income group on the expenses side, `G-1`; a zero-padded
+ * group, `G-05`) with an empty `detail` (and, for some, a `meta` that is all `null`) instead of a
+ * 404. The message names the request and the id; the CLI exits 4, as for a 404.
+ */
+export class HaushaltNotFoundError extends HaushaltError {
+  /** The id asked for, as it was sent. */
+  readonly id: string;
+
+  constructor(request: string, id: string) {
+    super(`${request}: no budget element ${quoteValue(id)}: the API answered with an empty element.`);
+    this.id = id;
+  }
+}
+
 /** A transport-level failure (DNS, connection reset, timeout, ...). */
 export class HaushaltNetworkError extends HaushaltError {}
 

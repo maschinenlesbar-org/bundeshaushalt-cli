@@ -170,7 +170,7 @@ do the same thing. An option that takes a value may be given only once: a repeat
 | Code | Meaning |
 | --- | --- |
 | `0` | success (also `--help` / `--version`) |
-| `4` | not found (`404`): an unknown budget item id, a year the portal has no data for, or — with `--quota actual` — a year whose realised figures aren't published yet |
+| `4` | not found (`404`): an unknown budget item id, a year the portal has no data for, or — with `--quota actual` — a year whose realised figures aren't published yet. Also an id the portal answers with an empty element instead of a `404` (`--id G-1` on the expenses side, `--id G-05`): `ERROR [bundeshaushalt.api] … no budget element "G-1": the API answered with an empty element.` |
 | `1` | any other error — including bad usage / invalid arguments |
 
 A reader that stops early (`bundeshaushalt expenses 2024 | head -c 100`) is ordinary

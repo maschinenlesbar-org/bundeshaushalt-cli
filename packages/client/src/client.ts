@@ -6,7 +6,7 @@
 
 import { RequestEngine, type EngineOptions } from "./engine.js";
 import { AccountValues, QuotaValues, UnitValues, unitOfId } from "./enums.js";
-import { HaushaltParseError, HaushaltValidationError, quoteValue } from "./errors.js";
+import { HaushaltNotFoundError, HaushaltParseError, HaushaltValidationError, quoteValue } from "./errors.js";
 import type { QueryParams } from "./query.js";
 import type { BudgetData, BudgetParams } from "./types.js";
 import { assertKnownKeys, assertValid, idProblem, idUnitProblem, normalizeToken, yearProblem } from "./validate.js";
@@ -36,6 +36,10 @@ export class BundeshaushaltClient {
    * sends `unit=group`/`unit=function`; a `unit` that contradicts the id is a
    * HaushaltValidationError (`idUnitProblem`), since the API answers a mismatched
    * pair with a bare 404 for an id that exists. See `validateBudgetParams`.
+   *
+   * An id the API answers with an empty element (HTTP 200, `detail: {}`: an income group on the
+   * expenses side, `G-1`, or a zero-padded group, `G-05`) is a HaushaltNotFoundError, as an
+   * unknown id answered with a 404 is a HaushaltApiError: never a result without data.
    */
   async budgetData(params: BudgetParams): Promise<BudgetData> {
     const checked = validateBudgetParams(params);
@@ -46,7 +50,11 @@ export class BundeshaushaltClient {
     if (checked.quota !== undefined) query["quota"] = checked.quota;
     if (checked.unit !== undefined) query["unit"] = checked.unit;
     if (checked.id !== undefined) query["id"] = checked.id;
-    return assertBudgetData(await this.engine.getJson<unknown>(PATH, query), `GET ${this.engine.describeUrl(PATH, query)}`);
+    const request = `GET ${this.engine.describeUrl(PATH, query)}`;
+    const data = assertBudgetData(await this.engine.getJson<unknown>(PATH, query), request);
+    // The portal answers some ids that name nothing with HTTP 200 and an empty element, not a 404.
+    if (checked.id !== undefined && Object.keys(data.detail).length === 0) throw new HaushaltNotFoundError(request, checked.id);
+    return data;
   }
 }
 

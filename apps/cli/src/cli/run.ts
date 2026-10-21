@@ -11,6 +11,7 @@ import {
   HaushaltApiError,
   HaushaltError,
   HaushaltNetworkError,
+  HaushaltNotFoundError,
   HaushaltParseError,
   HaushaltValidationError,
   credentialsIn,
@@ -314,6 +315,11 @@ export async function run(argv: string[], deps: CliDeps = defaultDeps): Promise<
         return 4;
       }
       return 1;
+    }
+    if (err instanceof HaushaltNotFoundError) {
+      // An id the API answered with an empty element: not found, like a 404.
+      log.error("api", err.message);
+      return 4;
     }
     if (err instanceof HaushaltValidationError) {
       // An input the library rejected before any request: a usage error, which

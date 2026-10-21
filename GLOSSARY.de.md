@@ -174,7 +174,9 @@ führt ausschließlich **lesende** `GET`-Anfragen aus.
 **Exit-Codes.** Die CLI bildet Ergebnisse auf Prozess-Exit-Codes ab: `0` bei Erfolg;
 `4` bei `404` (nicht gefunden: eine unbekannte Haushaltsposten-ID, ein Jahr ohne Daten oder –
 mit `--quota actual` – ein Jahr, dessen Ist-Werte noch nicht veröffentlicht sind, worauf die
-CLI mit einem Hinweis aufmerksam macht); `1` bei allen anderen Fehlern, auch bei
+CLI mit einem Hinweis aufmerksam macht) sowie für eine ID, die die API mit HTTP 200 und einem
+leeren Element beantwortet (`detail: {}`, etwa `G-1` auf der Ausgabenseite oder `G-05`; in
+der Bibliothek ein `HaushaltNotFoundError`); `1` bei allen anderen Fehlern, auch bei
 Aufruf- und Argumentvalidierungsfehlern (unbekannte Option, ungültiges Jahr,
 zweimal angegebene Option).
 `--help`/`--version` liefern `0`.

@@ -53,7 +53,7 @@ export async function parity(
   argv: string[],
   libCall: (transport: Transport) => unknown,
   responder: (req: HttpRequest) => HttpResponse | Promise<HttpResponse> = () =>
-    jsonResponse({ meta: {}, detail: {}, children: [] }),
+    jsonResponse({ meta: {}, detail: { label: "Sollwerte" }, children: [] }),
 ): Promise<ParityOutcome> {
   const mt = makeMockTransport(responder);
   const out: string[] = [];
@@ -113,7 +113,7 @@ export async function kitParity(
   argv: string[],
   call: (transport: Transport) => unknown,
   responder: (req: HttpRequest) => HttpResponse | Promise<HttpResponse> = () =>
-    jsonResponse({ meta: {}, detail: {}, children: [] }),
+    jsonResponse({ meta: {}, detail: { label: "Sollwerte" }, children: [] }),
 ): Promise<{ cli: KitCliOutcome; lib: KitLibOutcome }> {
   const { cli, lib } = await parity(argv, call, responder);
   const kitLib: KitLibOutcome = lib.ok

@@ -22,6 +22,7 @@ export {
   HaushaltError,
   HaushaltApiError,
   HaushaltNetworkError,
+  HaushaltNotFoundError,
   HaushaltParseError,
   HaushaltValidationError,
   redactUrl,

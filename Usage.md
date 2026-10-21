@@ -173,7 +173,8 @@ Transient `429`/`503` responses and reset connections are retried automatically
 (default 2 retries, at most 10), honouring the server's `Retry-After` up to 30 s.
 Exit codes: `0` success, `4` on a `404` from the API (an unknown id, a year
 without data, or `--quota actual` for a year whose realised figures aren't
-published yet), `1` for other errors,
+published yet) and for an id the API answers with an empty element instead of a
+`404` (`--id G-1` on the expenses side, `--id G-05`), `1` for other errors,
 including usage errors.
 
 ---

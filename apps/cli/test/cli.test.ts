@@ -8,7 +8,7 @@ import { makeMockTransport, jsonResponse, rawResponse, redirectResponse, untimed
 import { credentialsIn } from "@maschinenlesbar.org/bundeshaushalt-client/internal/errors";
 import { renderJson } from "../src/cli/shared.js";
 
-const body = { meta: {}, detail: {}, children: [] };
+const body = { meta: {}, detail: { label: "Sollwerte" }, children: [] };
 
 function makeCli(responder: (req: HttpRequest) => HttpResponse) {
   const out: string[] = [];
@@ -324,6 +324,16 @@ test("a null 2xx body exits 1 with a parse error, not success", async () => {
   assert.equal(await run(["--compact", "expenses", "2024"], cli.deps), 1);
   assert.deepEqual(cli.out, []);
   assert.match(untimed(cli.err.join("\n")), /^ERROR \[bundeshaushalt\.api\] GET https:\/\/bundeshaushalt\.de\/internalapi\/budgetData\?year=2024&account=expenses: unexpected response shape: expected a JSON object with meta and detail\.$/);
+});
+
+test("an id the API answers with an empty element exits 4 with an ERROR of the api area, nothing on stdout (Bug 2)", async () => {
+  const empty = { meta: { year: 2024, unit: "group", levelCur: 1, levelMax: 4 }, detail: {}, parents: [[{ id: null, label: "Sollwerte" }]] };
+  const cli = makeCli(() => jsonResponse(empty));
+  assert.equal(await run(["--compact", "expenses", "2024", "--id", "G-1"], cli.deps), 4);
+  assert.deepEqual(cli.out, []);
+  assert.deepEqual(cli.err.map(untimed), [
+    'ERROR [bundeshaushalt.api] GET https://bundeshaushalt.de/internalapi/budgetData?year=2024&account=expenses&unit=group&id=G-1: no budget element "G-1": the API answered with an empty element.',
+  ]);
 });
 
 test("a 404 for --quota actual hints that realised figures may not be published yet", async () => {
