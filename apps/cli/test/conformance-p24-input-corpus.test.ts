@@ -10,9 +10,17 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import type { HttpRequest, HttpResponse } from "@maschinenlesbar.org/bundeshaushalt-client/internal/http";
-import { jsonResponse, kitParity as parity } from "./helpers.js";
 
 // ---- adapter (per repo) -------------------------------------------------------------
+/**
+ * `parity(argv, call, responder)`: argv through run() and `call` through the library, each on a
+ * recording mock transport; resolves to `{ cli: { code, out, err, requests }, lib: { ok, value?,
+ * error?: { name, message }, requests } }`. This repo's own `parity` returns stdout/stderr as
+ * arrays and the error object; `kitParity` maps it to this shape.
+ */
+import { jsonResponse, kitParity as parity } from "./helpers.js";
+/** The exit code of a usage error in this repo (commander's default is 1; most repos use 2). */
+const USAGE_EXIT = 1;
 import { BundeshaushaltClient as Client } from "@maschinenlesbar.org/bundeshaushalt-client/internal/client";
 interface Input {
   name: string;
@@ -51,7 +59,7 @@ type Outcome = Awaited<ReturnType<typeof parity>>;
 
 /** Both sides refused before any request, or both sent the same requests. Returns the one sent URL, if any. */
 function sameOutcome(o: Outcome, label: string): URL | undefined {
-  if (o.cli.code === 2) {
+  if (o.cli.code === USAGE_EXIT) {
     assert.deepEqual(o.cli.requests, [], `${label}: the CLI refused but sent a request`);
     assert.equal(o.lib.ok, false, `${label}: the CLI refused, the library resolved`);
     assert.deepEqual(o.lib.requests, [], `${label}: the library sent a request`);
