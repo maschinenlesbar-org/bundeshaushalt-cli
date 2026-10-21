@@ -389,6 +389,23 @@ test("a year, account or id the user typed with a line break or a control is ech
   }
 });
 
+test("a refused value is shown with its invisible characters escaped, in commander's errors and the CLI's own (D10)", async () => {
+  for (const [argv, shown] of [
+    [["expenses", "2024", "--quota", "tar\u200bget"], "tar\\u200bget"],
+    [["expenses", "2024", "--unit", "gro\u202eup"], "gro\\u202eup"],
+    [["expenses", "2024", "--unit", "x\ud800"], "x\\ud800"],
+    [["budget", "2024", "expen\u00adses"], "expen\\u00adses"],
+    [["expenses", "2024", "--id", "-\u2066x"], "-\\u2066x"],
+  ] as const) {
+    const cli = makeCli(() => jsonResponse(body));
+    assert.equal(await run([...argv], cli.deps), 1, argv.join(" "));
+    assert.equal(cli.mt.calls.length, 0);
+    const err = cli.err.join("\n");
+    assert.ok(err.includes(shown), `${argv.join(" ")}: ${err}`);
+    assert.doesNotMatch(err, /[\u200b\u202e\u00ad\u2066\ufffd]/, err);
+  }
+});
+
 test("a rejected year, account or id is quoted at most 200 characters long in the CLI's own messages (L3)", async () => {
   const long = "9".repeat(5000);
   for (const argv of [
@@ -402,7 +419,7 @@ test("a rejected year, account or id is quoted at most 200 characters long in th
     assert.equal(cli.mt.calls.length, 0);
     const record = cli.err[0] ?? "";
     const own = record.slice(record.indexOf("Invalid "));
-    assert.match(own, /^Invalid (year|account|id) "[^"…]{1,200}…"/, own.slice(0, 300));
+    assert.match(own, /^Invalid (year|account|id) "[^"…]{1,200}"…/, own.slice(0, 300));
     assert.ok(own.length < 450, `${own.length}: ${own.slice(0, 300)}`);
   }
 });

@@ -146,7 +146,7 @@ test("the library quotes a rejected id at most 200 characters long, redacted bef
   const client = clientWith(mt);
   await assert.rejects(client.budgetData({ year: 2024, account: "expenses", unit: "group", id: `1${"9".repeat(5000)}` }), (err: Error) => {
     assert.ok(err.message.length < 400, `${err.message.length}`);
-    assert.match(err.message, /^Invalid id "19+…" for unit group/);
+    assert.match(err.message, /^Invalid id "19+"… for unit group/);
     return true;
   });
   await assert.rejects(client.budgetData({ year: 2024, account: "expenses", unit: "group", id: `https://u:${"p".repeat(300)}@h.example` }), (err: Error) => {
@@ -154,4 +154,22 @@ test("the library quotes a rejected id at most 200 characters long, redacted bef
     return true;
   });
   assert.equal(mt.calls.length, 0);
+});
+
+test("a refused value is quoted visibly: format, control and half characters escaped, never raw (D10)", async () => {
+  const cases: Array<[Partial<BudgetParams>, string]> = [
+    [{ account: "expen​ses" as BudgetParams["account"] }, 'Invalid account "expen\\u200bses": expected one of expenses, income.'],
+    [{ quota: "tar‮get" as BudgetParams["quota"] }, 'Invalid quota "tar\\u202eget": expected one of target, actual.'],
+    [{ unit: "gro­up" as BudgetParams["unit"] }, 'Invalid unit "gro\\u00adup": expected one of single, function, group.'],
+    [{ unit: "x\u0085\ud800" as BudgetParams["unit"] }, 'Invalid unit "x\\u0085\\ud800": expected one of single, function, group.'],
+  ];
+  for (const [params, message] of cases) {
+    const mt = constantJson(body);
+    await assert.rejects(
+      () => clientWith(mt).budgetData({ year: 2024, account: "expenses", ...params } as BudgetParams),
+      (e: unknown) => e instanceof HaushaltError && e.message === message,
+      message,
+    );
+    assert.equal(mt.calls.length, 0);
+  }
 });

@@ -382,10 +382,14 @@ password alone on stderr only, since it may well occur in the data. A redirect `
 `detail`, a redirect target, a transport's reason) is cut at `MAX_SERVER_TEXT_LENGTH`
 (500) characters, never inside a surrogate pair (`cutText`), so the message stays
 well-formed; `HaushaltApiError.body` keeps it all. A value an own message quotes from
-the user's input (a year, an account, an id) is cut at `MAX_QUOTED_LENGTH` (200
-characters; `quoteValue`, which redacts the value's userinfo before the cut, so a cut
-never leaves part of a password behind), so `err.message` stays bounded for a library
-caller too. The CLI maps a `404` to exit code `4` and every other error,
+the user's input (a year, an account, an id) is quoted visibly and cut at
+`MAX_QUOTED_LENGTH` (200 characters; `quoteValue`): as `JSON.stringify` quotes it, with DEL,
+C1, U+2028/2029 and every format character (a zero-width space, a soft hyphen, a bidi control)
+escaped too, so a refused `a\u200bb` never reads like `"ab"`; the value's userinfo is redacted
+before the cut, so a cut never leaves part of a password behind, and the "…" of a cut follows
+the closing quote. So `err.message` stays bounded for a library caller too. commander's own
+echo of a rejected value (`--quota`, `--unit`) is escaped the same way (`escapeCommanderError`
+in `run.ts`). The CLI maps a `404` to exit code `4` and every other error,
 usage errors included, to `1`; a `HaushaltValidationError` is logged as an `ERROR`
 record of `bundeshaushalt.cli`, like a usage error, and a `HaushaltParseError` (a
 malformed answer) as one of `bundeshaushalt.api`, like an error status.

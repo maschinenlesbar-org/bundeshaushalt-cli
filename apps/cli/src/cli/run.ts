@@ -55,7 +55,7 @@ function writeCommanderErr(command: Command, deps: CliDeps, state: { errorLogged
   if (text.trim() === "") return;
   if (text.startsWith("error: ")) {
     state.errorLogged = true;
-    log.error("cli", text.slice("error: ".length).replace(/\n(\(Did you mean .*\?\))$/, " $1"));
+    log.error("cli", escapeCommanderError(text.slice("error: ".length)));
     return;
   }
   if (!state.errorLogged) {
@@ -63,6 +63,38 @@ function writeCommanderErr(command: Command, deps: CliDeps, state: { errorLogged
     log.error("cli", `missing command: \`${commandPath(command)} <subcommand>\``);
   }
   for (const line of text.split("\n")) if (line.trim() !== "") log.info("cli", line.trimEnd());
+}
+
+/**
+ * Escape what a terminal acts on or a reader can't see in one commander error message: the C0
+ * controls but tab, line breaks included (`\n`, `\r`), DEL, C1, Unicode format characters
+ * (bidi overrides, zero-width characters, the soft hyphen) and half characters (lone
+ * surrogates), each as `\uXXXX`. Commander repeats a rejected value raw ("option '--quota
+ * <quota>' argument 'a\u200bb' is invalid"): the record would escape the controls, but a
+ * zero-width space would stay invisible and a lone surrogate become U+FFFD. The library quotes
+ * the values it echoes itself the same way (`quoteValue`).
+ */
+function escapeTerminalText(text: string): string {
+  return text.replace(/[\u0000-\u0008\u000a-\u001f\u007f-\u009f]|\p{Cf}|[\ud800-\udfff]/gu, (ch) =>
+    ch === "\n"
+      ? "\\n"
+      : ch === "\r"
+        ? "\\r"
+        : Array.from({ length: ch.length }, (_, i) => `\\u${ch.charCodeAt(i).toString(16).padStart(4, "0")}`).join(""),
+  );
+}
+
+/**
+ * escapeTerminalText for one commander error message, except for the `\n(Did you mean …?)` line
+ * commander appends after an unknown command or option, which is joined to the record with a
+ * space. That hint is built from this CLI's own command and option names, and it can only end the
+ * message: commander quotes the user's value, so a value that contains the same text is followed
+ * by its closing quote and stays escaped.
+ */
+function escapeCommanderError(message: string): string {
+  const hint = /\n(\(Did you mean [^\n]*\?\))$/.exec(message);
+  if (hint === null) return escapeTerminalText(message);
+  return `${escapeTerminalText(message.slice(0, hint.index))} ${hint[1]}`;
 }
 
 /**
@@ -157,6 +189,9 @@ export function redactionFor(argv: readonly string[]): Redaction {
   for (const source of [...values, ...baseUrls]) {
     for (const secret of credentialsIn(source)) {
       secrets.add(secret);
+      // Commander's echo of a rejected value is escaped (escapeCommanderError) before the log
+      // redacts the record's message: the escaped form is a secret too.
+      secrets.add(escapeTerminalText(secret));
       secrets.add(JSON.stringify(secret).slice(1, -1));
       for (const form of queryEncodedForms(secret)) encoded.add(form);
       // What a server echoes back: the Basic value and the decoded user:password on
@@ -164,7 +199,10 @@ export function redactionFor(argv: readonly string[]): Redaction {
       const [basic, pair, password] = echoedCredentialForms(secret);
       if (basic !== undefined) echoed.add(basic);
       if (pair !== undefined) echoed.add(pair);
-      if (password !== undefined) passwords.add(password);
+      if (password !== undefined) {
+        passwords.add(password);
+        passwords.add(escapeTerminalText(password));
+      }
     }
   }
   if (secrets.size === 0) return { out: (text) => text, err: (text) => text };

@@ -105,13 +105,13 @@ function checkEnum(name: string, value: unknown, allowed: readonly string[]): vo
 }
 
 /**
- * A rejected value as a message shows it: a string quoted (its userinfo redacted, then
- * cut at 50 characters), a number as is, anything else by its type — so a wrong-typed
+ * A rejected value as a message shows it: a string quoted visibly (`quoteValue`: its userinfo
+ * redacted, cut at 50 characters, invisible and control characters escaped), a number as is, anything else by its type — so a wrong-typed
  * value can't look valid (`2023` for the string "2023") and a huge or hostile one isn't
  * echoed whole.
  */
 function shown(value: unknown): string {
-  if (typeof value === "string") return JSON.stringify(quoteValue(value, 50));
+  if (typeof value === "string") return quoteValue(value, 50);
   if (typeof value === "number") return String(value);
   return `(${value === null ? "null" : Array.isArray(value) ? "an array" : `a ${typeof value}`})`;
 }

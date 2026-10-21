@@ -138,13 +138,35 @@ export function cutForMessage(text: string, max: number): string {
   return units >= text.length ? text : `${text.slice(0, units)}…`;
 }
 
+/** Unicode General Category Cf (format): bidi controls, zero-width characters, U+00AD, U+FEFF, … */
+const FORMAT_CHAR = /\p{Cf}/u;
+
 /**
- * A value an own message quotes from the user's input: its userinfo redacted
- * ({@link redactUrl}) before it is cut at `max` (default {@link MAX_QUOTED_LENGTH}), so
- * the cut can't leave part of a password behind without the `@` that marks it.
+ * Quote a value an own message echoes from the user's input (a year, an account, an id), as
+ * `JSON.stringify` does, and also escape what it leaves raw although a terminal acts on it or a
+ * reader can't see it: DEL, the C1 controls, every Unicode format character (bidi overrides,
+ * zero-width characters, the soft hyphen) and U+2028/U+2029. `JSON.stringify` already escapes C0
+ * and half characters (lone surrogates). So a refused `a\u200bb` reads `"a\u200bb"`, never a
+ * value that looks like `"ab"`. The userinfo is redacted ({@link redactUrl}) before the value is
+ * cut at `max` characters (default {@link MAX_QUOTED_LENGTH}), so the cut can't leave part of a
+ * password behind without the `@` that marks it; the "…" of a cut goes after the closing quote
+ * (`"AAAA"…`), so it does not read as part of the value. The quoted part stays a valid JSON string.
  */
 export function quoteValue(value: string, max: number = MAX_QUOTED_LENGTH): string {
-  return cutForMessage(redactUrl(value), max);
+  const redacted = redactUrl(value);
+  const cut = cutForMessage(redacted, max);
+  const isCut = cut !== redacted;
+  let out = "";
+  for (const ch of JSON.stringify(isCut ? cut.slice(0, -1) : cut)) {
+    const n = ch.codePointAt(0) ?? 0;
+    if ((n >= 0x7f && n <= 0x9f) || n === 0x2028 || n === 0x2029 || FORMAT_CHAR.test(ch)) {
+      // One escape per UTF-16 unit, so a character above U+FFFF stays valid JSON.
+      for (let i = 0; i < ch.length; i++) out += `\\u${ch.charCodeAt(i).toString(16).padStart(4, "0")}`;
+    } else {
+      out += ch;
+    }
+  }
+  return isCut ? `${out}…` : out;
 }
 
 function isHighSurrogate(c: number): boolean {

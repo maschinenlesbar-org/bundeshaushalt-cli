@@ -98,7 +98,7 @@ export function assertEnum<T extends string>(
   argName: string,
 ): T {
   if (!(allowed as readonly string[]).includes(value)) {
-    throw new HaushaltValidationError(`Invalid ${argName} "${quoteValue(value)}". Expected one of: ${allowed.join(", ")}.`);
+    throw new HaushaltValidationError(`Invalid ${argName} ${quoteValue(value)}. Expected one of: ${allowed.join(", ")}.`);
   }
   return value as T;
 }

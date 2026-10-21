@@ -16,7 +16,7 @@ import type { BudgetParams } from "@maschinenlesbar.org/bundeshaushalt-client/in
 function requireYear(value: string): number {
   if (!/^\d{4}$/.test(value)) {
     throw new HaushaltValidationError(
-      `Invalid year "${quoteValue(value)}". Expected a four-digit year between ${MIN_YEAR} and ${maxYear()}.`,
+      `Invalid year ${quoteValue(value)}. Expected a four-digit year between ${MIN_YEAR} and ${maxYear()}.`,
     );
   }
   return Number(value);
@@ -36,7 +36,7 @@ function optionsFrom(opts: Record<string, unknown>): Omit<BudgetParams, "year" |
     // flag as the id and sends `id=--quota` to the API. Reject it locally.
     if (raw.startsWith("-")) {
       throw new HaushaltValidationError(
-        `Invalid id "${quoteValue(raw)}". The --id value looks like an option; did you forget to supply an id?`,
+        `Invalid id ${quoteValue(raw)}. The --id value looks like an option; did you forget to supply an id?`,
       );
     }
     // The id rules (its shape, and that its G-/F- prefix fixes --unit, set when
