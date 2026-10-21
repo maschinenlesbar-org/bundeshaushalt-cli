@@ -190,7 +190,7 @@ Bereiche: `cli` (Bedienfehler, Meldungen von commander, unerwartete Fehler), `ap
 Antworten der API: ein Fehlerstatus und der Hinweis zu `--quota actual` nach einem 404 sowie
 eine fehlerhafte Antwort — ungültiges JSON, ein leerer Inhalt, die falsche Form oder der
 falsche Inhaltstyp, eine Zahl, die ein Double nicht exakt darstellen kann – sowie ersetzter Text), `http` (die Verbindung, die Klartext-Warnung und je Wiederholung eine WARN-Zeile vor dem Warten) und `output` (ein
-Schreibfehler auf stdout). Ein Eintrag ist immer eine Zeile; Steuerzeichen darin werden
+Schreibfehler auf stdout, eine zu tief verschachtelte oder zu große Antwort). Ein Eintrag ist immer eine Zeile; Steuerzeichen darin werden
 maskiert.
 
 **Ersetzter Text.** Bytes einer Antwort, die in ihrem Zeichensatz ungültig sind, und halbe

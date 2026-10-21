@@ -82,7 +82,7 @@ function noCrash(run: Run, label: string): void {
   assert.doesNotMatch(run.stderr, /FATAL ERROR|heap out of memory|Allocation failed|\n\s+at /, `${label}: ${run.stderr.slice(0, 500)}`);
 }
 
-test("P27: a large flat answer prints with --compact within a small heap", { ...STARTS_A_PROCESS, skip: "the renderer's fix (T3, T4) is the next commit" }, async () => {
+test("P27: a large flat answer prints with --compact within a small heap", STARTS_A_PROCESS, async () => {
   const n = 8_000_000;
   const run = await runWithAnswer(Buffer.from(bodyWith(`[${"1,".repeat(n - 1)}1]`)), 256, ["--compact"]);
   noCrash(run, "flat");

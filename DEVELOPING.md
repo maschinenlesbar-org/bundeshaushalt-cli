@@ -188,11 +188,15 @@ apps/cli/src/cli/
   uses `node:http`/`node:https`; tests inject a mock. This keeps the client free of any HTTP framework.
 - The CLI is built around injectable `CliDeps` (client factory + I/O), so the whole program can be
   driven in-process by tests with a mocked client and captured output — no subprocesses.
-- Output (`renderJson`, `shared.ts`): an answer nested too deeply to pretty-print is a clean
-  error that suggests `--compact`. `--compact` takes V8's fast path (no gap), the only one that
-  prints very deep nesting on Node 26, unless the answer holds a string or key of 64 Mi
-  characters or more (`holdsHugeString`): there the fast path aborts the process on Node 26, so
-  such an answer goes through the gap path (`JSON.stringify(value, null, "")`).
+- Output (`renderJson`, `shared.ts`): an answer that can't be printed is an `OutputError`, an
+  ERROR record of `bundeshaushalt.output`, exit 1, naming the cause: "The answer is nested too
+  deeply to pretty-print" (the stack) or "too large (more than N characters of JSON) to
+  pretty-print" (V8's longest string). "; try --compact" is added only when the compact form of
+  that very answer prints (probed, never assumed from the Node version). `--compact` takes V8's
+  fast path (no gap), the only one that prints very deep nesting on Node 26, unless the answer
+  holds a string or key of 64 Mi characters or more (`holdsHugeString`: iterative, linear, no
+  allocation per value): there the fast path aborts the process on Node 26, so such an answer
+  goes through the gap path (`JSON.stringify(value, null, "")`).
 - `account`/`quota`/`unit` are validated against their enums and the year is range-checked before any
   request by the client (`validateBudgetParams`, exported), and the CLI relies on it. The year must be
   an integer from `MIN_YEAR` to next year (`maxYear()`, `yearProblem`); the `id` non-blank, without
@@ -495,7 +499,8 @@ code point and ends in `… (N more characters)`. The areas are `cli` (usage err
 `INFO` — chosen from the `--quota` commander parsed, so a redirect that drops the query
 string doesn't lose it — and a malformed answer, a `HaushaltParseError`: bad JSON, an empty body, the wrong
 shape or content type, an unknown charset, an inexact number),
-`http` (network errors, the cleartext warning) and `output` (a failed write to stdout).
+`http` (network errors, the cleartext warning) and `output` (a failed write to stdout, an answer
+too deeply nested or too large to print).
 Code logs through `logOf(deps)` and never
 writes diagnostics with `io.err` directly. `run()` builds the logger from argv before
 commander parses it (`logFormatFromArgv`, used only for the records of a parse error: the

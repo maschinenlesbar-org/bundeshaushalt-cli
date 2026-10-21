@@ -5,6 +5,7 @@
 import { CommanderError, type Command } from "commander";
 import { buildProgram, defaultDeps } from "./program.js";
 import { logOf, type CliDeps } from "./io.js";
+import { OutputError } from "./shared.js";
 import { DEFAULT_LOG_FORMAT, createLogger, logFormatFromArgv, type LogFormat, type Logger } from "./log.js";
 import {
   HaushaltApiError,
@@ -214,12 +215,13 @@ export function processLogger(argv: readonly string[]): Logger {
 }
 
 /**
- * The log area of a `HaushaltError` that is neither an API error nor a usage error: the
- * connection (`http`), a malformed answer (`api`: bad JSON, an empty body, the wrong
- * shape or content type, an unknown charset — the API's answer as much as an error
- * status is), else `cli`.
+ * The log area of a `HaushaltError` that is neither an API error nor a usage error: printing
+ * the answer (`output`: nested too deeply or too large), the connection (`http`), a malformed
+ * answer (`api`: bad JSON, an empty body, the wrong shape or content type, an unknown charset —
+ * the API's answer as much as an error status is), else `cli`.
  */
 function areaOf(err: HaushaltError): string {
+  if (err instanceof OutputError) return "output";
   if (err instanceof HaushaltNetworkError) return "http";
   if (err instanceof HaushaltParseError) return "api";
   return "cli";
