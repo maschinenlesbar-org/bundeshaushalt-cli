@@ -74,6 +74,7 @@ test("an option given as undefined means its default, as an omitted one does", a
     maxResponseBytes: undefined,
     sleep: undefined,
     onRetry: undefined,
+    onWarning: undefined,
     transport: mt.transport,
   });
   await client.budgetData({ year: 2024, account: "expenses", quota: undefined, unit: undefined, id: undefined });

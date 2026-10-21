@@ -119,7 +119,11 @@ stderr, so piping stdout into `jq` stays clean.
 Each line on stderr is a **log record**: a timestamp (UTC), a level (`ERROR`, `WARN`,
 `INFO`) and a topic, the program and the area it comes from (`bundeshaushalt.cli` for usage
 errors, `bundeshaushalt.api` for the API's answers and the hint after them, a malformed one included, `bundeshaushalt.http` for
-the connection, `bundeshaushalt.output` for a failed write to stdout). By default it is written log4j style; `--log-format jsonl` writes one
+the connection, `bundeshaushalt.output` for a failed write to stdout). An error about an
+answer names the request (`GET <url>: the answer is not valid JSON.`). Text in an answer is
+never changed silently: bytes that are not valid in its charset and half characters (lone
+surrogates) are replaced with U+FFFD, so the output stays readable for `jq`, and a `WARN`
+record of `bundeshaushalt.api` says how many. By default it is written log4j style; `--log-format jsonl` writes one
 JSON object per line instead. A record is always one line: a line break, a control
 character or a bidi control in a message (a server's text, a value you typed) is written
 as an escape (`\n`, `\u001b`, `\u202e`), so it can neither split a record nor forge

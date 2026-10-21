@@ -80,8 +80,16 @@ new BundeshaushaltClient({
   maxResponseBytes: 50 << 20, // abort responses larger than 50 MiB (0 = unlimited)
   userAgent: "my-app/1.0",
   transport: customTransport, // inject your own HTTP transport
+  onWarning: (message) => console.warn(message), // an answer delivered changed (U+FFFD), see below
 });
 ```
+
+Text is never changed silently: bytes that aren't valid in the answer's charset and lone
+surrogates written as JSON escapes (`\ud800`) become U+FFFD (the result is well-formed, so `jq`
+reads the CLI's output), and `onWarning` gets one message naming the count and the request
+(`GET <url>: 2 characters of the answer were not valid text (invalid bytes or a lone surrogate)
+and replaced with U+FFFD.`); the CLI logs it as a `WARN` record of `bundeshaushalt.api`. One bad
+character never sinks a whole answer.
 
 Every option, and every optional param of `budgetData`, is typed `?: T | undefined`: an option
 given as `undefined` means the same as an omitted one, so `{ baseUrl:
@@ -483,7 +491,7 @@ forge another one or steer the terminal. Before that a lone surrogate (half a
 character, which jq rejects, stopping the whole stream) becomes U+FFFD (`toWellFormed`),
 and a message longer than `MAX_RECORD_MESSAGE` (4000 characters, exported) is cut at a
 code point and ends in `… (N more characters)`. The areas are `cli` (usage errors, commander's messages, unexpected errors),
-`api` (the API's answers: an error status, and the `--quota actual` hint after a 404 as
+`api` (the API's answers: an error status, replaced text (`onWarning`) as `WARN`, and the `--quota actual` hint after a 404 as
 `INFO` — chosen from the `--quota` commander parsed, so a redirect that drops the query
 string doesn't lose it — and a malformed answer, a `HaushaltParseError`: bad JSON, an empty body, the wrong
 shape or content type, an unknown charset, an inexact number),
