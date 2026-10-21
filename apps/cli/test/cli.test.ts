@@ -172,7 +172,7 @@ test("rejects an empty --id before any request", async () => {
   const code = await run(["budget", "2024", "expenses", "--id", "  "], cli.deps);
   assert.notEqual(code, 0);
   assert.equal(cli.mt.calls.length, 0);
-  assert.equal(untimed(cli.err.join("\n")), 'ERROR [bundeshaushalt.cli] Invalid id "  ": Expected a non-empty budget number.');
+  assert.equal(untimed(cli.err.join("\n")), "ERROR [bundeshaushalt.cli] Invalid id: Expected a non-empty value.");
 });
 
 test("--timeout accepts up to the largest timer Node supports and rejects more", async () => {
@@ -511,13 +511,16 @@ test("the --quota actual hint follows what the user asked, also after a redirect
   assert.doesNotMatch(target.err.join("\n"), /with --quota actual/);
 });
 
-test("a credential URL given as --id is redacted in the 404 record, where it is percent-encoded (B04-2)", async () => {
+test("a credential URL given as --id is refused before any request, its password redacted in the record (B04-2, D8)", async () => {
+  // A budget number has no "/", so a URL never reaches a request (where it went out
+  // percent-encoded, and the 404 record had to redact that form).
   for (const format of ["text", "jsonl"]) {
     const cli = makeCli(() => jsonResponse({}, 404));
-    assert.equal(await run(["--log-format", format, "income", "2023", "--id", "http://u:PWXplain@h.example"], cli.deps), 4);
+    assert.equal(await run(["--log-format", format, "income", "2023", "--id", "http://u:PWXplain@h.example"], cli.deps), 1);
+    assert.equal(cli.mt.calls.length, 0);
     const all = cli.err.join("\n");
     assert.ok(!all.includes("PWX"), `${format}: ${all}`);
-    assert.match(all, /id=http%3A%2F%2F\*\*\*%40h\.example/, all);
+    assert.match(all, /Invalid id: \\?"http:\/\/\*\*\*@h\.example\/?\\?" is no budget number/, all);
   }
 });
 

@@ -53,13 +53,17 @@ test("run() logs a HaushaltValidationError from an action as an ERROR record and
   assert.deepEqual(err.map(untimed), ["ERROR [bundeshaushalt.cli] Invalid thing: Expected a non-empty value."]);
 });
 
-test("idProblem: a non-blank budget number without surrounding whitespace or a bare G-/F- prefix", () => {
-  for (const ok of ["14", "090168301", "G-5", "g-5", "F-0", "f-12"]) assert.equal(idProblem(ok), undefined, ok);
-  assert.equal(idProblem(""), "Expected a non-empty budget number.");
-  assert.equal(idProblem("  "), "Expected a non-empty budget number.");
+test("idProblem: a token (D8) that is a budget number: not blank, nothing invisible, no slash, not a bare G-/F- prefix", () => {
+  // Surrounding whitespace is fine: the id is sent trimmed (normalizeToken).
+  for (const ok of ["14", "090168301", "G-5", "g-5", "F-0", "f-12", " 14 ", "14\n"]) assert.equal(idProblem(ok), undefined, ok);
+  for (const blank of ["", "  ", "\u200b", "\u00ad", "\u0301\u0308", " \u200b "]) assert.equal(idProblem(blank), "Expected a non-empty value.", JSON.stringify(blank));
   assert.equal(idProblem(14), 'Expected a string (a budget number such as "14" or "G-5"), got a number.');
-  assert.equal(idProblem(" 14 "), "Surrounding whitespace is not allowed.");
-  assert.equal(idProblem("14\n"), "Surrounding whitespace is not allowed.");
+  assert.equal(idProblem("1\u200b4"), '"1\\u200b4" contains an invisible or control character (U+200B).');
+  assert.equal(idProblem("14\u0007"), '"14\\u0007" contains an invisible or control character (U+0007).');
+  assert.equal(idProblem("\u202e14"), '"\\u202e14" contains an invisible or control character (U+202E).');
+  assert.equal(idProblem("14\ud800"), '"14\\ud800" contains half of a character (a lone surrogate).');
+  assert.equal(idProblem("14/../06"), '"14/../06" is no budget number: it contains "/".');
+  assert.equal(idProblem(" .. "), '" .. " is no budget number.');
   assert.equal(idProblem("G-"), 'Expected a number after the "G-" prefix, e.g. "G-5".');
   assert.equal(idProblem("f-"), 'Expected a number after the "F-" prefix, e.g. "F-5".');
 });

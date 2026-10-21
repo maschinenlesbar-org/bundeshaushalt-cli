@@ -4,7 +4,7 @@
 // any request, and the CLI calls the same functions instead of keeping copies.
 
 import { MIN_YEAR, UNIT_EXAMPLE, UNIT_PREFIX, maxYear, unitOfId, type Unit } from "./enums.js";
-import { HaushaltValidationError, cutText } from "./errors.js";
+import { HaushaltValidationError, cutText, quoteValue } from "./errors.js";
 
 /** The reason `value` is invalid (a sentence, e.g. "Expected a non-empty value."), or undefined. */
 export type Problem<T = unknown> = (value: T) => string | undefined;
@@ -21,21 +21,74 @@ export function assertValid<T>(name: string, value: T, problem: Problem<T>): T {
 }
 
 /**
- * A budget-number `id`: a non-blank string with no surrounding whitespace (not
- * trimmed silently, which could hide a copy-paste error), and not a bare `G-`/`F-`
- * prefix (any case), which names no element; the live API answers that with a 503
- * that would be retried and read as an outage.
+ * A budget-number `id`, as it is sent (`normalizeToken`: trimmed, NFC): the
+ * {@link tokenProblem} rules (not blank, not only invisible characters, no control or format
+ * character, no lone surrogate: the portal drops such a character or matches nothing), no "/"
+ * and not "." or ".." (no budget number is one), and not a bare `G-`/`F-` prefix (any case),
+ * which names no element; the live API answers that with a 503 that would be retried and read
+ * as an outage.
  */
 export const idProblem: Problem<unknown> = (id) => {
   if (typeof id !== "string") return `Expected a string (a budget number such as "14" or "G-5"), got ${typeName(id)}.`;
-  if (id.trim() === "") return "Expected a non-empty budget number.";
-  if (id !== id.trim()) return "Surrounding whitespace is not allowed.";
-  if (/^[GF]-$/i.test(id)) {
-    const prefix = id.toUpperCase();
+  const problem = tokenProblem(id);
+  if (problem !== undefined) return problem;
+  const token = id.trim();
+  if (token.includes("/")) return `${quoteValue(id)} is no budget number: it contains "/".`;
+  if (token === "." || token === "..") return `${quoteValue(id)} is no budget number.`;
+  if (/^[GF]-$/i.test(token)) {
+    const prefix = token.toUpperCase();
     return `Expected a number after the "${prefix}" prefix, e.g. "${prefix}5".`;
   }
   return undefined;
 };
+
+/** Characters that never make a value non-blank: whitespace, controls, format characters, combining marks. */
+const INVISIBLE = /[\s\p{Cc}\p{Cf}\p{M}]/gu;
+
+/** A lone surrogate: half of a character, which URLSearchParams would send as U+FFFD. */
+const LONE_SURROGATE = /[\ud800-\udbff](?![\udc00-\udfff])|(?<![\ud800-\udbff])[\udc00-\udfff]/;
+
+/**
+ * True when nothing in `value` would match anything: it holds only whitespace, control and
+ * format characters (a zero-width space, a soft hyphen) and combining marks. Such a value reads
+ * as "no filter" upstream, or matches nothing, so it is refused as blank.
+ */
+function isBlank(value: string): boolean {
+  return value.replace(INVISIBLE, "") === "";
+}
+
+/** `U+200B` for the first character of `text` that `pattern` matches. */
+function codePointOf(text: string, pattern: RegExp): string {
+  const ch = pattern.exec(text)?.[0] ?? "";
+  return `U+${(ch.codePointAt(0) ?? 0).toString(16).toUpperCase().padStart(4, "0")}`;
+}
+
+/** A control or format character in a token (after trimming): every Cc and every Cf. */
+const TOKEN_INVISIBLE = /[\p{Cc}\p{Cf}]/u;
+
+/**
+ * Why `value` cannot be sent as a token, or undefined when it can. A token is an id, a code, an
+ * enum value: a value the API compares exactly. The rules apply to the value with surrounding
+ * whitespace trimmed, as it is sent ({@link normalizeToken}): not blank (and not only invisible
+ * characters or combining marks), no lone surrogate, and no control or format character at all
+ * (a zero-width space, ZWJ, a soft hyphen, a bidi control), since an invisible character in an id
+ * only ever makes it match nothing, or the portal drops it. The reason quotes the value visibly.
+ */
+export function tokenProblem(value: string): string | undefined {
+  if (typeof value !== "string") return "Expected a string.";
+  if (isBlank(value)) return "Expected a non-empty value.";
+  const token = value.trim();
+  if (LONE_SURROGATE.test(token)) return `${quoteValue(value)} contains half of a character (a lone surrogate).`;
+  if (TOKEN_INVISIBLE.test(token)) {
+    return `${quoteValue(value)} contains an invisible or control character (${codePointOf(token, TOKEN_INVISIBLE)}).`;
+  }
+  return undefined;
+}
+
+/** A token as it is sent: trimmed and in composed Unicode (NFC). Check it with {@link tokenProblem} first. */
+export function normalizeToken(value: string): string {
+  return value.trim().normalize("NFC");
+}
 
 /**
  * An `id` together with an explicit `unit`: the id's prefix (`unitOfId`) must name

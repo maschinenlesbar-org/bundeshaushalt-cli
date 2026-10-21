@@ -14,12 +14,12 @@ test("parity control: a valid query sends the identical request from CLI and lib
   assertParity(p, "expenses 2024 --id 14");
 });
 
-test("an id with surrounding whitespace or a bare G-/F- prefix is rejected by CLI and library alike, before any request", async () => {
+test("an id with an invisible character or a bare G-/F- prefix is rejected by CLI and library alike, before any request", async () => {
   const cases: [string, string | undefined][] = [
     ["G-", "group"],
     ["f-", undefined],
-    [" 14 ", undefined],
-    ["14\n", undefined],
+    ["1\u200b4", undefined],
+    ["14\u0007", undefined],
   ];
   for (const [id, unit] of cases) {
     const argv = ["--compact", "--max-retries", "0", "expenses", "2024", "--id", id, ...(unit ? ["--unit", unit] : [])];
@@ -36,6 +36,18 @@ test("an id with surrounding whitespace or a bare G-/F- prefix is rejected by CL
     assert.equal(p.lib.requests.length, 0, JSON.stringify(id));
     assert.ok(!p.lib.ok && p.lib.error instanceof HaushaltValidationError, JSON.stringify(id));
     assert.deepEqual(p.cli.err, [`ERROR [bundeshaushalt.cli] ${(p.lib.error as Error).message}`], JSON.stringify(id));
+  }
+});
+
+test("an id with surrounding whitespace is sent trimmed by CLI and library alike (D8)", async () => {
+  for (const id of [" 14 ", "14\n"]) {
+    const p = await parity(["--compact", "expenses", "2024", "--id", id], (transport) =>
+      new BundeshaushaltClient({ transport }).budgetData({ year: 2024, account: "expenses", id }),
+      () => ({ status: 200, headers: { "content-type": "application/json" }, body: Buffer.from('{"meta":{},"detail":{"label":"x"}}') }),
+    );
+    assertParity(p, JSON.stringify(id));
+    assert.equal(p.cli.code, 0, JSON.stringify(id));
+    assert.equal(new URL(p.cli.requests[0]!.url).searchParams.get("id"), "14");
   }
 });
 

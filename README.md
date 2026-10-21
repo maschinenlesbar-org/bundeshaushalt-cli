@@ -81,7 +81,7 @@ These apply to `budget`, `expenses`, and `income`:
 | --- | --- | --- |
 | `--quota <quota>` | `target` \| `actual` | Planned (`target`, default) vs. realised (`actual`) figures |
 | `--unit <unit>` | `single` \| `function` \| `group` | Grouping — budget item (default), functional area, or economic group |
-| `--id <id>` | element id | Drill into one element; `G-` prefix for groups, `F-` for functions, no prefix for the budget structure. The prefix must match `--unit` (a mismatch is rejected) and sets it when `--unit` is omitted |
+| `--id <id>` | element id | Drill into one element; `G-` prefix for groups, `F-` for functions, no prefix for the budget structure. The prefix must match `--unit` (a mismatch is rejected) and sets it when `--unit` is omitted. Sent without surrounding whitespace; an id with an invisible or control character (a zero-width space, a soft hyphen) or a `/` is refused before any request |
 
 ## Common tasks
 

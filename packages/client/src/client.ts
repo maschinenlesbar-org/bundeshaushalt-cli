@@ -9,7 +9,7 @@ import { AccountValues, QuotaValues, UnitValues, unitOfId } from "./enums.js";
 import { HaushaltParseError, HaushaltValidationError, quoteValue } from "./errors.js";
 import type { QueryParams } from "./query.js";
 import type { BudgetData, BudgetParams } from "./types.js";
-import { assertKnownKeys, assertValid, idProblem, idUnitProblem, yearProblem } from "./validate.js";
+import { assertKnownKeys, assertValid, idProblem, idUnitProblem, normalizeToken, yearProblem } from "./validate.js";
 
 // NOTE: This is an undocumented, internal endpoint of bundeshaushalt.de (note the
 // "internalapi" path segment). It is not a published, stable public API and may
@@ -28,9 +28,9 @@ export class BundeshaushaltClient {
    * Budget data for a year + account, optionally scoped by quota/unit/id. The
    * params are checked before any request (a HaushaltValidationError, as a rejected
    * promise): `year` an integer from `MIN_YEAR` to `maxYear()`, next year
-   * (`yearProblem`), `account`/`quota`/`unit` from their value sets, `id` a non-blank
-   * string without surrounding whitespace and not a bare `G-`/`F-` prefix
-   * (`idProblem`).
+   * (`yearProblem`), `account`/`quota`/`unit` from their value sets, `id` a token
+   * (`idProblem`: not blank, no invisible, control or half character, no "/", not a bare
+   * `G-`/`F-` prefix), sent trimmed and in composed Unicode (`normalizeToken`).
    *
    * An id's prefix fixes its grouping (`unitOfId`): without `unit`, a `G-`/`F-` id
    * sends `unit=group`/`unit=function`; a `unit` that contradicts the id is a
@@ -69,8 +69,9 @@ function assertBudgetData(body: unknown, request: string): BudgetData {
 }
 
 /**
- * Check `budgetData`'s params as it does, before any request, and return them with
- * the unit a `G-`/`F-` id implies filled in when `unit` is omitted. Every rejected
+ * Check `budgetData`'s params as it does, before any request, and return them as they are
+ * sent: the id trimmed and in composed Unicode, and the unit a `G-`/`F-` id implies filled in
+ * when `unit` is omitted. Every rejected
  * value is a HaushaltValidationError; a value of the wrong type is named by its type
  * (`Invalid year "2023": Expected a number, got a string.`).
  */
@@ -86,13 +87,16 @@ export function validateBudgetParams(params: BudgetParams): BudgetParams {
   if (params.quota !== undefined) checkEnum("quota", params.quota, QuotaValues);
   if (params.unit !== undefined) checkEnum("unit", params.unit, UnitValues);
   if (params.id === undefined) return params;
-  const id = assertValid(`id ${shown(params.id)}`, params.id, idProblem);
+  // A string's reasons quote it themselves (visibly); a value of another type is named by it.
+  assertValid(typeof params.id === "string" ? "id" : `id ${shown(params.id)}`, params.id, idProblem);
+  // Sent as a token: trimmed and in composed Unicode.
+  const id = normalizeToken(params.id);
   if (params.unit !== undefined) {
     assertValid(`id ${shown(id)} for unit ${params.unit}`, { id, unit: params.unit }, idUnitProblem);
-    return params;
+    return { ...params, id };
   }
   const unit = unitOfId(id);
-  return unit === "single" ? params : { ...params, unit };
+  return unit === "single" ? { ...params, id } : { ...params, id, unit };
 }
 
 /** Every BudgetParams key; any other key is a HaushaltValidationError. */

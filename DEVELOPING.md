@@ -211,8 +211,13 @@ apps/cli/src/cli/
   characters are escaped).").
 - `account`/`quota`/`unit` are validated against their enums and the year is range-checked before any
   request by the client (`validateBudgetParams`, exported), and the CLI relies on it. The year must be
-  an integer from `MIN_YEAR` to next year (`maxYear()`, `yearProblem`); the `id` non-blank, without
-  surrounding whitespace and not a bare `G-`/`F-` prefix (`idProblem`). A library caller gets a
+  an integer from `MIN_YEAR` to next year (`maxYear()`, `yearProblem`); the `id` a token
+  (`idProblem`, which runs `tokenProblem`: not blank and not only invisible characters or
+  combining marks, no control or format character such as a zero-width space, a soft hyphen or a
+  bidi control, no lone surrogate; then no "/", not "." or "..", not a bare `G-`/`F-` prefix),
+  sent trimmed and in composed Unicode (`normalizeToken`; both exported). The portal dropped an
+  invisible character itself and answered as if it weren't there; now the client refuses it, and
+  each refusal quotes the value visibly (`quoteValue`). A library caller gets a
   `HaushaltValidationError` for every rejected param — an unknown key (`Id` for `id`, with a "did
   you mean" hint; `assertKnownKeys`, exported, also checks the constructor's options), a
   wrong-typed one named by its type
@@ -442,8 +447,8 @@ The client's tests are in `packages/client/test/` (`query`, `http`, `engine`, `c
   to npmjs.com, so a link to a document the `files` allowlist leaves out must be an absolute
   GitHub URL), P23 the log records on stderr and `--log-format` (its `USAGE_EXIT` is `1`, `OUTPUT_OPTION`
   undefined: no `-o`; `secretArgv` makes the secret a base-URL password), P24 the input corpus
-  (no case applies: no free-text filter, and the one id is a query parameter, not a path
-  segment, so `textInputs` and `idInputs` are empty, saying why), P25 the response corpus (a
+  (the tokens are `--id` and the enums: the account, `--quota`, `--unit`; there is no free-text
+  filter and no list option, so `textInputs` and `listInputs` are empty, saying why), P25 the response corpus (a
   number a double can't carry, a subnormal that prints changed, an empty or malformed answer:
   errors naming the request, never a changed value), P27 big and odd answers (a large flat
   answer and one full of DEL characters print under a small heap, or one that escaped would pass

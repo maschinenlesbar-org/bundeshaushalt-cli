@@ -111,10 +111,10 @@ test("budgetData checks its params before any request", async () => {
     [{ year: 2024, account: "bogus" }, /^Invalid account "bogus": expected one of expenses, income\.$/],
     [{ year: 2024, account: "expenses", quota: "nope" }, /^Invalid quota "nope"/],
     [{ year: 2024, account: "expenses", unit: "x" }, /^Invalid unit "x"/],
-    [{ year: 2024, account: "expenses", id: " " }, /^Invalid id " ": Expected a non-empty budget number\.$/],
-    [{ year: 2024, account: "expenses", id: " 14 " }, /^Invalid id " 14 ": Surrounding whitespace is not allowed\.$/],
-    [{ year: 2024, account: "expenses", id: "14\n" }, /^Invalid id "14\\n": Surrounding whitespace is not allowed\.$/],
-    [{ year: 2024, account: "expenses", id: "g-" }, /^Invalid id "g-": Expected a number after the "G-" prefix, e\.g\. "G-5"\.$/],
+    [{ year: 2024, account: "expenses", id: " " }, /^Invalid id: Expected a non-empty value\.$/],
+    [{ year: 2024, account: "expenses", id: "1\u200b4" }, /^Invalid id: "1\\u200b4" contains an invisible or control character \(U\+200B\)\.$/],
+    [{ year: 2024, account: "expenses", id: 1405 }, /^Invalid id 1405: Expected a string/],
+    [{ year: 2024, account: "expenses", id: "g-" }, /^Invalid id: Expected a number after the "G-" prefix, e\.g\. "G-5"\.$/],
   ];
   for (const [params, message] of cases) {
     const mt = constantJson(body);
@@ -172,4 +172,15 @@ test("a refused value is quoted visibly: format, control and half characters esc
     );
     assert.equal(mt.calls.length, 0);
   }
+});
+
+test("an id is sent as a token: trimmed and in composed Unicode (D8)", async () => {
+  for (const [id, sent] of [[" 14 ", "14"], ["0901\n", "0901"], ["\tG-5", "G-5"]] as const) {
+    const mt = constantJson({ meta: {}, detail: { label: "x" } });
+    await clientWith(mt).budgetData({ year: 2024, account: "expenses", id });
+    assert.equal(new URL(mt.last().url).searchParams.get("id"), sent, JSON.stringify(id));
+  }
+  const mt = constantJson({ meta: {}, detail: { label: "x" } });
+  await clientWith(mt).budgetData({ year: 2024, account: "expenses", id: " G-5 " });
+  assert.equal(new URL(mt.last().url).searchParams.get("unit"), "group");
 });
