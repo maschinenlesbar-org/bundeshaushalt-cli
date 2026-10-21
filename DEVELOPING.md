@@ -169,6 +169,11 @@ apps/cli/src/cli/
   uses `node:http`/`node:https`; tests inject a mock. This keeps the client free of any HTTP framework.
 - The CLI is built around injectable `CliDeps` (client factory + I/O), so the whole program can be
   driven in-process by tests with a mocked client and captured output — no subprocesses.
+- Output (`renderJson`, `shared.ts`): an answer nested too deeply to pretty-print is a clean
+  error that suggests `--compact`. `--compact` takes V8's fast path (no gap), the only one that
+  prints very deep nesting on Node 26, unless the answer holds a string or key of 64 Mi
+  characters or more (`holdsHugeString`): there the fast path aborts the process on Node 26, so
+  such an answer goes through the gap path (`JSON.stringify(value, null, "")`).
 - `account`/`quota`/`unit` are validated against their enums and the year is range-checked before any
   request by the client (`validateBudgetParams`, exported), and the CLI relies on it. The year must be
   an integer from `MIN_YEAR` to next year (`maxYear()`, `yearProblem`); the `id` non-blank, without
