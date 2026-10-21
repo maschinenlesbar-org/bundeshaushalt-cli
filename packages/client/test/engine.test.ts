@@ -63,7 +63,7 @@ test("getJson parses a JSON body", async () => {
 test("getJson refuses a number JSON.parse can't carry exactly, never a changed value", async () => {
   const inexact = [
     "12345678901234567890", "-9007199254740993", "1e400", "12345678901234567890.0",
-    "9007199254740993e0", "9007199254740992.5", "1e-400", "1e23",
+    "9007199254740993e0", "9007199254740992.5", "1e-400", "123456789012345678901234567890",
   ];
   for (const literal of inexact) {
     const mt = makeMockTransport(() => rawResponse(`{"meta":{},"detail":{"label":"1e400","value":${literal}}}`, "application/json"));
@@ -78,7 +78,12 @@ test("getJson refuses a number JSON.parse can't carry exactly, never a changed v
   }
   // Budget amounts (euros with cents, shares in percent) stay far below 2^53 and keep a
   // double's precision; a number inside a string is not a number.
-  for (const literal of ["476807656000", "457663394853.41", "0.13324345614114888", "9007199254740991", "9007199254740992.0", "5e-324", "0.0e-500"]) {
+  // A double a server printed in its shortest form reads back as that double and prints as the
+  // same number: not a changed value, though the decimal is not the double's exact binary value.
+  for (const literal of [
+    "476807656000", "457663394853.41", "0.13324345614114888", "9007199254740991", "9007199254740992.0", "5e-324", "0.0e-500",
+    "1e23", "100000000000000000000000", "1.7976931348623157E308", "-1.7976931348623157e308", "4.35e30",
+  ]) {
     const mt = makeMockTransport(() => rawResponse(`{"value":${literal},"s":"1e400"}`, "application/json"));
     const e = new RequestEngine({ transport: mt.transport });
     assert.equal((await e.getJson<{ value: number }>("/x")).value, Number(literal), literal);

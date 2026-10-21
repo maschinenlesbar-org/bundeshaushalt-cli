@@ -321,9 +321,11 @@ subprocess.
 (transport failure/timeout), `HaushaltParseError` (bad JSON, or a 2xx body that is
 not an object with `meta` and `detail` objects — `Unexpected response shape from
 /internalapi/budgetData: expected a JSON object with meta and detail.` — or that holds a
-number `JSON.parse` can't carry exactly: out of a double's range (`1e400`), past 2^53 in any
-written form (`12345678901234567890`, `9007199254740992.5`) or non-zero and too small
-(`1e-400`) — `Unexpected response from /internalapi/budgetData: the number <N> cannot be
+number `JSON.parse` can't carry exactly: out of a double's range (`1e400`), past 2^53 one that
+prints differently from how it was written, in any written form (`12345678901234567890` prints
+as `12345678901234567000`; `9007199254740992.5`), or non-zero and too small (`1e-400`) — a
+double a server printed in its shortest form (`1E23`, `1.7976931348623157E308`) prints as the
+same number and passes — `Unexpected response from /internalapi/budgetData: the number <N> cannot be
 represented exactly.`, never a changed value; the budget's amounts, euros with cents, and its
 percent shares are far below 2^53 and keep a double's precision), all extending
 `HaushaltError`. Every network failure is a `HaushaltNetworkError` that names the request,
