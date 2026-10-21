@@ -64,6 +64,8 @@ test("getJson refuses a number JSON.parse can't carry exactly, never a changed v
   const inexact = [
     "12345678901234567890", "-9007199254740993", "1e400", "12345678901234567890.0",
     "9007199254740993e0", "9007199254740992.5", "1e-400", "123456789012345678901234567890",
+    // A subnormal keeps fewer digits than a double's usual precision: 3e-324 becomes 5e-324 (D4).
+    "3e-324", "4e-324", "-4.9e-324", "1.2345678901234567e-310", "2.225073858507201e-309",
   ];
   for (const literal of inexact) {
     const mt = makeMockTransport(() => rawResponse(`{"meta":{},"detail":{"label":"1e400","value":${literal}}}`, "application/json"));
@@ -83,6 +85,8 @@ test("getJson refuses a number JSON.parse can't carry exactly, never a changed v
   for (const literal of [
     "476807656000", "457663394853.41", "0.13324345614114888", "9007199254740991", "9007199254740992.0", "5e-324", "0.0e-500",
     "1e23", "100000000000000000000000", "1.7976931348623157E308", "-1.7976931348623157e308", "4.35e30",
+    // A subnormal printed as written, and the smallest normal double.
+    "-5e-324", "1e-310", "2.2250738585072014e-308",
   ]) {
     const mt = makeMockTransport(() => rawResponse(`{"value":${literal},"s":"1e400"}`, "application/json"));
     const e = new RequestEngine({ transport: mt.transport });
