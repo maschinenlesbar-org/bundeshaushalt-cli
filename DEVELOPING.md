@@ -196,7 +196,11 @@ apps/cli/src/cli/
   fast path (no gap), the only one that prints very deep nesting on Node 26, unless the answer
   holds a string or key of 64 Mi characters or more (`holdsHugeString`: iterative, linear, no
   allocation per value): there the fast path aborts the process on Node 26, so such an answer
-  goes through the gap path (`JSON.stringify(value, null, "")`).
+  goes through the gap path (`JSON.stringify(value, null, "")`). DEL, C1 and the bidi controls,
+  which `JSON.stringify` leaves raw, are escaped (`escapeControlChars`) in chunks of 64 Ki
+  characters joined once, after a count: an answer whose escaped form would pass V8's longest
+  string is an `OutputError` ("The answer is too large to print (N characters once its control
+  characters are escaped).").
 - `account`/`quota`/`unit` are validated against their enums and the year is range-checked before any
   request by the client (`validateBudgetParams`, exported), and the CLI relies on it. The year must be
   an integer from `MIN_YEAR` to next year (`maxYear()`, `yearProblem`); the `id` non-blank, without
@@ -426,8 +430,11 @@ The client's tests are in `packages/client/test/` (`query`, `http`, `engine`, `c
   undefined: no `-o`; `secretArgv` makes the secret a base-URL password), P24 the input corpus
   (no case applies: no free-text filter, and the one id is a query parameter, not a path
   segment, so `textInputs` and `idInputs` are empty, saying why), P25 the response corpus (a
-  number a double can't carry, an empty answer: errors, never a changed value). P26 (`-o`
-  integrity) is left out: there is no `-o`. P24 and P25 read `kitParity` (`helpers.ts`), the
+  number a double can't carry, a subnormal that prints changed, an empty or malformed answer:
+  errors naming the request, never a changed value), P27 big and odd answers (a large flat
+  answer and one full of DEL characters print under a small heap, or one that escaped would pass
+  V8's longest string is an ERROR of `bundeshaushalt.output`; a lone surrogate or invalid bytes
+  are replaced with U+FFFD and reported). P26 (`-o` integrity) is left out: there is no `-o`. P24 and P25 read `kitParity` (`helpers.ts`), the
   kit's parity shape, imported as `parity`, so their bodies stay the shared ones.
 
 ## Continuous integration

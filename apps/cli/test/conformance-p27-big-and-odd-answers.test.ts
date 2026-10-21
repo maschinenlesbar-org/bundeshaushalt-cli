@@ -91,7 +91,7 @@ test("P27: a large flat answer prints with --compact within a small heap", START
   assert.equal(printed.length, n);
 });
 
-test("P27: an answer full of DEL characters prints escaped within a small heap", { ...STARTS_A_PROCESS, skip: "the renderer's fix (T3, T4) is the next commit" }, async () => {
+test("P27: an answer full of DEL characters prints escaped within a small heap", STARTS_A_PROCESS, async () => {
   const n = 20_000_000;
   const run = await runWithAnswer(Buffer.from(bodyWith(`"${"\u007f".repeat(n)}"`), "latin1"), 512, ["--compact"]);
   noCrash(run, "DEL");
@@ -101,7 +101,7 @@ test("P27: an answer full of DEL characters prints escaped within a small heap",
   assert.equal(fromCli(text), "\u007f".repeat(n));
 });
 
-test("P27: an answer that escaped would pass V8's longest string is an ERROR record, not a crash", { ...STARTS_A_PROCESS, skip: "the renderer's fix (T3, T4) is the next commit" }, async () => {
+test("P27: an answer that escaped would pass V8's longest string is an ERROR record, not a crash", STARTS_A_PROCESS, async () => {
   // 90 MB of DEL, under the default size cap: printed as `\u007f` each, 540 M characters.
   const run = await runWithAnswer(Buffer.from(bodyWith(`"${"\u007f".repeat(90_000_000)}"`), "latin1"), 512);
   noCrash(run, "90 MB of DEL");
