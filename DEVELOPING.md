@@ -414,6 +414,8 @@ The client's tests are in `packages/client/test/` (`query`, `http`, `engine`, `c
 - **`cli.test.ts`** — command parsing, the expenses/income shortcuts, validation and exit codes — mocked client.
 - **`log.test.ts`** — the record helpers of `apps/cli/src/cli/log.ts` on their own (`escapeForRecord`,
   `formatLogRecord`); the CLI-level checks are P23's.
+- **`output.test.ts`** — stdout redirected to a file gets every byte or an error (`stdoutWriter`;
+  the bin under `ulimit -f`, P26's stdout case, 30 s since it starts a process).
 - **`validate.test.ts`** — `assertValid`, `HaushaltValidationError` and how `run()` reports it.
 - **`parity.test.ts`** — the same input through the CLI and through the library on one recording mock transport (`parity()` in `apps/cli/test/helpers.ts`) must give the same outcome.
 - **`conformance-p*.test.ts`** — the checks shared across the `*-cli` repos (fix plan
@@ -526,7 +528,10 @@ wrapped in `once()` like the other global options. `CliDeps.now` makes the times
 testable. stdout carries data only. A failed write to stdout other than a closed pipe
 (`handleOutputErrors`, in the bin shim, outside `run()`) is an ERROR record of
 `bundeshaushalt.output` (`Could not write to stdout: …`), in the format argv asks for
-(`processLogger`). Node's own process warnings (`NODE_TLS_REJECT_UNAUTHORIZED=0`) are WARN
+(`processLogger`). When stdout is a regular file (`> out.json`), `defaultIO.out` writes every
+byte itself (`stdoutWriter`, `writeAll`): Node's stream ignored a short write, so a file-size
+limit or a full disk cut the output short with exit 0; now EFBIG or ENOSPC reaches stdout's
+`error` event and exits 1 (`output.test.ts`, which also runs the bin under `ulimit -f`). Node's own process warnings (`NODE_TLS_REJECT_UNAUTHORIZED=0`) are WARN
 records of `bundeshaushalt.cli` too: the bin shim installs `installWarningLog`, which
 removes Node's default `warning` listener and logs `(node) <name>: <message>` through the
 same logger. In `defaultDeps` a record waits for stdout (`stderrAfterStdout`): it is held

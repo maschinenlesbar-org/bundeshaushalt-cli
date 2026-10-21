@@ -175,7 +175,9 @@ do the same thing. An option that takes a value may be given only once: a repeat
 
 A reader that stops early (`bundeshaushalt expenses 2024 | head -c 100`) is ordinary
 use: the CLI exits `0` quietly. If stderr's reader is gone (`2>&1 | true`), a failed run
-still exits with its own code.
+still exits with its own code. stdout redirected to a file that cannot take all of it (a
+file-size limit, a full disk) is an error, never a cut-short file with exit `0`: exit `1` and
+an ERROR record of `bundeshaushalt.output` (`Could not write to stdout: …`).
 
 ## Troubleshooting
 
