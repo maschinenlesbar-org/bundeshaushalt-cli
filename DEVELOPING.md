@@ -41,7 +41,7 @@ bundeshaushalt --help
 ## Library usage
 
 ```ts
-import { BundeshaushaltClient, HaushaltApiError } from "@maschinenlesbar.org/bundeshaushalt-cli";
+import { BundeshaushaltClient, HaushaltApiError, HaushaltValidationError } from "@maschinenlesbar.org/bundeshaushalt-cli";
 
 const client = new BundeshaushaltClient(); // defaults to https://bundeshaushalt.de
 
@@ -52,10 +52,21 @@ console.log(top.meta.year, top.children?.length ?? 0, "children");
 const leaf = await client.budgetData({ year: 2024, account: "expenses", id: "090168301" });
 console.log(leaf.related?.agency?.map((a) => a.label).join(" > "));
 
+// A year outside 2012..next year is refused before any request.
 try {
   await client.budgetData({ year: 1999, account: "expenses" });
 } catch (err) {
-  if (err instanceof HaushaltApiError) console.error(err.status, err.detail);
+  if (!(err instanceof HaushaltValidationError)) throw err;
+  console.error(err.message); // Invalid year 1999: Expected a year between 2012 and …
+}
+
+// The API's own answers: an unknown id, or the realised figures of a year whose
+// accounts are not closed yet, are an HTTP 404.
+try {
+  await client.budgetData({ year: 2024, account: "expenses", id: "1499" });
+} catch (err) {
+  if (!(err instanceof HaushaltApiError)) throw err;
+  console.error(err.status, err.message); // 404 HTTP 404 for GET https://…
 }
 ```
 
