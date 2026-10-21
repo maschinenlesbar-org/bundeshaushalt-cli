@@ -239,8 +239,9 @@ transport throws become a `HaushaltNetworkError`. A redirect to a scheme other t
 **maxResponseBytes.** A cap on the response body size in bytes — applied to both the
 wire bytes and the decompressed output by the built-in transport, and to the body any
 transport returns by the engine (`0` = unlimited; default 100 MiB), guarding against
-unbounded responses. The message names the option and the CLI flag: `Response exceeded
-the size limit of <n> bytes (maxResponseBytes; --max-response-bytes on the CLI)`.
+unbounded responses. The message names the request, the option and the CLI flag: `GET <url>
+failed: Response exceeded the size limit of <n> bytes (maxResponseBytes; --max-response-bytes
+on the CLI)`.
 
 **RawResponse.** The engine's raw-response shape (`data`/`contentType`/`status`)
 — exported for completeness; the budget endpoint returns decoded JSON.
@@ -320,8 +321,9 @@ written form (`12345678901234567890`, `9007199254740992.5`) or non-zero and too 
 (`1e-400`) — `Unexpected response from /internalapi/budgetData: the number <N> cannot be
 represented exactly.`, never a changed value; the budget's amounts, euros with cents, and its
 percent shares are far below 2^53 and keep a double's precision), all extending
-`HaushaltError`. Whatever an injected transport throws becomes a
-`HaushaltNetworkError` (`GET <url> failed: <reason>`, the original as `cause`). No
+`HaushaltError`. Every network failure is a `HaushaltNetworkError` that names the request,
+`GET <url> failed: <reason>` (userinfo redacted, the original as `cause`): a timeout, the size
+cap, a reset or refused connection, a DNS failure, and whatever an injected transport throws. No
 error and no client shows the base URL's password: the engine keeps the base URL in a
 real `#private` field (so `console.log(client)`, `util.inspect` and `JSON.stringify`
 don't reveal it), every URL in a message goes through `redactUrl` (which also cuts the

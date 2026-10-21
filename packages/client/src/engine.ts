@@ -624,14 +624,20 @@ export class RequestEngine {
         // password (fetch refuses a URL with credentials and quotes it). Keep the
         // library's error contract — every failure is a HaushaltError — and scrub that text.
         if (cause instanceof HaushaltError && !(cause instanceof HaushaltNetworkError)) throw cause;
-        if (cause instanceof HaushaltNetworkError && this.scrub(cause.message) === cause.message) throw cause;
+        // Every network error names the request, with the original as the cause: the built-in
+        // transport's size cap and its own timeout, a custom transport's error, a refused
+        // connection or a DNS failure (Node's text, `getaddrinfo ENOTFOUND host`, says nothing
+        // about which call failed). A message that names it already (the engine's deadline,
+        // the built-in transport's connection errors) is kept as it is.
+        const prefix = `${method} ${redactUrl(url)} failed: `;
         const reason = cause instanceof Error ? cause.message : String(cause);
-        throw new HaushaltNetworkError(
-          cause instanceof HaushaltNetworkError
-            ? this.scrub(reason)
-            : `${method} ${redactUrl(url)} failed: ${sanitizeServerText(this.scrub(reason))}`,
-          { cause: this.scrubCause(cause) },
-        );
+        if (cause instanceof HaushaltNetworkError && reason.startsWith(prefix)) {
+          if (this.scrub(reason) === reason) throw cause;
+          throw new HaushaltNetworkError(this.scrub(reason), { cause: this.scrubCause(cause) });
+        }
+        throw new HaushaltNetworkError(`${prefix}${sanitizeServerText(this.scrub(reason))}`, {
+          cause: this.scrubCause(cause),
+        });
       }
 
       // An injected transport may resolve with anything; a malformed HttpResponse would

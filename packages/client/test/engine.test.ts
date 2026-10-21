@@ -459,3 +459,53 @@ test("credentials a server echoes are scrubbed from the error: Basic, user:passw
     return true;
   });
 });
+
+test("a timeout, the size cap, a refused connection and a DNS failure name the request; the original is the cause", async () => {
+  const { default: http } = await import("node:http");
+  const server = http.createServer((_req, res) => res.end("x".repeat(1000)));
+  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+  const port = (server.address() as { port: number }).port;
+  const names = (prefix: string) => (err: unknown) => {
+    assert.ok(err instanceof HaushaltNetworkError, String(err));
+    assert.ok(err.message.startsWith(prefix), err.message);
+    assert.ok(err.cause !== undefined, `${err.message}: no cause`);
+    return true;
+  };
+  try {
+    // The size cap of the built-in transport (it aborts the body early).
+    const capped = new RequestEngine({ baseUrl: `http://user:pw@127.0.0.1:${port}`, maxResponseBytes: 10 });
+    await assert.rejects(capped.getJson("/x", { a: "1" }), (err) => {
+      names(`GET http://127.0.0.1:${port}/x?a=1 failed: Response exceeded the size limit of 10 bytes`)(err);
+      assert.ok((err as Error).cause instanceof HaushaltNetworkError);
+      return true;
+    });
+  } finally {
+    await new Promise<void>((resolve) => server.close(() => resolve()));
+  }
+  // A refused connection (loopback port 1).
+  const refused = new RequestEngine({ baseUrl: "http://127.0.0.1:1", maxRetries: 0, timeoutMs: 2000 });
+  await assert.rejects(refused.getJson("/x"), names("GET http://127.0.0.1:1/x failed: "));
+  // A custom transport's own timeout, raised as the library's network error.
+  const timedOut = new RequestEngine({
+    baseUrl: "https://h.example",
+    timeoutMs: 0,
+    transport: async () => {
+      throw new HaushaltNetworkError("Request timed out after 50ms");
+    },
+  });
+  await assert.rejects(timedOut.getJson("/x"), names("GET https://h.example/x failed: Request timed out after 50ms"));
+  // A DNS failure, as Node reports it.
+  const dns = new RequestEngine({
+    baseUrl: "https://h.example",
+    transport: async () => {
+      throw Object.assign(new Error("getaddrinfo ENOTFOUND h.example"), { code: "ENOTFOUND" });
+    },
+  });
+  await assert.rejects(dns.getJson("/x"), names("GET https://h.example/x failed: getaddrinfo ENOTFOUND h.example"));
+  // The engine's own deadline names it too, once.
+  const slow = new RequestEngine({ baseUrl: "https://h.example", timeoutMs: 20, transport: () => new Promise(() => {}) });
+  await assert.rejects(slow.getJson("/x"), (err) => {
+    assert.equal((err as Error).message, "GET https://h.example/x failed: request timed out after 20ms");
+    return true;
+  });
+});
