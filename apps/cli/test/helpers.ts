@@ -84,3 +84,47 @@ export function assertParity({ cli, lib }: ParityOutcome, label = ""): void {
   assert.equal(cli.code === 0, lib.ok, `${label}: CLI exit ${cli.code} ${cli.err.join(" ")} vs library ${lib.ok ? "ok" : String(lib.error)}`);
   assert.deepEqual(shape(cli.requests), shape(lib.requests), `${label}: requests differ`);
 }
+
+// ---- the kit's parity shape, for the shared conformance bodies -------------------
+
+/** What the CLI did with one input, as the kit's conformance tests read it: output joined. */
+export interface KitCliOutcome {
+  code: number;
+  out: string;
+  err: string;
+  requests: HttpRequest[];
+}
+
+/** What the library did with the same input: its value, or its error's class name and message. */
+export interface KitLibOutcome {
+  ok: boolean;
+  value?: unknown;
+  error?: { name: string; message: string };
+  requests: HttpRequest[];
+}
+
+/**
+ * parity() in the shape the shared conformance bodies (P24, P25) expect, the one the kit
+ * (create-cli's template) has: stdout and stderr each joined into one string (stderr
+ * untimed), the library's error as its class name and message. The tests imported as
+ * `parity` read this one; this repo's own parity tests keep the arrays above.
+ */
+export async function kitParity(
+  argv: string[],
+  call: (transport: Transport) => unknown,
+  responder: (req: HttpRequest) => HttpResponse | Promise<HttpResponse> = () =>
+    jsonResponse({ meta: {}, detail: {}, children: [] }),
+): Promise<{ cli: KitCliOutcome; lib: KitLibOutcome }> {
+  const { cli, lib } = await parity(argv, call, responder);
+  const kitLib: KitLibOutcome = lib.ok
+    ? { ok: true, value: lib.value, requests: lib.requests }
+    : {
+        ok: false,
+        error:
+          lib.error instanceof Error
+            ? { name: lib.error.constructor.name, message: lib.error.message }
+            : { name: typeof lib.error, message: String(lib.error) },
+        requests: lib.requests,
+      };
+  return { cli: { code: cli.code, out: cli.out.join("\n"), err: cli.err.join("\n"), requests: cli.requests }, lib: kitLib };
+}

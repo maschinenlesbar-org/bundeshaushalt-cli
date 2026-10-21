@@ -395,7 +395,12 @@ The client's tests are in `packages/client/test/` (`query`, `http`, `engine`, `c
   skipped: no environment variable, no key), P21 the README's relative links (README.md ships
   to npmjs.com, so a link to a document the `files` allowlist leaves out must be an absolute
   GitHub URL), P23 the log records on stderr and `--log-format` (its `USAGE_EXIT` is `1`, `OUTPUT_OPTION`
-  undefined: no `-o`; `secretArgv` makes the secret a base-URL password).
+  undefined: no `-o`; `secretArgv` makes the secret a base-URL password), P24 the input corpus
+  (no case applies: no free-text filter, and the one id is a query parameter, not a path
+  segment, so `textInputs` and `idInputs` are empty, saying why), P25 the response corpus (a
+  number a double can't carry, an empty answer: errors, never a changed value). P26 (`-o`
+  integrity) is left out: there is no `-o`. P24 and P25 read `kitParity` (`helpers.ts`), the
+  kit's parity shape, imported as `parity`, so their bodies stay the shared ones.
 
 ## Continuous integration
 
