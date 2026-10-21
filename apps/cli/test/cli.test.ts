@@ -282,7 +282,7 @@ test("a null 2xx body exits 1 with a parse error, not success", async () => {
   const cli = makeCli(() => jsonResponse(null));
   assert.equal(await run(["--compact", "expenses", "2024"], cli.deps), 1);
   assert.deepEqual(cli.out, []);
-  assert.match(untimed(cli.err.join("\n")), /^ERROR \[bundeshaushalt\.api\] Unexpected response shape from \/internalapi\/budgetData/);
+  assert.match(untimed(cli.err.join("\n")), /^ERROR \[bundeshaushalt\.api\] GET https:\/\/bundeshaushalt\.de\/internalapi\/budgetData\?year=2024&account=expenses: unexpected response shape: expected a JSON object with meta and detail\.$/);
 });
 
 test("a 404 for --quota actual hints that realised figures may not be published yet", async () => {

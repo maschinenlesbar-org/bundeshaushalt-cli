@@ -330,17 +330,19 @@ subprocess.
 (an input rejected before any request, `Invalid <name>: <reason>`), `HaushaltApiError`
 (non-2xx, carries `status`/`detail`/`url`/`method`/`body`), `HaushaltNetworkError`
 (transport failure/timeout), `HaushaltParseError` (bad JSON, or a 2xx body that is
-not an object with `meta` and `detail` objects — `Unexpected response shape from
-/internalapi/budgetData: expected a JSON object with meta and detail.` — or that holds a
+not an object with `meta` and `detail` objects — `GET <url>: unexpected response shape:
+expected a JSON object with meta and detail.` — or that holds a
 number `JSON.parse` can't carry exactly: out of a double's range (`1e400`), past 2^53 one that
 prints differently from how it was written, in any written form (`12345678901234567890` prints
 as `12345678901234567000`; `9007199254740992.5`), non-zero and too small (`1e-400`), or a
 subnormal (below 2.2250738585072014e-308) that prints differently from how it was written
 (`3e-324` prints as `5e-324`) — a double a server printed in its shortest form (`1E23`,
-`1.7976931348623157E308`, `5e-324`) prints as the same number and passes — `Unexpected response from /internalapi/budgetData: the number <N> cannot be
-represented exactly.`, never a changed value; the budget's amounts, euros with cents, and its
-percent shares are far below 2^53 and keep a double's precision), all extending
-`HaushaltError`. Every network failure is a `HaushaltNetworkError` that names the request,
+`1.7976931348623157E308`, `5e-324`) prints as the same number and passes — `GET <url>: the
+number <N> cannot be represented exactly.`, never a changed value; the budget's amounts, euros
+with cents, and its percent shares are far below 2^53 and keep a double's precision), all
+extending `HaushaltError`. Every error about an answer names the request, `GET <url>: …` (the
+URL asked for, userinfo redacted, `describeUrl`): a Content-Type that is not JSON, an unknown
+charset, an empty body, text that is not JSON, the wrong shape, an inexact number. Every network failure is a `HaushaltNetworkError` that names the request,
 `GET <url> failed: <reason>` (userinfo redacted, the original as `cause`): a timeout, the size
 cap, a reset or refused connection, a DNS failure, and whatever an injected transport throws. No
 error and no client shows the base URL's password: the engine keeps the base URL in a

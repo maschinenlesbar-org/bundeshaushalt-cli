@@ -529,6 +529,16 @@ export class RequestEngine {
     return this.composeUrl(path, query, true);
   }
 
+  /**
+   * The request URL as error messages show it: absolute (so a message names the host that gave a
+   * bad answer, which matters with a custom base URL), userinfo redacted and cut at
+   * MAX_SERVER_TEXT_LENGTH characters. It never throws: describing a URL for a message does not
+   * validate it. The URL asked for, not one a redirect led to.
+   */
+  describeUrl(path: string, query?: QueryParams): string {
+    return cutForMessage(redactUrl(this.composeUrl(path, query, true)), MAX_SERVER_TEXT_LENGTH);
+  }
+
   /** buildUrl, with or without the base URL's userinfo. */
   private composeUrl(path: string, query: QueryParams | undefined, withUserinfo: boolean): string {
     const base = new URL(this.#baseUrl);
@@ -760,9 +770,14 @@ export class RequestEngine {
     }
   }
 
-  /** Perform a GET expecting JSON and parse it into `T`. */
+  /**
+   * Perform a GET expecting JSON and parse it into `T`. Every error about the answer names the
+   * request (`GET <url>: …`, userinfo redacted): a Content-Type that is not JSON, an unknown
+   * charset, an empty body, text that is not JSON, a number JSON.parse can't carry exactly.
+   */
   async getJson<T>(path: string, query?: QueryParams): Promise<T> {
     const res = await this.request("GET", path, { query, accept: "application/json" });
+    const request = `GET ${this.describeUrl(path, query)}`;
     // Honour the Content-Type: a 200 with a clearly non-JSON type (e.g. a
     // captive-portal HTML error page) should report what was actually returned
     // rather than feeding HTML into JSON.parse and blaming a parse failure. A
@@ -771,27 +786,27 @@ export class RequestEngine {
       // The Content-Type is attacker-controllable; strip control characters so a
       // hostile endpoint cannot inject terminal escape sequences via this message.
       throw new HaushaltParseError(
-        `Expected a JSON response from ${path} but got Content-Type "${sanitizeServerText(mediaType(res.contentType))}"`,
+        `${request}: the answer is not JSON (expected JSON, got Content-Type "${sanitizeServerText(mediaType(res.contentType))}").`,
       );
     }
-    const text = decodeBody(res.data, res.contentType, path);
+    const text = decodeBody(res.data, res.contentType, request);
     // An empty 2xx body (e.g. a 204 No Content) is not valid JSON; report it as
-    // such rather than emitting the opaque "Failed to parse JSON" for `""`.
+    // such rather than emitting the opaque "not valid JSON" for `""`.
     if (text.trim() === "") {
-      throw new HaushaltParseError(`Empty response body from ${path} (expected JSON)`);
+      throw new HaushaltParseError(`${request}: empty response body (expected JSON).`);
     }
     let parsed: T;
     try {
       parsed = JSON.parse(text) as T;
     } catch (cause) {
-      throw new HaushaltParseError(`Failed to parse JSON response from ${path}`, { cause });
+      throw new HaushaltParseError(`${request}: the answer is not valid JSON.`, { cause });
     }
     // JSON.parse rounds and overflows numbers silently: refuse the answer rather than print a
     // changed value.
     const inexact = firstInexactNumber(text);
     if (inexact !== undefined) {
       throw new HaushaltParseError(
-        `Unexpected response from ${path}: the number ${cutForMessage(inexact, MAX_QUOTED_LENGTH)} cannot be represented exactly.`,
+        `${request}: the number ${cutForMessage(inexact, MAX_QUOTED_LENGTH)} cannot be represented exactly.`,
       );
     }
     return parsed;
@@ -839,17 +854,16 @@ function originOf(url: string): string {
  * Decode a response body by the charset of its Content-Type (UTF-8 when none is
  * given, as JSON requires). A leading byte-order mark is dropped: TextDecoder does
  * that by default, where Buffer#toString kept it and JSON.parse then failed. The
- * upstream sends UTF-8; this matters for proxies and mirrors that re-encode.
+ * upstream sends UTF-8; this matters for proxies and mirrors that re-encode. An unknown
+ * charset label is a HaushaltParseError naming `request`.
  */
-function decodeBody(body: Buffer, contentType: string, path: string): string {
+function decodeBody(body: Buffer, contentType: string, request: string): string {
   const charset = /;\s*charset\s*=\s*"?([^";\s]+)"?/i.exec(contentType)?.[1] ?? "utf-8";
   let decoder: TextDecoder;
   try {
     decoder = new TextDecoder(charset);
   } catch {
-    throw new HaushaltParseError(
-      `Unsupported response charset "${sanitizeServerText(charset)}" from ${path}.`,
-    );
+    throw new HaushaltParseError(`${request}: unsupported response charset "${sanitizeServerText(charset)}".`);
   }
   return decoder.decode(body);
 }

@@ -74,7 +74,7 @@ test("getJson refuses a number JSON.parse can't carry exactly, never a changed v
       () => e.getJson("/internalapi/budgetData"),
       (err) =>
         err instanceof HaushaltParseError &&
-        err.message === `Unexpected response from /internalapi/budgetData: the number ${literal} cannot be represented exactly.`,
+        err.message === `GET https://bundeshaushalt.de/internalapi/budgetData: the number ${literal} cannot be represented exactly.`,
       literal,
     );
   }
@@ -114,7 +114,7 @@ test("getJson reports an empty (204) response body clearly", async () => {
   const e = new RequestEngine({ transport: mt.transport });
   await assert.rejects(
     () => e.getJson("/x"),
-    (err) => err instanceof HaushaltParseError && /Empty response body/.test(err.message),
+    (err) => err instanceof HaushaltParseError && err.message === "GET https://bundeshaushalt.de/x: empty response body (expected JSON).",
   );
 });
 
@@ -383,7 +383,7 @@ test("the body is decoded by its declared charset and a UTF-8 BOM is ignored", a
   const unknown = makeMockTransport(() => rawResponse("{}", "application/json; charset=x-nope"));
   await assert.rejects(
     () => new RequestEngine({ transport: unknown.transport }).getJson("/x"),
-    (err: unknown) => err instanceof HaushaltParseError && err.message === 'Unsupported response charset "x-nope" from /x.',
+    (err: unknown) => err instanceof HaushaltParseError && err.message === 'GET https://bundeshaushalt.de/x: unsupported response charset "x-nope".',
   );
 });
 
@@ -528,4 +528,27 @@ test("a header named __proto__ is an ordinary header, never the prototype of the
   const fetchLike = new Headers([["__proto__", "x"], ["content-type", "application/json"]]);
   const f = new RequestEngine({ transport: async () => ({ status: 200, headers: fetchLike as unknown as Record<string, string>, body: Buffer.from('{"a":1}') }) });
   assert.deepEqual(await f.getJson("/x"), { a: 1 });
+});
+
+test("an answer error names the request: method and URL, userinfo redacted (D9)", async () => {
+  const answers: Array<[string, () => HttpResponse]> = [
+    ["not JSON", () => rawResponse("<html>", "text/html")],
+    ["not valid JSON", () => rawResponse("{", "application/json")],
+    ["empty response body", () => rawResponse(" ", "application/json")],
+    ["cannot be represented exactly", () => rawResponse('{"n":1e400}', "application/json")],
+    ["unsupported response charset", () => rawResponse("{}", "application/json; charset=x-bogus")],
+  ];
+  const base = new URL("https://bundeshaushalt.example/mirror");
+  base.username = "alice";
+  base.password = "s3cret";
+  for (const [what, respond] of answers) {
+    const e = new RequestEngine({ baseUrl: base.href, transport: makeMockTransport(respond).transport });
+    await assert.rejects(e.getJson("/internalapi/budgetData", { year: 2024 }), (err: unknown) => {
+      assert.ok(err instanceof HaushaltParseError, what);
+      assert.ok(err.message.startsWith(`GET ${base.protocol}//***@${base.host}/mirror`), err.message);
+      assert.ok(err.message.includes("/internalapi/budgetData?year=2024: ") && err.message.includes(what), err.message);
+      assert.ok(!err.message.includes("s3cret"), err.message);
+      return true;
+    });
+  }
 });
