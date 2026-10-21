@@ -309,7 +309,12 @@ subprocess.
 (non-2xx, carries `status`/`detail`/`url`/`method`/`body`), `HaushaltNetworkError`
 (transport failure/timeout), `HaushaltParseError` (bad JSON, or a 2xx body that is
 not an object with `meta` and `detail` objects — `Unexpected response shape from
-/internalapi/budgetData: expected a JSON object with meta and detail.`), all extending
+/internalapi/budgetData: expected a JSON object with meta and detail.` — or that holds a
+number `JSON.parse` can't carry exactly: out of a double's range (`1e400`), past 2^53 in any
+written form (`12345678901234567890`, `9007199254740992.5`) or non-zero and too small
+(`1e-400`) — `Unexpected response from /internalapi/budgetData: the number <N> cannot be
+represented exactly.`, never a changed value; the budget's amounts, euros with cents, and its
+percent shares are far below 2^53 and keep a double's precision), all extending
 `HaushaltError`. Whatever an injected transport throws becomes a
 `HaushaltNetworkError` (`GET <url> failed: <reason>`, the original as `cause`). No
 error and no client shows the base URL's password: the engine keeps the base URL in a
@@ -447,7 +452,7 @@ code point and ends in `… (N more characters)`. The areas are `cli` (usage err
 `api` (the API's answers: an error status, and the `--quota actual` hint after a 404 as
 `INFO` — chosen from the `--quota` commander parsed, so a redirect that drops the query
 string doesn't lose it — and a malformed answer, a `HaushaltParseError`: bad JSON, an empty body, the wrong
-shape or content type, an unknown charset),
+shape or content type, an unknown charset, an inexact number),
 `http` (network errors, the cleartext warning) and `output` (a failed write to stdout).
 Code logs through `logOf(deps)` and never
 writes diagnostics with `io.err` directly. `run()` builds the logger from argv before

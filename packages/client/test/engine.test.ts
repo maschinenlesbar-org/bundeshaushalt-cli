@@ -60,6 +60,31 @@ test("getJson parses a JSON body", async () => {
   assert.deepEqual(await e.getJson("/x"), { ok: true });
 });
 
+test("getJson refuses a number JSON.parse can't carry exactly, never a changed value", async () => {
+  const inexact = [
+    "12345678901234567890", "-9007199254740993", "1e400", "12345678901234567890.0",
+    "9007199254740993e0", "9007199254740992.5", "1e-400", "1e23",
+  ];
+  for (const literal of inexact) {
+    const mt = makeMockTransport(() => rawResponse(`{"meta":{},"detail":{"label":"1e400","value":${literal}}}`, "application/json"));
+    const e = new RequestEngine({ transport: mt.transport });
+    await assert.rejects(
+      () => e.getJson("/internalapi/budgetData"),
+      (err) =>
+        err instanceof HaushaltParseError &&
+        err.message === `Unexpected response from /internalapi/budgetData: the number ${literal} cannot be represented exactly.`,
+      literal,
+    );
+  }
+  // Budget amounts (euros with cents, shares in percent) stay far below 2^53 and keep a
+  // double's precision; a number inside a string is not a number.
+  for (const literal of ["476807656000", "457663394853.41", "0.13324345614114888", "9007199254740991", "9007199254740992.0", "5e-324", "0.0e-500"]) {
+    const mt = makeMockTransport(() => rawResponse(`{"value":${literal},"s":"1e400"}`, "application/json"));
+    const e = new RequestEngine({ transport: mt.transport });
+    assert.equal((await e.getJson<{ value: number }>("/x")).value, Number(literal), literal);
+  }
+});
+
 test("getJson throws HaushaltParseError on invalid JSON", async () => {
   const mt = makeMockTransport(() => rawResponse("not json", "application/json"));
   const e = new RequestEngine({ transport: mt.transport });
