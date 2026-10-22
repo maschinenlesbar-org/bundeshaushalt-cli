@@ -377,7 +377,12 @@ number <N> cannot be represented exactly.`, never a changed value; the budget's 
 with cents, and its percent shares are far below 2^53 and keep a double's precision), all
 extending `HaushaltError`. Every error about an answer names the request, `GET <url>: …` (the
 URL asked for, userinfo redacted, `describeUrl`): a Content-Type that is not JSON, an unknown
-charset, an empty body, text that is not JSON, the wrong shape, an inexact number. Every network failure is a `HaushaltNetworkError` that names the request,
+charset, an empty body, text that is not JSON, the wrong shape, an inexact number, and a body too
+large to become one string (512 MB and more, possible only with `maxResponseBytes: 0` or
+`--max-response-bytes 0`: `GET <url>: the answer is too large to read as text (N bytes; the
+longest string is 536870888 characters).`, an ERROR record of `bundeshaushalt.api`, exit 1, not
+"Unexpected error"; an error status with such a body keeps its `HaushaltApiError`, without the
+body). Every network failure is a `HaushaltNetworkError` that names the request,
 `GET <url> failed: <reason>` (userinfo redacted, the original as `cause`): a timeout, the size
 cap, a reset or refused connection, a DNS failure, and whatever an injected transport throws. No
 error and no client shows the base URL's password: the engine keeps the base URL in a

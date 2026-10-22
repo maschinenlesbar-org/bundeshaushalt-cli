@@ -1,5 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { TextDecoder } from "node:util";
 import {
   MAX_RETRY_AFTER_MS,
   RequestEngine,
@@ -622,4 +623,42 @@ test("bigIntegerKeys: a declared member's number is its exact literal as a strin
   // Without declarations the scan is the plain number check.
   assert.equal(firstInexactNumber('{"a":"1e400","b":3e-324}'), "3e-324");
   assert.deepEqual(scanNumbers('{"a":1}'), { json: '{"a":1}', inexact: undefined });
+});
+
+// T14 of the 2026-10-21 fix round (bundesrat-cli fe0b46b): with the size cap lifted, a body of
+// 512 MB and more can't become one string; V8's ERR_STRING_TOO_LONG escaped as a plain Error.
+test("an answer longer than V8's longest string is a HaushaltParseError naming the request, from either decode; an error status keeps its HaushaltApiError (T14)", async (t) => {
+  // A real one needs a body of 512 MB and more (possible with maxResponseBytes 0): V8's own
+  // error is stood in for, for the bodies marked by their lengths. `valid` fails every decode;
+  // `invalid` (a byte no UTF-8 has) fails the fatal one for real and the replacing one with the
+  // stand-in.
+  const valid = Buffer.from('{"meta":{},"detail":{}}  ');
+  const invalid = Buffer.concat([Buffer.from('{"meta":{},"detail":"'), Buffer.from([0xff]), Buffer.from('"}       ')]);
+  assert.notEqual(valid.length, invalid.length);
+  const tooLong = () => Object.assign(new Error("Cannot create a string longer than 0x1fffffe8 characters"), { code: "ERR_STRING_TOO_LONG" });
+  const decode = TextDecoder.prototype.decode;
+  t.mock.method(TextDecoder.prototype, "decode", function (this: InstanceType<typeof TextDecoder>, input?: Uint8Array, options?: { stream?: boolean }) {
+    if (input?.byteLength === valid.length) throw tooLong();
+    if (input?.byteLength === invalid.length && !this.fatal) throw tooLong();
+    return decode.call(this, input, options);
+  });
+  const toString = Buffer.prototype.toString;
+  t.mock.method(Buffer.prototype, "toString", function (this: Buffer, ...args: Parameters<Buffer["toString"]>) {
+    if (this.length === valid.length && (args[0] === undefined || args[0] === "utf8")) throw tooLong();
+    return toString.apply(this, args);
+  });
+  const on = (body: Buffer, status = 200) =>
+    new RequestEngine({ maxResponseBytes: 0, maxRetries: 0, transport: makeMockTransport(() => rawResponse(body, "application/json", status)).transport });
+  for (const body of [valid, invalid]) {
+    await assert.rejects(on(body).getJson("/internalapi/budgetData", { year: 2024 }), (err: unknown) => {
+      assert.ok(err instanceof HaushaltParseError, String(err));
+      assert.equal(
+        err.message,
+        `GET https://bundeshaushalt.de/internalapi/budgetData?year=2024: the answer is too large to read as text (${body.length} bytes; the longest string is 536870888 characters).`,
+      );
+      return true;
+    });
+  }
+  // An error status with such a body is still the API error, without the unreadable body.
+  await assert.rejects(on(valid, 500).getJson("/x"), (err: unknown) => err instanceof HaushaltApiError && err.status === 500 && err.body === "");
 });
