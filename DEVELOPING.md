@@ -342,7 +342,8 @@ for a URL typed where the command goes — so a password with spaces, quotes, `#
 `/` is caught as well as an ordinary one. Only a URL with a scheme counts (a
 bare `a:b@c` is an account, an id or a User-Agent as often as a credential), except as the
 `--base-url` value, where a `user:password@host` typed without its scheme is still a
-credential. It is found anywhere in an argument (`urlsWithin`), not only at its start: a value
+credential. It is found anywhere in an argument (`urlsWithin`, linear: each `://` found with indexOf,
+at most 64 URLs per argument), not only at its start: a value
 is checked trimmed, so a padded `" https://u:pw@host"`, one after a dash or after other text
 (`--id "F-01 https://…"`, a year `"2024 https://…"`) reached a refusal or commander's echo. A URL typed as `--id` is sent as a query parameter, so the request URL of an
 error echoes its userinfo percent-encoded (`id=https%3A%2F%2Fu%3Apw%40host`): that form,
