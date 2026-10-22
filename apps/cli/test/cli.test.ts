@@ -541,3 +541,48 @@ test("a subcommand's value option does not swallow the program's --log-format, i
   assert.ok(cli.err.length > 0 && cli.err.every((line) => line.startsWith("{")), cli.err.join("\n"));
   assert.match((JSON.parse(cli.err[0] ?? "") as Record<string, unknown>)["msg"] as string, /--id <id>' argument missing/);
 });
+
+// T15 of the 2026-10-21 fix round (jobsuche-cli 28be809, ladesaeulenregister-cli 001c48d): a URL
+// with a password anywhere in an argument — an id, a year, padded, after a dash, inside a
+// phrase, an option value, commander's echo — must never reach stderr, neither raw in a refusal
+// or note nor percent-encoded in the request URL of an error record.
+test("a password in a URL inside any argument is redacted on stderr, raw or percent-encoded (T15)", async () => {
+  const url = "https://bob:s3cretpw@host.example/x";
+  const argvs = [
+    ["expenses", "2024", "--id", url],
+    ["expenses", "2024", "--id", ` ${url}`],
+    ["expenses", "2024", "--id", `\t${url}`],
+    ["expenses", "2024", "--id", ` -${url}`],
+    ["expenses", "2024", "--id", `G-${url}`],
+    ["expenses", "2024", "--id", `F-01 ${url}`],
+    ["expenses", "2024", "--id", `01\u0007${url}`],
+    ["expenses", "2024", `--id= ${url}`],
+    ["expenses", ` ${url}`],
+    ["expenses", `2024 ${url}`],
+    ["budget", "2024", ` ${url}`],
+    ["budget", "2024", "expenses", "--quota", ` ${url}`],
+    ["budget", "2024", "expenses", "--unit", ` ${url}`],
+    [` ${url}`],
+    [url],
+    ["expenses", "2024", url],
+    ["expenses", "2024", "--id", url, "--bogus"],
+    ["--timeout", ` ${url}`, "expenses", "2024"],
+  ];
+  const answers: Array<() => HttpResponse> = [
+    () => jsonResponse({ message: `bad value ${url}` }, 404),
+    () => jsonResponse({}, 500),
+    () => rawResponse("busy", "text/plain", 503),
+    () => jsonResponse({ meta: {}, detail: { budget: 0 } }),
+    () => {
+      throw Object.assign(new Error("connect ECONNREFUSED"), { code: "ECONNREFUSED" });
+    },
+  ];
+  for (const argv of argvs) {
+    for (const answer of answers) {
+      const cli = makeCli(answer);
+      await run(["--max-retries", "0", ...argv], cli.deps);
+      const err = cli.err.join("\n");
+      assert.doesNotMatch(err, /s3cretpw|bob%3As3|s3cretpw%40/, `${JSON.stringify(argv)}: ${err}`);
+    }
+  }
+});

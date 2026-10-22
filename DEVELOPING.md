@@ -339,10 +339,12 @@ userinfo of every URL argument (`credentialsIn`, exported) and replaces it with 
 everything it prints — commander's usage errors, which echo rejected values (a
 `--base-url` with a query, a port typo, an unencoded `#`), and the unknown-command message
 for a URL typed where the command goes — so a password with spaces, quotes, `#`, `?` or
-`/` is caught as well as an ordinary one. Only a value that starts with a scheme counts (a
+`/` is caught as well as an ordinary one. Only a URL with a scheme counts (a
 bare `a:b@c` is an account, an id or a User-Agent as often as a credential), except as the
 `--base-url` value, where a `user:password@host` typed without its scheme is still a
-credential. A URL typed as `--id` is sent as a query parameter, so the request URL of an
+credential. It is found anywhere in an argument (`urlsWithin`), not only at its start: a value
+is checked trimmed, so a padded `" https://u:pw@host"`, one after a dash or after other text
+(`--id "F-01 https://…"`, a year `"2024 https://…"`) reached a refusal or commander's echo. A URL typed as `--id` is sent as a query parameter, so the request URL of an
 error echoes its userinfo percent-encoded (`id=https%3A%2F%2Fu%3Apw%40host`): that form,
 before `%40`, is replaced too (`queryEncodedForms`). The log replaces it in each record's *message*, before the record is cut and
 escaped, and writes to the raw stderr: the frame (time, level, topic) is never touched,
