@@ -474,6 +474,86 @@ test("credentials a server echoes are scrubbed from the error: Basic, user:passw
   });
 });
 
+test("a credential echoed with JSON escapes is scrubbed from the message, the detail and the decoded body", async () => {
+  // An escaped slash (`\/`) and an ASCII-only encoder (`\u00fc`) hide the echo from a scrub of
+  // the body as sent; JSON.parse turns them back into the clear password.
+  const cases: Array<[string, string, string]> = [
+    ["http://alice:dummy%2Fpw-123@127.0.0.1:9", '{"detail":"login failed for alice:dummy\\/pw-123"}', "dummy/pw-123"],
+    ["http://alice:d%C3%BCmmy-pw-123@127.0.0.1:9", '{"detail":"login failed for alice:d\\u00fcmmy-pw-123"}', "dümmy-pw-123"],
+    ["http://alice:d%C3%BCmmy-pw-123@127.0.0.1:9", '{"message":"bad password d\\u00fcmmy-pw-123"}', "dümmy-pw-123"],
+  ];
+  for (const status of [401, 500]) {
+    for (const [baseUrl, sent, password] of cases) {
+      const engine = new RequestEngine({ baseUrl, maxRetries: 0, transport: async () => rawResponse(sent, "application/json", status) });
+      await assert.rejects(engine.getJson("/internalapi/budgetData"), (err: HaushaltApiError) => {
+        assert.ok(err instanceof HaushaltApiError, String(err));
+        assert.ok(!err.message.includes(password), err.message);
+        assert.ok(!(err.detail ?? "").includes(password), err.detail);
+        assert.match(err.message, /\*\*\*"?$/);
+        const decoded = JSON.stringify(JSON.parse(err.body));
+        assert.ok(!decoded.includes(password), err.body);
+        return true;
+      });
+    }
+  }
+});
+
+test("an error body keeps its spelling unless a credential hides behind an escape", async () => {
+  const base = "https://alice:s3cret-pw@mirror.example";
+  const bodyOf = async (body: string): Promise<string> => {
+    const e = new RequestEngine({ baseUrl: base, maxRetries: 0, transport: async () => rawResponse(body, "application/json", 500) });
+    const err = await e.getJson("/x").catch((caught: unknown) => caught);
+    assert.ok(err instanceof HaushaltApiError, String(err));
+    return err.body;
+  };
+  // No credential, or one spelled as sent: the body as sent (scrubbed), escapes kept.
+  assert.equal(await bodyOf('{"m":"caf\\u00e9 \\"x\\""}'), '{"m":"caf\\u00e9 \\"x\\""}');
+  assert.equal(await bodyOf('{"m":"pw s3cret-pw \\u00e9"}'), '{"m":"pw *** \\u00e9"}');
+  // Escaped: written again decoded, scrubbed in that spelling.
+  assert.equal(await bodyOf('{"m":"pw s3cret\\u002dpw \\u00e9"}'), '{"m":"pw *** é"}');
+  // Not JSON: nobody decodes it, it stays as sent.
+  assert.equal(await bodyOf("pw s3cret\\u002dpw"), "pw s3cret\\u002dpw");
+  // Without credentials in the base URL the body is never rewritten.
+  const plain = new RequestEngine({ maxRetries: 0, transport: async () => rawResponse('{"m":"s3cret\\u002dpw"}', "application/json", 500) });
+  const err = await plain.getJson("/x").catch((caught: unknown) => caught);
+  assert.ok(err instanceof HaushaltApiError && err.body === '{"m":"s3cret\\u002dpw"}', String(err));
+  // Deeply nested: written again where this runtime can, else left out (probed, not assumed:
+  // whether JSON.stringify recurses depends on the Node version).
+  const deep = `${"[".repeat(200_000)}"s3cret\\u002dpw"${"]".repeat(200_000)}`;
+  let parses = true;
+  let writes = true;
+  try {
+    const value: unknown = JSON.parse(deep);
+    try {
+      JSON.stringify(value);
+    } catch {
+      writes = false;
+    }
+  } catch {
+    parses = false;
+  }
+  if (parses) {
+    const body = await bodyOf(deep);
+    assert.ok(!body.includes("s3cret"), body.slice(199_990, 200_030));
+    assert.equal(body === "", !writes);
+  }
+});
+
+test("the decoded detail is scrubbed before it is cut, so no part of a credential stays", async () => {
+  const pw = "s3cret/Pw-long";
+  for (const at of [480, 490, 495, 499]) {
+    const sent = JSON.stringify({ detail: `${"x".repeat(at)}${pw}${"y".repeat(600)}` }).replace("/", "\\/");
+    const engine = new RequestEngine({
+      baseUrl: `https://alice:${encodeURIComponent(pw)}@mirror.example`,
+      maxRetries: 0,
+      transport: async () => rawResponse(sent, "application/json", 500),
+    });
+    const err = await engine.getJson("/x").catch((caught: unknown) => caught);
+    assert.ok(err instanceof HaushaltApiError, String(err));
+    assert.ok(!err.message.includes("s3"), `${at}: ${err.message.slice(-120)}`);
+  }
+});
+
 test("echoedCredentialForms treats a userinfo without a password as a token (Basic `TOKEN:`)", () => {
   const basic = (pair: string): string => Buffer.from(pair, "utf8").toString("base64");
   assert.deepEqual(echoedCredentialForms("alice:s3cret"), [basic("alice:s3cret"), "alice:s3cret", "s3cret"]);

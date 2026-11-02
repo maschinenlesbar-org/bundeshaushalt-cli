@@ -200,6 +200,12 @@ export class HaushaltApiError extends HaushaltError {
   readonly detail: string | undefined;
   readonly url: string;
   readonly method: string;
+  /**
+   * The response body as text, the base URL's credentials scrubbed. A JSON body whose decoded
+   * text still holds an echoed credential (hidden behind an escape such as `\/` or `\u00fc`) is
+   * the decoded JSON written again with the credential replaced by `***`; such a body nested too
+   * deeply to write again is `""`, as is one too large to be a string.
+   */
   readonly body: string;
 
   constructor(args: {

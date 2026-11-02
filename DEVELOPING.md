@@ -395,6 +395,13 @@ decoded `user:password`, the password alone from 4 characters: `echoedCredential
 in a userinfo without a password, `https://TOKEN@mirror/` or `TOKEN:@`, the user name is the
 secret, sent as Basic `TOKEN:`),
 are scrubbed from error bodies and details, transport error text and the `cause` chain.
+An error `detail` is scrubbed again after JSON decoding, before it is cut: a server that
+writes the password with an escape (`\/`, an ASCII-only `\u00fc`) hides it from the scrub of
+the body as sent. For the same reason `HaushaltApiError.body` is, when it is JSON with an
+escape whose decoded text still holds an echoed form, the decoded JSON written again
+(`JSON.stringify`: other escapes, no insignificant whitespace) with the forms replaced by
+`***`, and `""` for such a body nested too deeply to write again; any other body is kept as
+sent (scrubbed).
 The CLI replaces the same forms: the `Basic` value and the pair on stdout and stderr, the
 password (or token) alone on stderr only, since it may well occur in the data. A redirect `Location` that doesn't parse is a `HaushaltNetworkError`
 (`Invalid redirect Location "…" for GET <url>`). Server text in a message (an error

@@ -554,6 +554,32 @@ export class RequestEngine {
   }
 
   /**
+   * An error body, already scrubbed as sent, as `HaushaltApiError.body` keeps it: when it is
+   * JSON with an escape in it, checked decoded too. An escape (`\/`, `\u00fc`) hides an echoed
+   * credential from the scrub of the text as sent, while a caller who parses the body sees it. Such
+   * a body is kept as the decoded JSON written again (`JSON.stringify`, one spelling per character)
+   * with the credential scrubbed in that spelling. A body that doesn't parse is text nobody
+   * decodes, and stays as sent; one too deeply nested to write again is left out.
+   */
+  private scrubBody(scrubbed: string): string {
+    if (this.#echoed.length === 0 || !scrubbed.includes("\\")) return scrubbed;
+    let decoded: unknown;
+    try {
+      decoded = JSON.parse(scrubbed);
+    } catch {
+      return scrubbed;
+    }
+    let rewritten: string;
+    try {
+      rewritten = JSON.stringify(decoded);
+    } catch {
+      return "";
+    }
+    const spelled = this.#echoed.map((form) => JSON.stringify(form).slice(1, -1));
+    return spelled.some((form) => rewritten.includes(form)) ? redactSecrets(rewritten, spelled) : scrubbed;
+  }
+
+  /**
    * A transport failure as the `cause` of the error the engine raises: the original when its
    * text carries no credentials, otherwise a copy with them scrubbed (message, `code` and the
    * cause chain kept), so logging the error with its causes can't reveal the base URL's
@@ -898,11 +924,12 @@ export class RequestEngine {
     } catch {
       // Non-JSON error body; leave detail undefined.
     }
-    // `detail` came from the response body; strip control characters so a hostile
-    // endpoint cannot inject terminal escape sequences via the stderr error message.
-    if (detail !== undefined) detail = sanitizeServerText(detail);
+    // `detail` came from the response body, decoded: scrubbed again (a JSON escape hid the
+    // credential from the scrub above), before it is cut, then stripped of control characters so
+    // a hostile endpoint cannot inject terminal escape sequences via the stderr error message.
+    if (detail !== undefined) detail = sanitizeServerText(this.scrub(detail));
     if (hint !== undefined) detail = detail === undefined ? hint : `${detail}; ${hint}`;
-    return new HaushaltApiError({ status, url, method, body: text, detail });
+    return new HaushaltApiError({ status, url, method, body: this.scrubBody(text), detail });
   }
 }
 
