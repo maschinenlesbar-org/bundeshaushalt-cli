@@ -449,6 +449,24 @@ test("a credential URL with DEL and a space, echoed in Invalid account, is redac
   assert.ok(!cli.err.join("\n").includes("PWX"), cli.err.join("\n"));
 });
 
+test("a token as the --base-url user name is redacted from what the CLI prints, on stderr and stdout", async () => {
+  const token = "tok_9f8e7d6c5b4a";
+  const basic = Buffer.from(`${token}:`, "utf8").toString("base64");
+  for (const base of [`http://${token}@127.0.0.1:9`, `http://${token}:@127.0.0.1:9`]) {
+    // An error answer that echoes the token and the Basic value: stderr.
+    const failed = makeCli(() => jsonResponse({ detail: `invalid credentials ${token}: (Basic ${basic})` }, 401));
+    assert.equal(await run(["--base-url", base, "--max-retries", "0", "budget", "2023", "expenses"], failed.deps), 1);
+    const err = failed.err.join("\n");
+    assert.ok(!err.includes(token) && !err.includes(basic), err);
+    assert.match(err, /invalid credentials \*\*\* \(Basic \*\*\*\)/);
+    // A 2xx answer that echoes the Basic value and `TOKEN:`: stdout.
+    const echoed = makeCli(() => jsonResponse({ ...body, detail: { label: `Basic ${basic} for ${token}:x` } }));
+    assert.equal(await run(["--base-url", base, "budget", "2023", "expenses"], echoed.deps), 0, echoed.err.join("\n"));
+    const out = echoed.out.join("\n");
+    assert.ok(!out.includes(basic) && !out.includes(`${token}:`), out);
+  }
+});
+
 test("an a:b@c argument (a User-Agent, an account) is neither a credential in the log nor rewritten in the JSON on stdout (L14)", async () => {
   const cli = makeCli(() => jsonResponse({ ...body, detail: { label: "run:2026-10-09@x" } }));
   assert.equal(await run(["--user-agent", "run:2026-10-09@x", "expenses", "2024"], cli.deps), 0);

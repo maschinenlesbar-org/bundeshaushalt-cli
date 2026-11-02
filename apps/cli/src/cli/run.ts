@@ -196,7 +196,7 @@ export function redactionFor(argv: readonly string[]): Redaction {
       secrets.add(JSON.stringify(secret).slice(1, -1));
       for (const form of queryEncodedForms(secret)) encoded.add(form);
       // What a server echoes back: the Basic value and the decoded user:password on
-      // stdout and stderr, the password alone (it may well occur in the data) on stderr.
+      // stdout and stderr, the password or token alone (it may well occur in the data) on stderr.
       const [basic, pair, password] = echoedCredentialForms(secret);
       if (basic !== undefined) echoed.add(basic);
       if (pair !== undefined) echoed.add(pair);

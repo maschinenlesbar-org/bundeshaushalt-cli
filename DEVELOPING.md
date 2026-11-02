@@ -391,10 +391,12 @@ real `#private` field (so `console.log(client)`, `util.inspect` and `JSON.string
 don't reveal it), every URL in a message goes through `redactUrl` (which also cuts the
 userinfo out of a value that doesn't parse), and the base URL's userinfo (raw and
 percent-decoded), and the forms a server echoes it back in (the `Basic` value, the
-decoded `user:password`, the password alone from 4 characters: `echoedCredentialForms`),
+decoded `user:password`, the password alone from 4 characters: `echoedCredentialForms`;
+in a userinfo without a password, `https://TOKEN@mirror/` or `TOKEN:@`, the user name is the
+secret, sent as Basic `TOKEN:`),
 are scrubbed from error bodies and details, transport error text and the `cause` chain.
 The CLI replaces the same forms: the `Basic` value and the pair on stdout and stderr, the
-password alone on stderr only, since it may well occur in the data. A redirect `Location` that doesn't parse is a `HaushaltNetworkError`
+password (or token) alone on stderr only, since it may well occur in the data. A redirect `Location` that doesn't parse is a `HaushaltNetworkError`
 (`Invalid redirect Location "…" for GET <url>`). Server text in a message (an error
 `detail`, a redirect target, a transport's reason) is cut at `MAX_SERVER_TEXT_LENGTH`
 (500) characters, never inside a surrogate pair (`cutText`), so the message stays

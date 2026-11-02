@@ -16,6 +16,7 @@ import {
   HaushaltParseError,
   HaushaltValidationError,
   cutText,
+  echoedCredentialForms,
   toWellFormed,
 } from "../src/errors.js";
 import { makeMockTransport, jsonResponse, rawResponse, redirectResponse } from "./helpers.js";
@@ -471,6 +472,36 @@ test("credentials a server echoes are scrubbed from the error: Basic, user:passw
     for (const form of [basic, "alice:pa ss-pw", "pa ss-pw"]) assert.ok(!err.body.includes(form), err.body);
     return true;
   });
+});
+
+test("echoedCredentialForms treats a userinfo without a password as a token (Basic `TOKEN:`)", () => {
+  const basic = (pair: string): string => Buffer.from(pair, "utf8").toString("base64");
+  assert.deepEqual(echoedCredentialForms("alice:s3cret"), [basic("alice:s3cret"), "alice:s3cret", "s3cret"]);
+  assert.deepEqual(echoedCredentialForms("T0ken"), [basic("T0ken:"), "T0ken:", "T0ken"]);
+  assert.deepEqual(echoedCredentialForms("T0ken:"), [basic("T0ken:"), "T0ken:", "T0ken"]);
+  assert.deepEqual(echoedCredentialForms("T%C3%B6k"), [basic("Tök:"), "Tök:"]); // short: not alone
+  assert.deepEqual(echoedCredentialForms(":pw12"), [basic(":pw12"), ":pw12", "pw12"]);
+  assert.deepEqual(echoedCredentialForms(""), []);
+  assert.deepEqual(echoedCredentialForms(":"), []);
+});
+
+test("a token as the base URL's user name is scrubbed from the error in every echoed form", async () => {
+  const token = "tok_9f8e7d6c5b4a";
+  const basic = Buffer.from(`${token}:`, "utf8").toString("base64");
+  for (const baseUrl of [`https://${token}@mirror.example`, `https://${token}:@mirror.example`]) {
+    const engine = new RequestEngine({
+      baseUrl,
+      maxRetries: 0,
+      transport: makeMockTransport(() => jsonResponse({ detail: `invalid credentials ${token}: (Basic ${basic})` }, 401)).transport,
+    });
+    await assert.rejects(engine.getJson("/internalapi/budgetData"), (err: HaushaltApiError) => {
+      for (const text of [err.message, err.body, err.detail ?? ""]) {
+        assert.ok(!text.includes(token) && !text.includes(basic), `${baseUrl}: ${text}`);
+      }
+      assert.match(err.message, /invalid credentials \*\*\* \(Basic \*\*\*\)/);
+      return true;
+    });
+  }
 });
 
 test("a timeout, the size cap, a refused connection and a DNS failure name the request; the original is the cause", async () => {
