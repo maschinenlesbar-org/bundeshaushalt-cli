@@ -393,12 +393,13 @@ cap, a reset or refused connection, a DNS failure, and whatever an injected tran
 error and no client shows the base URL's password: the engine keeps the base URL in a
 real `#private` field (so `console.log(client)`, `util.inspect` and `JSON.stringify`
 don't reveal it), every URL in a message goes through `redactUrl` (which also cuts the
-userinfo out of a value that doesn't parse), and the base URL's userinfo (raw and
-percent-decoded), and the forms a server echoes it back in (the `Basic` value, the
-decoded `user:password`, the password alone from 4 characters: `echoedCredentialForms`;
+userinfo out of a value that doesn't parse), and the base URL's userinfo (as typed, as WHATWG
+spells it in a URL, and percent-decoded), and the forms a server echoes it back in (the `Basic`
+value, the decoded `user:password`, the password alone from 4 characters: `echoedCredentialForms`;
 in a userinfo without a password, `https://TOKEN@mirror/` or `TOKEN:@`, the user name is the
-secret, sent as Basic `TOKEN:`),
-are scrubbed from error bodies and details, transport error text and the `cause` chain.
+secret, sent as Basic `TOKEN:`), each of them also percent-encoded as a URL writes it,
+are scrubbed from error bodies and details, transport error text, the `cause` chain, and the
+Content-Type and charset a parse error quotes from a 2xx answer.
 An error `detail` is scrubbed again after JSON decoding, before it is cut: a server that
 writes the password with an escape (`\/`, an ASCII-only `\u00fc`) hides it from the scrub of
 the body as sent. For the same reason `HaushaltApiError.body` is, when it is JSON with an

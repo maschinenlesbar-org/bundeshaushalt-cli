@@ -941,3 +941,39 @@ test("a 16 MB error detail is cleaned within a small heap (C)", STARTS_A_PROCESS
   const out = execFileSync(process.execPath, ["--max-old-space-size=128", "--input-type=module", "-e", script], { encoding: "utf8" });
   assert.equal(out, "true HTTP 500 ");
 });
+
+test("a credential echoed in a 2xx answer's Content-Type or charset is scrubbed from the parse error (D)", async () => {
+  const pw = "s3cret-Pw";
+  for (const contentType of [`text/${pw}`, `application/json; charset=${pw}`, `application/json; charset=alice:${pw}`]) {
+    const e = new RequestEngine({ baseUrl: `https://alice:${pw}@mirror.example`, transport: async () => rawResponse("{}", contentType) });
+    const err = await e.getJson("/x").catch((caught: unknown) => caught);
+    assert.ok(err instanceof HaushaltParseError, String(err));
+    assert.ok(!err.message.includes(pw), err.message);
+    assert.match(err.message, /\*\*\*/);
+  }
+});
+
+test("an echo of the userinfo as a URL spells it is scrubbed, a short password too (D)", async () => {
+  // Typed raw; in a URL, WHATWG and encodeURIComponent spell it `p%22%C3%A4`, which a server
+  // echoes (a request URL with the userinfo in it, a Location).
+  const e = new RequestEngine({
+    baseUrl: 'https://alice:p"ä@mirror.example',
+    maxRetries: 0,
+    transport: async () => rawResponse(JSON.stringify({ message: "no access: https://alice:p%22%C3%A4@mirror.example/x" }), "application/json", 403),
+  });
+  const err = await e.getJson("/x").catch((caught: unknown) => caught);
+  assert.ok(err instanceof HaushaltApiError, String(err));
+  for (const text of [err.message, err.detail ?? "", err.body]) {
+    assert.ok(!text.includes("p%22%C3%A4@") && !text.includes('p"ä@'), text);
+  }
+  // A long password percent-encoded without its "@" (in a query, a path segment) too.
+  const long = "s3cret/pw ä";
+  const f = new RequestEngine({
+    baseUrl: `https://alice:${encodeURIComponent(long)}@mirror.example`,
+    maxRetries: 0,
+    transport: async () => rawResponse(JSON.stringify({ message: `see /login?pw=${encodeURIComponent(long)}` }), "application/json", 401),
+  });
+  const err2 = await f.getJson("/x").catch((caught: unknown) => caught);
+  assert.ok(err2 instanceof HaushaltApiError, String(err2));
+  for (const text of [err2.message, err2.detail ?? "", err2.body]) assert.ok(!text.includes(encodeURIComponent(long)), text);
+});

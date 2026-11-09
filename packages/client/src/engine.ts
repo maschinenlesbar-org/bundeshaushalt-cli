@@ -456,6 +456,19 @@ export function cleartextProblem(baseUrl: string, secrets: readonly string[] = [
   return `${phrases.join(" and ")} ${verb} sent unencrypted to ${url.host} (http:, not https:)`;
 }
 
+/**
+ * `form` and its spelling in a URL (`encodeURIComponent`): a server that puts a credential into
+ * a URL, a redirect's Location, percent-encodes it. A form that has no such spelling (a lone
+ * surrogate) is kept as it is.
+ */
+function urlSpellings(form: string): string[] {
+  try {
+    return [form, encodeURIComponent(form)];
+  } catch {
+    return [form];
+  }
+}
+
 /** No declared big-integer members (`EngineOptions.bigIntegerKeys` left out). */
 const NO_KEYS: ReadonlySet<string> = new Set();
 
@@ -482,7 +495,8 @@ export class RequestEngine {
   readonly #credentials: string[];
   /**
    * The forms a server echoes that userinfo back in (the Basic value, the decoded
-   * `user:password`, the password or token alone), longest first, so a password never leaves half
+   * `user:password`, the password or token alone), each also percent-encoded as in a URL (a
+   * redirect's Location, a quoted request URL), longest first, so a password never leaves half
    * of the `user:password` around it.
    */
   readonly #echoed: string[];
@@ -513,16 +527,18 @@ export class RequestEngine {
     // silently replaced (a blank baseUrl from an unset variable must not quietly
     // query production).
     this.#baseUrl = validateBaseUrl(options.baseUrl ?? DEFAULT_BASE_URL);
-    this.#credentials = credentialsIn(this.#baseUrl).flatMap((raw) => {
+    // The userinfo as typed and as WHATWG spells it in a URL (it percent-encodes some of its
+    // characters: `p"ä` is `p%22%C3%A4`), which a server echoes in a URL it quotes.
+    const userinfos = [...new Set([...credentialsIn(this.#baseUrl), ...credentialsIn(new URL(this.#baseUrl).href)])];
+    this.#credentials = userinfos.flatMap((raw) => {
       try {
         return [raw, decodeURIComponent(raw)];
       } catch {
         return [raw];
       }
     });
-    this.#echoed = credentialsIn(this.#baseUrl)
-      .flatMap(echoedCredentialForms)
-      .sort((a, b) => b.length - a.length);
+    // Each form also percent-encoded (urlSpellings), as a server writes it into a URL.
+    this.#echoed = [...new Set(userinfos.flatMap(echoedCredentialForms).flatMap(urlSpellings))].sort((a, b) => b.length - a.length);
     this.transport = functionOption("transport", options.transport, nodeHttpTransport);
     this.userAgent =
       options.userAgent === undefined
@@ -899,10 +915,10 @@ export class RequestEngine {
       // The Content-Type is attacker-controllable; strip control characters so a
       // hostile endpoint cannot inject terminal escape sequences via this message.
       throw new HaushaltParseError(
-        `${request}: the answer is not JSON (expected JSON, got Content-Type "${sanitizeServerText(mediaType(res.contentType))}").`,
+        `${request}: the answer is not JSON (expected JSON, got Content-Type "${sanitizeServerText(this.scrub(mediaType(res.contentType)))}").`,
       );
     }
-    const decoded = decodeBody(res.data, res.contentType, request);
+    const decoded = decodeBody(res.data, res.contentType, request, (text) => this.scrub(text));
     // An empty 2xx body (e.g. a 204 No Content) is not valid JSON; report it as
     // such rather than emitting the opaque "not valid JSON" for `""`.
     if (decoded.text.trim() === "") {
@@ -985,17 +1001,18 @@ function originOf(url: string): string {
  * given, as JSON requires). A leading byte-order mark is dropped: TextDecoder does
  * that by default, where Buffer#toString kept it and JSON.parse then failed. The
  * upstream sends UTF-8; this matters for proxies and mirrors that re-encode. An unknown
- * charset label is a HaushaltParseError naming `request`. Bytes that are not valid in the
+ * charset label is a HaushaltParseError naming `request`, the label quoted with the base URL's
+ * credentials scrubbed (`scrub`). Bytes that are not valid in the
  * charset become U+FFFD, and `replaced` counts them: exactly for UTF-8 and the single-byte
  * charsets; for UTF-16 a U+FFFD the server sent counts too.
  */
-function decodeBody(body: Buffer, contentType: string, request: string): { text: string; replaced: number } {
+function decodeBody(body: Buffer, contentType: string, request: string, scrub: (text: string) => string): { text: string; replaced: number } {
   const charset = /;\s*charset\s*=\s*"?([^";\s]+)"?/i.exec(contentType)?.[1] ?? "utf-8";
   let decoder: TextDecoder;
   try {
     decoder = new TextDecoder(charset, { fatal: true });
   } catch {
-    throw new HaushaltParseError(`${request}: unsupported response charset "${sanitizeServerText(charset)}".`);
+    throw new HaushaltParseError(`${request}: unsupported response charset "${sanitizeServerText(scrub(charset))}".`);
   }
   try {
     return { text: decoder.decode(body), replaced: 0 };
