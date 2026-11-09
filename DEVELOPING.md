@@ -409,9 +409,15 @@ sent (scrubbed).
 The CLI replaces the same forms: the `Basic` value and the pair on stdout and stderr, the
 password (or token) alone on stderr only, since it may well occur in the data. A redirect `Location` that doesn't parse is a `HaushaltNetworkError`
 (`Invalid redirect Location "…" for GET <url>`). Server text in a message (an error
-`detail`, a redirect target, a transport's reason) is cut at `MAX_SERVER_TEXT_LENGTH`
-(500) characters, never inside a surrogate pair (`cutText`), so the message stays
-well-formed; `HaushaltApiError.body` keeps it all. A value an own message quotes from
+`detail`, a redirect target, a transport's reason) goes through `sanitizeServerText`: it reads
+at most the first 16 384 characters, drops whole terminal escape sequences (CSI, and OSC and the
+other control strings up to their terminator; a control string ends at the next introducer, so
+an unterminated run of them is linear), then the remaining C0/C1 controls, DEL and every format
+character (bidi controls, zero-width characters, the soft hyphen), folds whitespace into one
+space, and cuts the line at `MAX_SERVER_TEXT_LENGTH` (500) characters, never inside a surrogate
+pair (`cutText`), so the message stays well-formed; `HaushaltApiError.body` keeps it all. Every
+step is a regex replace, and the answer's repairs (lone surrogates, declared big integers) are
+joined in batches (`TextBuilder`), so a 16 MB error detail or millions of repairs fit a small heap. A value an own message quotes from
 the user's input (a year, an account, an id) is quoted visibly and cut at
 `MAX_QUOTED_LENGTH` (200 characters; `quoteValue`): as `JSON.stringify` quotes it, with DEL,
 C1, U+2028/2029 and every format character (a zero-width space, a soft hyphen, a bidi control)
