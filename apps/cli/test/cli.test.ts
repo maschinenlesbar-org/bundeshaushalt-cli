@@ -640,3 +640,21 @@ test("the redaction of stdout is linear in the answer and hides the userinfo of 
   assert.ok(out.includes("https://host://***@h and https://***@x://***@w"), out);
   for (const secret of ["u:p1", "u:p2", "v:q3"]) assert.ok(!out.includes(secret), out);
 });
+
+test("a refused --base-url never echoes its password, however the slashes after its scheme read (F, F3, F4)", async () => {
+  const pw = "pw1-s3cret";
+  for (const base of [
+    `http:alice:${pw}@127.0.0.1:9`,
+    `http:/alice:${pw}@127.0.0.1:9`,
+    `http:///alice:${pw}@127.0.0.1:9`,
+    `https:\\\\alice:${pw}@mirror.example`,
+    `https://alice:${pw}@api.example\\@evil.example`,
+    `http:///alice:${pw}@mirror.example/?q=1`,
+  ]) {
+    const cli = makeCli(() => jsonResponse(body));
+    assert.equal(await run(["--base-url", base, "expenses", "2024"], cli.deps), 1, base);
+    assert.equal(cli.mt.calls.length, 0, base);
+    const text = [...cli.out, ...cli.err].join("\n");
+    assert.ok(!text.includes(pw), text);
+  }
+});

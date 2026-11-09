@@ -526,10 +526,14 @@ export class RequestEngine {
     // later. Only `undefined` selects the default: a blank value is rejected, not
     // silently replaced (a blank baseUrl from an unset variable must not quietly
     // query production).
-    this.#baseUrl = validateBaseUrl(options.baseUrl ?? DEFAULT_BASE_URL);
+    const typed = validateBaseUrl(options.baseUrl ?? DEFAULT_BASE_URL);
+    // Requests go to the base URL as WHATWG parses it, the reading every check of it makes (the
+    // host, the cleartext warning, the Authorization header), not to a text-based reading of the
+    // string: a transport that reads the URL as text reaches the same host.
+    this.#baseUrl = new URL(typed).href.replace(/\/+$/, "");
     // The userinfo as typed and as WHATWG spells it in a URL (it percent-encodes some of its
     // characters: `p"ä` is `p%22%C3%A4`), which a server echoes in a URL it quotes.
-    const userinfos = [...new Set([...credentialsIn(this.#baseUrl), ...credentialsIn(new URL(this.#baseUrl).href)])];
+    const userinfos = [...new Set([...credentialsIn(typed), ...credentialsIn(this.#baseUrl)])];
     this.#credentials = userinfos.flatMap((raw) => {
       try {
         return [raw, decodeURIComponent(raw)];

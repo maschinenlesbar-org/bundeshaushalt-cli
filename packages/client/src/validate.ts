@@ -123,7 +123,11 @@ function typeName(value: unknown): string {
  * A base URL: an absolute `http:`/`https:` URL with a host and no query string or
  * fragment (the client appends its own path and query), without surrounding
  * whitespace or inner whitespace/control characters (the URL parser would drop or
- * encode them silently). Userinfo is allowed: it is sent as Basic auth, for a mirror
+ * encode them silently), without a backslash (WHATWG ends an http(s) host at one, as at a
+ * `/`, while text-based code reads on: `https://u:pw@a.example\@b.example` was a.example
+ * to every check and its credentials could look like b.example's), and with the scheme
+ * followed by exactly `//` and the host (WHATWG repairs `http:host`, `http:/host` and
+ * `http:///host` silently, so the host requested would not be the one typed). Userinfo is allowed: it is sent as Basic auth, for a mirror
  * behind a login, and redacted in messages; a `%` in it must be an escape (`%25` for
  * a literal one), since it is percent-decoded for the header. The reasons never
  * repeat the value.
@@ -143,6 +147,9 @@ export const baseUrlProblem: Problem<unknown> = (value) => {
   }
   if (!url.host) return "Expected a URL with a host.";
   if (url.search || url.hash || /[?#]/.test(value)) return "A query string or fragment is not allowed.";
+  // WHATWG reads a "\" in an http(s) URL as "/", so it ends the host: in
+  // `https://u:pw@a.example\@b.example` every reader of the base URL has to agree where.
+  if (value.includes("\\")) return 'A base URL cannot contain a backslash (\\); write "/" instead.';
   // The userinfo is percent-decoded for the Authorization header; a "%" that isn't an
   // escape would fail there ("URI malformed") at request time. Reject it here.
   for (const part of [url.username, url.password]) {
@@ -152,6 +159,9 @@ export const baseUrlProblem: Problem<unknown> = (value) => {
       return 'The user name or password has a "%" that is not followed by two hex digits; write a literal "%" as %25.';
     }
   }
+  // WHATWG skips any slashes after "http:" and repairs `http:host`, `http:/host` and
+  // `http:///host` into `http://host` silently: the host requested would not be the one typed.
+  if (!/^https?:\/\/[^/]/i.test(value)) return 'Expected an absolute http(s) URL ("https://" and the host).';
   return undefined;
 };
 

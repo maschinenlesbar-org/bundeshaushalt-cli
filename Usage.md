@@ -188,7 +188,7 @@ takes a value (global or per-command) may be given only once: a repeat (`--id 14
 | Option | Description |
 | --- | --- |
 | `-V, --version` | Print the version and exit |
-| `--base-url <url>` | API base URL (default `https://bundeshaushalt.de`). Credentials in it (`https://user:pw@mirror.example`) are sent as HTTP Basic auth, for a mirror behind a login, and shown as `***` in everything the CLI prints |
+| `--base-url <url>` | API base URL (default `https://bundeshaushalt.de`). Credentials in it (`https://user:pw@mirror.example`) are sent as HTTP Basic auth, for a mirror behind a login, and shown as `***` in everything the CLI prints. Write it as `https://` and the host; a backslash is refused |
 | `--timeout <ms>` | Time limit per request in milliseconds, reading the whole response included (`0` = no limit; default `30000`) |
 | `--user-agent <ua>` | `User-Agent` header value |
 | `--max-retries <n>` | Retries for transient `429`/`503` responses and reset connections, `0`..`10` (default `2`); each waits 200 ms × attempt, or longer when the server's `Retry-After` asks (up to 30 s; a longer one is not retried, and the error names the requested wait). Each retry logs one WARN record of `bundeshaushalt.http` before it waits (`HTTP 503 from host: retry 1 of 3 in 2 s`). |

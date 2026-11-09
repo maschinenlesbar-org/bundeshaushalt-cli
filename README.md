@@ -212,7 +212,7 @@ These apply to every command and may be given before *or* after it:
 | `-h, --help` | Show help for the program or a command |
 | `--compact` | Print JSON on a single line instead of pretty-printed |
 | `--log-format <format>` | How errors, warnings and notes are written to stderr: `text` (default; log4j style, `2026-10-09T14:03:12.481Z WARN  [bundeshaushalt.http] …`) or `jsonl` (one JSON object per line: `ts`, `level`, `topic`, `msg`). stdout is not affected |
-| `--base-url <url>` | API base URL (default `https://bundeshaushalt.de`). Credentials in it (`https://user:pw@mirror.example`) are sent as HTTP Basic auth, for a mirror behind a login, and shown as `***` in everything the CLI prints |
+| `--base-url <url>` | API base URL (default `https://bundeshaushalt.de`). Credentials in it (`https://user:pw@mirror.example`) are sent as HTTP Basic auth, for a mirror behind a login, and shown as `***` in everything the CLI prints. Write it as `https://` and the host; a backslash is refused |
 | `--timeout <ms>` | Time limit per request in milliseconds, reading the whole response included (`0` = no limit; default `30000`) |
 | `--user-agent <ua>` | `User-Agent` header value |
 | `--max-retries <n>` | Retries for transient `429`/`503` responses and reset connections, `0`..`10` (default `2`); each waits 200 ms × attempt, or longer when the server's `Retry-After` asks (up to 30 s; a longer one is not retried, and the error names the requested wait). Each retry logs one WARN record of `bundeshaushalt.http` before it waits (`HTTP 503 from host: retry 1 of 3 in 2 s`). |

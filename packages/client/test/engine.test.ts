@@ -18,6 +18,7 @@ import {
   HaushaltParseError,
   HaushaltValidationError,
   TextBuilder,
+  credentialsIn,
   cutText,
   echoedCredentialForms,
   redactUrlUserinfo,
@@ -1042,4 +1043,56 @@ test("a credential in a redirect's Location is scrubbed from every message about
   const e = new RequestEngine({ baseUrl: "https://alice:s3cretPw@mirror.example", maxRetries: 0, transport: async () => redirectResponse("s3cretPw:x") });
   const odd = await e.getJson("/x").catch((caught: unknown) => caught);
   assert.ok(odd instanceof HaushaltNetworkError && !odd.message.includes("s3cretPw") && odd.message.includes('protocol "***:"'), String(odd));
+});
+
+test("credentialsIn ends the authority of a special scheme at a backslash, as WHATWG does (F)", () => {
+  for (const scheme of ["http", "https", "HTTPS", "ws", "wss", "ftp"]) {
+    assert.deepEqual(credentialsIn(`${scheme}://u:p@a.example\\@b.example/x`), ["u:p"], scheme);
+    assert.equal(new URL(`${scheme}://u:p@a.example\\@b.example/x`).password, "p", scheme);
+  }
+  // Another scheme's authority runs on to "/", "?" or "#".
+  assert.deepEqual(credentialsIn("foo://u:p@a.example\\@b.example/x"), ["u:p@a.example\\"]);
+  assert.deepEqual(credentialsIn("https://u:p@a.example/x\\@y"), ["u:p"]);
+});
+
+test("credentialsIn skips the slashes and backslashes WHATWG skips after a special scheme (F3)", () => {
+  // `http:///u:pw@h`, `https:\\u:pw@h` and `http:u:pw@h` all carry `u:pw` for WHATWG; read
+  // after "://", the userinfo was missed, so a refused --base-url echoed the password in clear.
+  for (const value of [
+    "http:alice:pw@h.example",
+    "http:/alice:pw@h.example",
+    "http:///alice:pw@h.example/x",
+    "https:////alice:pw@h.example",
+    "HTTPS:\\\\alice:pw@h.example",
+    "wss:\\/alice:pw@h.example",
+    "ftp:alice:pw@h.example",
+  ]) {
+    assert.deepEqual(credentialsIn(value), ["alice:pw"], value);
+    assert.equal(new URL(value).password, "pw", value);
+  }
+  // Another scheme needs "//" before an authority: `foo:u:p@h` and `foo:///u:p@h` carry none.
+  assert.deepEqual(credentialsIn("foo:u:p@h.example"), []);
+  assert.deepEqual(credentialsIn("foo:///u:p@h.example"), []);
+  assert.equal(new URL("foo:///u:p@h.example").password, "");
+});
+
+test("a base URL with a backslash or a repaired scheme is refused at construction, never echoing the password; requests go to the parsed host (F, F4)", async () => {
+  const pw = "s3cret-Pw";
+  for (const baseUrl of [
+    `https://alice:${pw}@api.example\\@evil.example`,
+    `http:alice:${pw}@127.0.0.1:9`,
+    `http:///alice:${pw}@127.0.0.1:9`,
+    `HTTPS:alice:${pw}@mirror.example`,
+    `https:\\\\alice:${pw}@mirror.example`,
+  ]) {
+    assert.throws(
+      () => new RequestEngine({ baseUrl }),
+      (e: unknown) => e instanceof HaushaltValidationError && !e.message.includes(pw),
+      baseUrl,
+    );
+  }
+  // The request base is the URL as WHATWG parses it: host lower-cased, default port dropped.
+  const mt = makeMockTransport(() => jsonResponse({}));
+  await new RequestEngine({ baseUrl: "https://API.Example:443/v1", transport: mt.transport }).getJson("/x");
+  assert.equal(mt.last().url, "https://api.example/v1/x");
 });

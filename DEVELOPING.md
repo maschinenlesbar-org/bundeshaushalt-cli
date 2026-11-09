@@ -326,7 +326,14 @@ and before the first request; `--help`, `--version` and usage errors never get t
 an absolute `http:`/`https:` URL with a host and no query string or fragment,
 without surrounding whitespace or inner whitespace/control characters, and with no
 `%` in its userinfo that isn't an escape (a literal `%` is written `%25`; the
-userinfo is percent-decoded for the Basic-auth header). The
+userinfo is percent-decoded for the Basic-auth header), with no backslash (WHATWG ends an
+http(s) host at one while text-based code reads on: `https://u:pw@a.example\@b.example`), and
+with the scheme followed by exactly `//` and the host (`http:host`, `http:/host`,
+`http:///host`, which WHATWG repairs silently, are refused: `Expected an absolute http(s) URL
+("https://" and the host).`). Requests go to the base URL as WHATWG parses it (host lower-cased,
+a default port dropped), the reading every check makes; `credentialsIn` reads the userinfo the
+same way (it ends at a backslash and starts after the slashes a special scheme skips), so a
+refused `http:///alice:pw@host` is echoed with its password as `***`. The
 `RequestEngine` constructor applies it through the exported `validateBaseUrl`, so
 a library caller passing a bad `baseUrl` (`file:`, `ftp:`, `notaurl`, `https:`,
 `https://host/?q=1`) gets a `HaushaltValidationError` from `new

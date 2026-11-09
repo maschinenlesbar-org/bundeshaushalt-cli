@@ -106,6 +106,15 @@ test("baseUrlProblem: an absolute http(s) URL with a host and no query or fragme
   assert.equal(baseUrlProblem("ftp://x.example"), 'Unsupported scheme "ftp:". Expected an http(s) URL.');
   assert.equal(baseUrlProblem("https://h.example/?q=1"), "A query string or fragment is not allowed.");
   assert.equal(baseUrlProblem("https://h.example/#f"), "A query string or fragment is not allowed.");
+  // WHATWG ends an http(s) host at a backslash, text-based code doesn't: refused (F).
+  for (const backslash of ["https://alice:pw@api.example\\@evil.example", "https://api.example\\evil", "https:\\\\h.example"]) {
+    assert.equal(baseUrlProblem(backslash), 'A base URL cannot contain a backslash (\\); write "/" instead.', backslash);
+  }
+  // The scheme followed by exactly "//" and the host, which WHATWG would otherwise repair (F4).
+  for (const repaired of ["http:h.example", "http:/h.example", "http:///h.example", "HTTPS:h.example"]) {
+    assert.equal(baseUrlProblem(repaired), 'Expected an absolute http(s) URL ("https://" and the host).', repaired);
+  }
+  assert.equal(baseUrlProblem("HTTPS://H.example"), undefined);
 });
 
 test("headerValueProblem: non-blank printable Latin-1 plus tab, checked untrimmed", () => {
