@@ -623,6 +623,24 @@ export class RequestEngine {
   }
 
   /**
+   * A redirect's `Location` as messages name the request it leads to: the base URL's credentials
+   * scrubbed as sent, before resolving it against `from` (the current request as shown)
+   * percent-encodes what is left of them in a new spelling; then userinfo redacted, control and
+   * format characters dropped, cut (`sanitizeServerText`). A value that doesn't resolve is shown
+   * cleaned as it came.
+   */
+  private shownTarget(location: string, from: string): string {
+    const sent = this.scrub(location);
+    let target: string;
+    try {
+      target = redactUrl(new URL(sent, from).href);
+    } catch {
+      target = sent;
+    }
+    return sanitizeServerText(target);
+  }
+
+  /**
    * A transport failure as the `cause` of the error the engine raises: the original when its
    * text carries no credentials, otherwise a copy with them scrubbed (message, `code` and the
    * cause chain kept), so logging the error with its causes can't reveal the base URL's
@@ -717,6 +735,10 @@ export class RequestEngine {
     // absolute) keeps it and one to another origin or scheme drops it. A transport such
     // as fetch also refuses a URL with credentials outright.
     let url = this.composeUrl(path, options.query, false);
+    // The URL as messages name it: after a redirect, the Location as the server sent it with the
+    // base URL's credentials scrubbed, then resolved (`shownTarget`). Resolving first would
+    // percent-encode an echoed password in a new spelling (`'` as `%27` in a query) no scrub matches.
+    let shown = redactUrl(url);
     let headers: Record<string, string> = {
       Accept: options.accept,
       // Advertise the encodings the transport can decode so an RFC-compliant
@@ -752,7 +774,7 @@ export class RequestEngine {
         // retried — a slow upstream should not be asked again at once.
         if (idempotent && hasTransientCode(cause) && attempt < this.maxRetries) {
           attempt += 1;
-          await this.backOff(attempt, this.retryDelayMs * attempt, url);
+          await this.backOff(attempt, this.retryDelayMs * attempt, shown);
           continue;
         }
         // The default transport rejects with HaushaltNetworkError only; an injected one
@@ -765,10 +787,12 @@ export class RequestEngine {
         // connection or a DNS failure (Node's text, `getaddrinfo ENOTFOUND host`, says nothing
         // about which call failed). A message that names it already (the engine's deadline,
         // the built-in transport's connection errors) is kept as it is.
-        const prefix = `${method} ${redactUrl(url)} failed: `;
-        const reason = cause instanceof Error ? cause.message : String(cause);
+        const sent = redactUrl(url);
+        const prefix = `${method} ${shown} failed: `;
+        // A transport's text names the URL it was given; a message names the one shown.
+        const reason = (cause instanceof Error ? cause.message : String(cause)).split(sent).join(shown);
         if (cause instanceof HaushaltNetworkError && reason.startsWith(prefix)) {
-          if (this.scrub(reason) === reason) throw cause;
+          if (this.scrub(reason) === reason && reason === cause.message) throw cause;
           throw new HaushaltNetworkError(this.scrub(reason), { cause: this.scrubCause(cause) });
         }
         throw new HaushaltNetworkError(`${prefix}${sanitizeServerText(this.scrub(reason))}`, {
@@ -781,7 +805,7 @@ export class RequestEngine {
       const invalid = responseProblem(response);
       if (invalid !== undefined) {
         throw new HaushaltNetworkError(
-          `${method} ${redactUrl(url)} failed: the transport returned an invalid response (${invalid}).`,
+          `${method} ${shown} failed: the transport returned an invalid response (${invalid}).`,
         );
       }
       // A transport must not follow redirects itself (`redirect: "manual"`): one that did
@@ -790,7 +814,7 @@ export class RequestEngine {
       const finalUrl = (response as { url?: unknown }).url;
       if (typeof finalUrl === "string" && finalUrl !== "" && originOf(finalUrl) !== originOf(url)) {
         throw new HaushaltNetworkError(
-          `${method} ${redactUrl(url)} failed: the transport followed a redirect to another origin ` +
+          `${method} ${shown} failed: the transport followed a redirect to another origin ` +
             `(${sanitizeServerText(redactUrl(this.scrub(finalUrl)))}); a transport must not follow redirects ` +
             `(HttpRequest.redirect is "manual").`,
         );
@@ -803,7 +827,7 @@ export class RequestEngine {
       // The size cap holds whatever the transport did: the default one aborts early, a
       // custom one may have read everything.
       if (this.maxResponseBytes > 0 && body.byteLength > this.maxResponseBytes) {
-        throw new HaushaltNetworkError(`${method} ${redactUrl(url)} failed: ${sizeLimitMessage(this.maxResponseBytes)}`);
+        throw new HaushaltNetworkError(`${method} ${shown} failed: ${sizeLimitMessage(this.maxResponseBytes)}`);
       }
       const retryable = status === 429 || status === 503;
       const retryAfter = retryable ? parseRetryAfter(responseHeaders["retry-after"]) : undefined;
@@ -815,7 +839,7 @@ export class RequestEngine {
         if (retryAfter === undefined || retryAfter <= MAX_RETRY_AFTER_MS) {
           attempt += 1;
           const backoff = this.retryDelayMs * attempt;
-          await this.backOff(attempt, retryAfter === undefined ? backoff : Math.max(retryAfter, backoff), url, status);
+          await this.backOff(attempt, retryAfter === undefined ? backoff : Math.max(retryAfter, backoff), shown, status);
           continue;
         }
       }
@@ -825,7 +849,7 @@ export class RequestEngine {
       if (status >= 300 && status < 400 && location) {
         if (redirects >= this.maxRedirects) {
           throw new HaushaltNetworkError(
-            `Too many redirects (exceeded maxRedirects=${this.maxRedirects}) for ${method} ${redactUrl(url)}`,
+            `Too many redirects (exceeded maxRedirects=${this.maxRedirects}) for ${method} ${shown}`,
           );
         }
         if (typeof location === "string" && location.length > 0) {
@@ -836,21 +860,20 @@ export class RequestEngine {
             nextUrl = new URL(location, url);
           } catch {
             throw new HaushaltNetworkError(
-              `Invalid redirect Location "${sanitizeServerText(this.scrub(location))}" for ${method} ${redactUrl(url)}`,
+              `Invalid redirect Location "${sanitizeServerText(this.scrub(location))}" for ${method} ${shown}`,
             );
           }
           // Only http(s) targets are followed; refuse any other scheme (file:, data:,
           // javascript:) here, before any transport sees it.
           if (nextUrl.protocol !== "http:" && nextUrl.protocol !== "https:") {
             throw new HaushaltNetworkError(
-              `Refusing to follow redirect to unsupported protocol "${sanitizeServerText(nextUrl.protocol)}" for ${method} ${redactUrl(url)}`,
+              `Refusing to follow redirect to unsupported protocol "${sanitizeServerText(this.scrub(schemeOf(location) ?? nextUrl.protocol))}" for ${method} ${shown}`,
             );
           }
+          const target = this.shownTarget(location, shown);
           // Refuse a downgrade from https to plaintext http on redirect.
           if (new URL(url).protocol === "https:" && nextUrl.protocol === "http:") {
-            throw new HaushaltNetworkError(
-              `Refusing to follow https->http redirect to ${redactUrl(nextUrl.toString())}`,
-            );
+            throw new HaushaltNetworkError(`Refusing to follow https->http redirect to ${target}`);
           }
           // Userinfo in a Location is not used: credentials come from the base URL only,
           // as the Authorization header, never from a server.
@@ -865,10 +888,11 @@ export class RequestEngine {
             dropped =
               from.protocol === "http:" && nextUrl.protocol === "https:" && from.hostname === nextUrl.hostname
                 ? "the server redirected http→https, which dropped the base URL's credentials; use an https base URL"
-                : `the redirect to ${nextUrl.origin} dropped the base URL's credentials (they are sent to their own origin only)`;
+                : `the redirect to ${this.scrub(nextUrl.origin)} dropped the base URL's credentials (they are sent to their own origin only)`;
           }
           headers = stripCrossOriginCredentials(headers, url, nextUrl.toString());
           url = nextUrl.toString();
+          shown = target;
           redirects += 1;
           continue;
         }
@@ -878,7 +902,7 @@ export class RequestEngine {
       if (status < 200 || status >= 300) {
         throw this.toApiError(
           method,
-          url,
+          shown,
           status,
           body,
           status === 401 || status === 403
@@ -985,6 +1009,15 @@ function basicAuthorization(url: string): string | undefined {
   if (parsed.username === "" && parsed.password === "") return undefined;
   const pair = `${decodeURIComponent(parsed.username)}:${decodeURIComponent(parsed.password)}`;
   return `Basic ${Buffer.from(pair, "utf8").toString("base64")}`;
+}
+
+/**
+ * The scheme of a URL as written, with its colon (`S3cret:` of `S3cret:x`), or undefined when it
+ * starts with none: a message quotes it as the server sent it, so the scrub matches what a
+ * server echoed (URL#protocol is lower-cased).
+ */
+function schemeOf(url: string): string | undefined {
+  return /^\s*([A-Za-z][A-Za-z0-9+.-]*:)/.exec(url)?.[1];
 }
 
 /** The origin (scheme, host, port) of a URL, or the value itself if it doesn't parse. */

@@ -977,3 +977,69 @@ test("an echo of the userinfo as a URL spells it is scrubbed, a short password t
   assert.ok(err2 instanceof HaushaltApiError, String(err2));
   for (const text of [err2.message, err2.detail ?? "", err2.body]) assert.ok(!text.includes(encodeURIComponent(long)), text);
 });
+
+test("a credential in a redirect's Location is scrubbed from every message about the request it leads to (D2)", async () => {
+  // A password with a quote, an umlaut and an apostrophe: resolving a Location percent-encodes
+  // `'` in a query (`%27`), which encodeURIComponent doesn't, so the scrub runs on the Location
+  // as sent, before it is resolved.
+  const pw = "pä\"s's-W0rd";
+  const base = `https://alice:${encodeURIComponent(pw)}@mirror.example`;
+  const basic = Buffer.from(`alice:${pw}`, "utf8").toString("base64");
+  const secrets = [pw, `alice:${pw}`, basic].flatMap((s) => [s, JSON.stringify(s).slice(1, -1)]);
+  const decoded = (text: string): string =>
+    text.replace(/(?:%[0-9a-fA-F]{2})+/g, (run) => {
+      try {
+        return decodeURIComponent(run);
+      } catch {
+        return run;
+      }
+    });
+  const locations = [
+    `https://elsewhere.example/login?user=alice&pw=${encodeURIComponent(pw)}`,
+    `https://elsewhere.example/login?pw=${pw}`,
+    `https://elsewhere.example/${encodeURIComponent(`alice:${pw}`)}/x`,
+    `https://elsewhere.example/auth?basic=${basic}`,
+    `/relative/${pw}`,
+  ];
+  const errorOf = async (transport: (req: { url: string }) => Promise<HttpResponse>): Promise<Error> => {
+    const e = new RequestEngine({ baseUrl: base, maxRetries: 0, transport });
+    const err = await e.getJson("/x").catch((caught: unknown) => caught);
+    assert.ok(err instanceof Error, String(err));
+    return err;
+  };
+  for (const location of locations) {
+    const seen: string[] = [];
+    // A redirect loop: "Too many redirects … for GET <the last Location>".
+    seen.push((await errorOf(async () => redirectResponse(location))).message);
+    // Followed once, then an error status, a transport failure that quotes the URL, an invalid
+    // answer, and a refused scheme on the next hop.
+    for (const last of [
+      async () => jsonResponse({ message: "nope" }, 401),
+      async (req: { url: string }) => {
+        throw new Error(`connect ECONNREFUSED for ${req.url}`);
+      },
+      async () => ({ status: 200 }) as unknown as HttpResponse,
+      async () => redirectResponse("ftp://elsewhere.example/x"),
+    ]) {
+      let first = true;
+      const err = await errorOf(async (req) => {
+        if (first) {
+          first = false;
+          return redirectResponse(location);
+        }
+        return last(req);
+      });
+      seen.push(err.message, (err as { url?: string }).url ?? "");
+    }
+    for (const text of seen) {
+      for (const secret of secrets) assert.ok(!decoded(text).includes(secret), `${location}: ${text}`);
+    }
+  }
+  // An https→http downgrade names the target scrubbed too.
+  const down = await errorOf(async () => redirectResponse(`http://elsewhere.example/login?pw=${pw}`));
+  assert.match(down.message, /^Refusing to follow https->http redirect to http:\/\/elsewhere\.example\/login\?pw=\*\*\*$/);
+  // A scheme spelled like the password is not named either.
+  const e = new RequestEngine({ baseUrl: "https://alice:s3cretPw@mirror.example", maxRetries: 0, transport: async () => redirectResponse("s3cretPw:x") });
+  const odd = await e.getJson("/x").catch((caught: unknown) => caught);
+  assert.ok(odd instanceof HaushaltNetworkError && !odd.message.includes("s3cretPw") && odd.message.includes('protocol "***:"'), String(odd));
+});

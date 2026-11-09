@@ -308,7 +308,11 @@ dropped the base URL's credentials; use an https base URL"). Userinfo in a `Loca
 is never used. Transports are told `redirect: "manual"` (`HttpRequest.redirect`): the
 engine follows redirects itself, and a response whose `HttpResponse.url` lies on
 another origin (a fetch transport that followed one) is rejected as a
-`HaushaltNetworkError`.
+`HaushaltNetworkError`. After a redirect, every message about the request (an error status,
+`Too many redirects`, a refused downgrade or scheme, a transport failure, `onRetry`'s `url`) names
+the `Location` with the base URL's credentials scrubbed as the server sent it, before it is
+resolved (resolving percent-encodes an echoed password in a spelling no scrub matches, `'` as
+`%27` in a query).
 
 **Plain `http:` gets a warning, not a refusal.** `cleartextProblem(baseUrl, secrets)`
 (engine, exported) returns one sentence naming the host (`url.host`, never the userinfo)
