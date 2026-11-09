@@ -621,3 +621,22 @@ for (const [what, big] of [
     assert.ok(took < 1000, `${what} took ${Math.round(took)} ms`);
   });
 }
+
+test("the redaction of stdout is linear in the answer and hides the userinfo of glued URLs (B, B2)", async () => {
+  // With a URL with userinfo in argv, every stdout text is redacted. 200 000 characters of
+  // `a.a.…` took about 8 s with the scheme regex of run.ts; the client's linear pass, milliseconds.
+  const base = "https://alice:s3cret-Pw@mirror.example";
+  const value = "a.".repeat(100_000);
+  const slow = makeCli(() => jsonResponse({ ...body, detail: { label: value } }));
+  const start = performance.now();
+  assert.equal(await run(["--base-url", base, "--compact", "expenses", "2024"], slow.deps), 0, slow.err.join("\n"));
+  const ms = performance.now() - start;
+  assert.ok(slow.out.join("").includes(value));
+  assert.ok(ms < 1500, `${Math.round(ms)} ms`);
+  // A URL glued onto the one before it keeps no userinfo either.
+  const glued = makeCli(() => jsonResponse({ ...body, detail: { label: "https://host://u:p1@h and https://u:p2@x://v:q3@w" } }));
+  assert.equal(await run(["--base-url", base, "--compact", "expenses", "2024"], glued.deps), 0, glued.err.join("\n"));
+  const out = glued.out.join("");
+  assert.ok(out.includes("https://host://***@h and https://***@x://***@w"), out);
+  for (const secret of ["u:p1", "u:p2", "v:q3"]) assert.ok(!out.includes(secret), out);
+});

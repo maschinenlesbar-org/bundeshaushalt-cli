@@ -351,7 +351,11 @@ before `%40`, is replaced too (`queryEncodedForms`). The log replaces it in each
 escaped, and writes to the raw stderr: the frame (time, level, topic) is never touched,
 and a password with DEL, C1 or bidi characters is matched in its raw form. `redactUrl`
 falls back to the same text-based cut (`redactCredentials`, exported) for a value that
-doesn't parse as a URL.
+doesn't parse as a URL. Behind the exact strings, the userinfo of every URL in a printed text
+is replaced too (`redactUrlUserinfo`, in the client's `errors.ts`): one linear pass, each `://`
+found with indexOf, which also catches a URL glued onto the one before it
+(`https://u:p@x://v:q@w`). The scheme regex it replaced was quadratic on a run of scheme
+characters (`a.a.a.…`) in an answer.
 
 **CliDeps / CliIO.** The dependency-injection seam for the CLI
 ([`io.ts`](apps/cli/src/cli/io.ts)): a client factory plus an I/O object (`out`/`err`).

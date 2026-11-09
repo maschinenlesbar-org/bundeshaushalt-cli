@@ -18,6 +18,7 @@ import {
   echoedCredentialForms,
   redactCredentials,
   redactSecrets,
+  redactUrlUserinfo,
 } from "@maschinenlesbar.org/bundeshaushalt-client/internal/errors";
 
 /**
@@ -115,15 +116,6 @@ function valueOptionsOf(program: Command): Set<string> {
 }
 
 /**
- * Replace the userinfo of every URL in `text` with `***`, the form `redactUrl` gives
- * (`https://user:secret@host` becomes `https://***@host`). Text-based, so it also covers
- * a URL that does not parse; a backstop behind the exact-string redaction below.
- */
-export function redactUserinfo(text: string): string {
-  return text.replace(/\b([a-z][a-z0-9+.-]*:\/\/)[^\s/?#']*@/gi, "$1***@");
-}
-
-/**
  * The options whose value is the base URL: a `user:password@host` given there without
  * its scheme is still a credential (anywhere else a bare `a:b@c` is not).
  */
@@ -162,7 +154,10 @@ function redactQueryEncoded(text: string, encoded: readonly string[]): string {
 
 /** The secrets of a run, and the two ways they are replaced. */
 export interface Redaction {
-  /** stdout text: the userinfo of every URL-like argument replaced (`***@`). */
+  /**
+   * stdout text: the userinfo of every URL-like argument replaced (`***@`), the userinfo of
+   * every URL in the text (`redactUrlUserinfo`, linear), and the forms a server echoes it back in.
+   */
   out(text: string): string;
   /** stderr text, a record's message: the same. */
   err(text: string): string;
@@ -213,7 +208,7 @@ export function redactionFor(argv: readonly string[]): Redaction {
   const passwordList = [...passwords].sort((a, b) => b.length - a.length);
   const encodedList = [...encoded];
   const out = (text: string): string =>
-    redactSecrets(redactUserinfo(redactQueryEncoded(redactCredentials(text, list), encodedList)), echoedList);
+    redactSecrets(redactUrlUserinfo(redactQueryEncoded(redactCredentials(text, list), encodedList)), echoedList);
   return { out, err: (text) => redactSecrets(out(text), passwordList) };
 }
 
