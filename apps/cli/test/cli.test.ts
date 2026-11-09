@@ -658,3 +658,25 @@ test("a refused --base-url never echoes its password, however the slashes after 
     assert.ok(!text.includes(pw), text);
   }
 });
+
+test("a --base-url typed without its scheme never names its user name or password as a scheme (F5)", async () => {
+  // `T0kenS3cret:@h` parses as a URL whose scheme is the token, lower-cased: the refusal named it
+  // (`Unsupported scheme "t0kens3cret:"`), which no exact-string redaction matches.
+  for (const [baseUrl, secret] of [
+    ["T0kenS3cret:@h.example", "t0kens3cret"],
+    ["alice:s3cret-pw@h.example", "s3cret-pw"],
+    ["Alice:s3cret-pw@h.example/x", "s3cret-pw"],
+  ] as const) {
+    const cli = makeCli(() => jsonResponse(body));
+    assert.equal(await run(["--base-url", baseUrl, "expenses", "2024"], cli.deps), 1, baseUrl);
+    assert.equal(cli.mt.calls.length, 0, baseUrl);
+    const text = [...cli.out, ...cli.err].join("\n");
+    assert.ok(!text.toLowerCase().includes(secret), text);
+    assert.match(text, /Expected an absolute http\(s\) URL\./, baseUrl);
+    assert.throws(
+      () => new BundeshaushaltClient({ baseUrl }),
+      (err: unknown) => err instanceof Error && !err.message.toLowerCase().includes(secret) && /Expected an absolute http\(s\) URL\./.test(err.message),
+      baseUrl,
+    );
+  }
+});

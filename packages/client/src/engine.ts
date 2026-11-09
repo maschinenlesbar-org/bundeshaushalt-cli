@@ -417,10 +417,13 @@ export function assertHeaderValue(name: string, value: string): string {
 /**
  * Check a base URL (`baseUrlProblem`: absolute http(s), a host, no query string or
  * fragment) and return it without trailing slashes. Throws a
- * HaushaltValidationError, its URL shown through `redactUrl`.
+ * HaushaltValidationError, its URL shown through `redactUrl`, and the userinfo of a value
+ * typed without its scheme (`user:password@host`) redacted too.
  */
 export function validateBaseUrl(raw: string): string {
-  assertValid(`base URL "${redactUrl(String(raw))}"`, raw, baseUrlProblem);
+  const value = String(raw);
+  const shown = credentialsIn(value).length > 0 ? redactUrl(value) : redactCredentials(value, credentialsIn(`http://${value}`));
+  assertValid(`base URL "${shown}"`, raw, baseUrlProblem);
   return raw.replace(/\/+$/, "");
 }
 
