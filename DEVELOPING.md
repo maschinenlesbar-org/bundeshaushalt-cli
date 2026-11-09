@@ -471,7 +471,7 @@ The client's tests are in `packages/client/test/` (`query`, `http`, `engine`, `c
 
 - **`query.test.ts`** — query-string serialisation.
 - **`http.test.ts`** — the default transport against a real loopback `http.createServer`.
-- **`engine.test.ts`** — URL building, JSON decoding, error mapping, 429/503 retry, redirects — mocked transport.
+- **`engine.test.ts`** — URL building, JSON decoding, error mapping, 429/503 retry, redirects — mocked transport. Three of its tests (scanNumbers, lone-surrogate repairs and a 16 MB error detail under a 128 MB heap) start a process, so they get 30 s.
 - **`client.test.ts`** — the budget-data URL/param mapping and optional-parameter pruning — mocked transport.
 - **`types.test.ts`** — a consumer with `exactOptionalPropertyTypes` compiled by `tsc` against the built declarations (it starts a process, so it gets 30 s), and every option given as `undefined` meaning its default.
 - **`cli.test.ts`** — command parsing, the expenses/income shortcuts, validation and exit codes — mocked client.
@@ -500,8 +500,18 @@ The client's tests are in `packages/client/test/` (`query`, `http`, `engine`, `c
   answer, one full of DEL characters and one in two million one-byte chunks print under a small
   heap, or one that escaped would pass
   V8's longest string is an ERROR of `bundeshaushalt.output`; a lone surrogate or invalid bytes
-  are replaced with U+FFFD and reported). P26 (`-o` integrity) is left out: there is no `-o`. P24 and P25 read `kitParity` (`helpers.ts`), the
-  kit's parity shape, imported as `parity`, so their bodies stay the shared ones.
+  are replaced with U+FFFD and reported), P28 hostile error answers (the number scan and the
+  cleaning of server text linear and within a small heap; the base URL's credentials scrubbed
+  from decoded server text; `quotedBody` is undefined, since the client quotes no value from a
+  2xx answer, and the redirect-Location case is skipped, since this engine follows redirects:
+  the client's D2 test in `engine.test.ts` checks it on the redirects it follows and refuses),
+  P29 base-URL credentials (a token userinfo scrubbed, a backslash or a repaired scheme refused,
+  requests to the parsed host, the stdout redaction linear and whole for glued URLs; `USAGE_EXIT`
+  `1`), P30 output links (all skipped: `HAS_OUTPUT_OPTION` is false, and the adapter has stand-ins
+  for the kit's `nodeFilesFor`/`LinkOwners` and a `run` that drops `env`/`files`, so the shared
+  body compiles) and P31 the release pipeline (`release.yml` and `tools/sbom/` read as text).
+  P26 (`-o` integrity) is left out: there is no `-o`. P24, P25, P27 and P29 read `kitParity`
+  (`helpers.ts`), the kit's parity shape, imported as `parity`, so their bodies stay the shared ones.
 
 ## Continuous integration
 
