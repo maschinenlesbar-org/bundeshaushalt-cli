@@ -43,6 +43,12 @@ const errorBodyWith = (json: string): string => `{"message":${json}}`;
 const quotedBody = undefined as ((json: string) => string) | undefined;
 /** The exit code of an API error (a non-2xx answer) and of a parse error in this repo (most use 1). */
 const API_EXIT = 1;
+/**
+ * How the error reads when every request is answered with a 302 to the Location under test: a
+ * client that doesn't follow redirects says `HTTP 302`; one that follows them ends at its
+ * redirect limit (or a refused hop) with its own message.
+ */
+const REDIRECT_ERROR = /^Too many redirects /;
 /** The log program, as in `ERROR [<bin>.api]`. */
 const PROGRAM = "bundeshaushalt";
 // --------------------------------------------------------------------------------------
@@ -226,11 +232,7 @@ test("P28: a credential in a value the client quotes from a 2xx answer is scrubb
   }
 });
 
-// This engine follows redirects (maxRedirects, default 5): a 302 never surfaces as `HTTP 302`, so
-// this case is checked against the redirects it follows and refuses in the client's test "a
-// credential in a redirect's Location is scrubbed from every message about the request it leads to
-// (D2)" (packages/client/test/engine.test.ts), with the same locations and password.
-test("P28: a credential in a redirect's Location is scrubbed, in its path and its query", { skip: "the engine follows redirects; see the client's D2 test" }, async () => {
+test("P28: a credential in a redirect's Location is scrubbed, in its path and its query", async () => {
   const locations = [
     `https://elsewhere.example/login?user=alice&pw=${encodeURIComponent(PW)}`,
     `https://elsewhere.example/login?pw=${PW}`,
@@ -240,7 +242,7 @@ test("P28: a credential in a redirect's Location is scrubbed, in its path and it
   ];
   for (const location of locations) {
     const err = await failure(async () => response(302, "", { location }), BASE);
-    assert.ok(err instanceof Error && /^HTTP 302 /.test(err.message), String(err));
+    assert.ok(err instanceof Error && REDIRECT_ERROR.test(err.message), String(err));
     const seen = percentDecoded(everything(err));
     for (const secret of SECRETS) assert.ok(!seen.includes(secret), `${location}: ${seen.slice(0, 2000)}`);
   }
