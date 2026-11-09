@@ -286,7 +286,9 @@ wire bytes and the decompressed output by the built-in transport, and to the bod
 transport returns by the engine (`0` = unlimited; default 100 MiB), guarding against
 unbounded responses. The message names the request, the option and the CLI flag: `GET <url>
 failed: Response exceeded the size limit of <n> bytes (maxResponseBytes; --max-response-bytes
-on the CLI)`.
+on the CLI)`. The built-in transport joins small chunks as they arrive (at most 1024 of them or
+64 KiB unjoined), so its memory follows the bytes, not the number of chunks a server sends: a
+Buffer per one-byte chunk held about 210 bytes of heap each.
 
 **RawResponse.** The engine's raw-response shape (`data`/`contentType`/`status`)
 — exported for completeness; the budget endpoint returns decoded JSON.
@@ -495,7 +497,8 @@ The client's tests are in `packages/client/test/` (`query`, `http`, `engine`, `c
   filter and no list option, so `textInputs` and `listInputs` are empty, saying why), P25 the response corpus (a
   number a double can't carry, a subnormal that prints changed, an empty or malformed answer:
   errors naming the request, never a changed value), P27 big and odd answers (a large flat
-  answer and one full of DEL characters print under a small heap, or one that escaped would pass
+  answer, one full of DEL characters and one in two million one-byte chunks print under a small
+  heap, or one that escaped would pass
   V8's longest string is an ERROR of `bundeshaushalt.output`; a lone surrogate or invalid bytes
   are replaced with U+FFFD and reported). P26 (`-o` integrity) is left out: there is no `-o`. P24 and P25 read `kitParity` (`helpers.ts`), the
   kit's parity shape, imported as `parity`, so their bodies stay the shared ones.
