@@ -99,6 +99,21 @@ test("getJson refuses a number JSON.parse can't carry exactly, never a changed v
   }
 });
 
+test("a number with a long run of zeros is checked in linear time (A)", () => {
+  // `/0+$/` tried a match at every zero of a run that doesn't end the literal: 100 000 zeros took
+  // about 15 s. Counted with index loops, milliseconds; the literal is still refused (2^53 past).
+  for (const literal of [`1.${"0".repeat(100_000)}1e300`, `1${"0".repeat(100_000)}1`, `0.${"0".repeat(100_000)}1e-300`]) {
+    const start = performance.now();
+    const inexact = firstInexactNumber(`{"value":${literal}}`);
+    const ms = performance.now() - start;
+    assert.equal(inexact, literal);
+    assert.ok(ms < 1000, `${Math.round(ms)} ms`);
+  }
+  // Same digits and exponent as before: trailing zeros of a value that prints the same are fine.
+  assert.equal(firstInexactNumber(`{"value":9007199254740992000e-3}`), undefined);
+  assert.equal(firstInexactNumber(`{"value":1.000000000000000000000e21}`), undefined);
+});
+
 test("getJson throws HaushaltParseError on invalid JSON", async () => {
   const mt = makeMockTransport(() => rawResponse("not json", "application/json"));
   const e = new RequestEngine({ transport: mt.transport });
