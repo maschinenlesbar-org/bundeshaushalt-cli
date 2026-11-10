@@ -348,7 +348,9 @@ Userinfo in the base URL (`http://user:pw@mirror/`) is sent as Basic auth (an
 `Authorization` header, see Redirects), for a mirror behind a login; every error message shows the URL through
 `redactUrl` (`http://***@mirror/...`), so the password never reaches a log. The CLI
 also redacts on output: `run.ts` (`redactionFor`, `withRedactedOutput`) takes the exact
-userinfo of every URL argument (`credentialsIn`, exported) and replaces it with `***` in
+userinfo of every URL argument (`credentialsIn`, exported; a base URL is read as a URL however its scheme is typed,
+`typedUrlCredentials`: missing, `alice:pw@host`, or mistyped, `http//alice:pw@host` with the
+colon left out, whose userinfo is everything between the first slashes and the last `@`) and replaces it with `***` in
 everything it prints — commander's usage errors, which echo rejected values (a
 `--base-url` with a query, a port typo, an unencoded `#`), and the unknown-command message
 for a URL typed where the command goes — so a password with spaces, quotes, `#`, `?` or
