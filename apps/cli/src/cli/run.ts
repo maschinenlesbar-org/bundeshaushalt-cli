@@ -5,8 +5,8 @@
 import { CommanderError, type Command } from "commander";
 import { buildProgram, defaultDeps } from "./program.js";
 import { logOf, type CliDeps } from "./io.js";
-import { OutputError } from "./shared.js";
-import { DEFAULT_LOG_FORMAT, createLogger, logFormatFromArgv, type LogFormat, type Logger } from "./log.js";
+import { EnvironmentError, OutputError } from "./shared.js";
+import { LOG_PROGRAM, DEFAULT_LOG_FORMAT, createLogger, logFormatFromArgv, type LogFormat, type Logger } from "./log.js";
 import {
   HaushaltApiError,
   HaushaltError,
@@ -285,6 +285,7 @@ export function processLogger(argv: readonly string[]): Logger {
  * the API's answer as much as an error status is), else `cli`.
  */
 function areaOf(err: HaushaltError): string {
+  if (err instanceof EnvironmentError) return "cli";
   if (err instanceof OutputError) return "output";
   if (err instanceof HaushaltNetworkError) return "http";
   if (err instanceof HaushaltParseError) return "api";
@@ -292,6 +293,10 @@ function areaOf(err: HaushaltError): string {
 }
 
 export async function run(argv: string[], deps: CliDeps = defaultDeps): Promise<number> {
+  // In the container image the entrypoint is the program, so `docker run <image> expenses 2024`;
+  // people copy the npm form and type `docker run <image> bundeshaushalt expenses 2024`. A leading
+  // program name is dropped, so both work (no command is named like the program).
+  if (argv[0] === LOG_PROGRAM) argv = argv.slice(1);
   // The log replaces the secrets of the run in every message, in either format.
   deps = withRedactedOutput(deps, argv);
   const program = buildProgram(deps);

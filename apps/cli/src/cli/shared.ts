@@ -5,6 +5,7 @@ import { constants } from "node:buffer";
 import type { Command } from "commander";
 import { InvalidArgumentError } from "commander";
 import { logOf, type CliDeps } from "./io.js";
+import { pidsProblem, responseCapFor } from "./limits.js";
 import { HaushaltError, HaushaltValidationError, quoteValue } from "@maschinenlesbar.org/bundeshaushalt-client/internal/errors";
 import { cleartextProblem, DEFAULT_BASE_URL, isBidiControl, type EngineOptions, type RetryEvent } from "@maschinenlesbar.org/bundeshaushalt-client/internal/engine";
 import { baseUrlProblem, headerValueProblem } from "@maschinenlesbar.org/bundeshaushalt-client/internal/validate";
@@ -312,6 +313,9 @@ export interface ActionContext {
  * Commander invokes actions as (arg1, ..., argN, options, command); we slice off
  * the trailing options object and command instance to recover the positionals.
  */
+/** The container can't run the CLI as it is limited (limits.ts): an ERROR record of the cli area and exit 1. */
+export class EnvironmentError extends HaushaltError {}
+
 export function action(
   deps: CliDeps,
   fn: (ctx: ActionContext, positionals: string[]) => Promise<void>,
@@ -322,6 +326,15 @@ export function action(
     const global = command.optsWithGlobals() as GlobalOptions;
     warnOnCleartext(deps, global);
     const options = toEngineOptions(global);
+    // In a container: under a pids limit Node can't work with, refuse before any request; under a
+    // memory limit the 100 MiB default can't be held, so cap by the memory instead (an oversized
+    // answer is then the cap's error, not an OOM kill). An explicit --max-response-bytes wins.
+    const limits = deps.limits?.() ?? {};
+    const problem = pidsProblem(limits);
+    if (problem !== undefined) throw new EnvironmentError(problem);
+    const given = command.getOptionValueSourceWithGlobals("maxResponseBytes");
+    const memory = given === undefined || given === "default" ? limits.memoryBytes : undefined;
+    if (memory !== undefined) options.maxResponseBytes = responseCapFor(memory);
     options.onRetry = (event) => logOf(deps).warn("http", retryMessage(event));
     options.onWarning = (message) => logOf(deps).warn("api", message);
     const client = deps.createClient(options);
