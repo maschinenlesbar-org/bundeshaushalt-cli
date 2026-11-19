@@ -40,6 +40,50 @@ Check it works:
 bundeshaushalt --help
 ```
 
+### Docker
+
+From 0.9.0 every release is also a container image for linux/amd64 and linux/arm64 on the
+GitHub Container Registry, made from the same tarball as the npm package. It needs no Node.js and no
+install:
+
+```bash
+docker run --rm --read-only --cap-drop ALL --security-opt no-new-privileges \
+  ghcr.io/maschinenlesbar-org/bundeshaushalt-cli:latest expenses 2024
+```
+
+The image's entrypoint is the program, so the command follows the image name directly;
+`… bundeshaushalt-cli:latest bundeshaushalt expenses 2024` works too.
+
+In a container with a memory limit (`--memory`) the default `--max-response-bytes` is an eighth
+of that limit (at most the usual 100 MiB), so an oversized answer is refused with a clear
+error instead of the container being killed for memory.
+The CLI needs at least 12 processes and threads (`--pids-limit 12`): below that it refuses with
+an error, and with 4 or fewer Node.js itself hangs before the CLI can check.
+
+`latest` is the newest release. For scripts, name a release and pin its digest, which the
+[release notes](https://github.com/maschinenlesbar-org/bundeshaushalt-cli/releases) give:
+`…/bundeshaushalt-cli:0.9.0@sha256:<digest>`. Each image carries signed build provenance; check it
+with
+
+```bash
+gh attestation verify oci://ghcr.io/maschinenlesbar-org/bundeshaushalt-cli:latest \
+  --repo maschinenlesbar-org/bundeshaushalt-cli
+```
+
+### MCP server
+
+From 0.9.0 the same data is also an [MCP](https://modelcontextprotocol.io/) server for AI agents,
+`@maschinenlesbar.org/bundeshaushalt-mcp` (command `bundeshaushalt-mcp`, image
+`ghcr.io/maschinenlesbar-org/bundeshaushalt-mcp`): four read-only tools, among them a ranked
+breakdown, plan against actual and a trend across years, on stdio or Streamable HTTP. Setup for
+Claude Code, Claude Desktop and VS Code:
+[MCP.md](https://github.com/maschinenlesbar-org/bundeshaushalt-cli/blob/main/MCP.md).
+
+```bash
+npm i -g @maschinenlesbar.org/bundeshaushalt-mcp
+claude mcp add bundeshaushalt -- bundeshaushalt-mcp
+```
+
 ## Quickstart
 
 No setup needed — the endpoint requires no key. Your first query:
