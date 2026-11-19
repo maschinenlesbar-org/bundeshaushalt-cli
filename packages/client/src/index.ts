@@ -42,5 +42,6 @@ export {
 } from "./validate.js";
 export type { Problem } from "./validate.js";
 
+export * from "./operations.js";
 export * from "./enums.js";
 export * from "./types.js";
