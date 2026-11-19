@@ -1,0 +1,61 @@
+{
+  "comment": "What tools/image/smoke.mjs needs that is particular to this repo: the bin (its log topic), a command that makes one request, the exit code of a network error, the mock's answer to that request (by path, under --base-url http://mock:8080; a recorded budgetData answer, cut down), and a string the printed answer contains.",
+  "bin": "bundeshaushalt",
+  "command": [
+    "expenses",
+    "2024"
+  ],
+  "networkErrorExit": 1,
+  "answers": {
+    "/internalapi/budgetData": {
+      "meta": {
+        "year": 2024,
+        "account": "expenses",
+        "quota": "target",
+        "unit": "single",
+        "entity": "Budget",
+        "levelCur": 0,
+        "levelMax": 3,
+        "modifyDate": "28.03.2024"
+      },
+      "detail": {
+        "label": "Sollwerte des Haushaltsjahres 2024",
+        "value": 476807656000,
+        "relativeValue": 100,
+        "relativeToParentValue": 100,
+        "tableLabel": "Einzelplan"
+      },
+      "children": [
+        {
+          "id": "14",
+          "label": "14 Bundesministerium der Verteidigung",
+          "value": 51951938000,
+          "relativeValue": 10.895785196871923,
+          "relativeToParentValue": 10.895785196871923
+        },
+        {
+          "id": "11",
+          "label": "11 Bundesministerium für Arbeit und Soziales",
+          "value": 175675498000,
+          "relativeValue": 36.84410176501025,
+          "relativeToParentValue": 36.84410176501025
+        },
+        {
+          "id": "32",
+          "label": "32 Bundesschuld",
+          "value": 39571791000,
+          "relativeValue": 8.299319547838804,
+          "relativeToParentValue": 8.299319547838804
+        },
+        {
+          "id": "12",
+          "label": "12 Bundesministerium für Digitales und Verkehr",
+          "value": 44145217000,
+          "relativeValue": 9.258495840930877,
+          "relativeToParentValue": 9.258495840930877
+        }
+      ]
+    }
+  },
+  "expectStdout": "Bundesministerium der Verteidigung"
+}
