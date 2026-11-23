@@ -101,8 +101,11 @@ A year may legitimately have no figure for your element:
 ## Step 4 — Compute and present the series
 
 From the `(year, value)` pairs compute:
-- **year-over-year** change: `(v[y] − v[y−1]) / v[y−1]`;
-- **cumulative** change over the span: `(v[last] − v[first]) / v[first]`;
+- **year-over-year** change: `(v[y] − v[y−1]) / |v[y−1]|`; divide by the amount's size, so the
+  sign is the direction also for a negative figure (the economic group `G-9` is negative: −10 bn
+  to −5 bn is a rise, +50%, not −50%);
+- **cumulative** change over the span: `(v[last] − v[first]) / v[first]`, only when both are
+  positive (otherwise give the two amounts);
 - optionally **CAGR** over the span for a clean headline growth rate.
 
 Format euros for humans (€…bn) and present a compact table, newest insight first:

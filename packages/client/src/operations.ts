@@ -300,7 +300,7 @@ export type TrendPoint =
       /** Euros. */
       value: number;
       label: string;
-      /** Change against the year before in percent, one decimal; absent after a gap. */
+      /** Change against the year before in percent of its amount's size, one decimal: positive is a rise, also for a negative figure (−10 bn to −5 bn is +50); absent after a gap or a zero. */
       changePercent?: number;
       /** The element's label differs from the year before: a rename, often with moved responsibilities; not comparable growth. */
       renamedFrom?: string;
@@ -358,7 +358,8 @@ export async function getBudgetTrend(client: BundeshaushaltClient, input: TrendI
       year,
       value,
       label,
-      ...(previous === undefined || previous.value === 0 ? {} : { changePercent: round((value - previous.value) / previous.value * 100, 1) }),
+      // Against the previous amount's size, so the sign is the direction also below zero (G-9 is negative).
+      ...(previous === undefined || previous.value === 0 ? {} : { changePercent: round((value - previous.value) / Math.abs(previous.value) * 100, 1) }),
       ...(renamed === undefined ? {} : { renamedFrom: renamed }),
       ...(year > now.getUTCFullYear() ? { draft: true as const } : {}),
     });

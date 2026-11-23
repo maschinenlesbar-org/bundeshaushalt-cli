@@ -140,6 +140,15 @@ test("getBudgetTrend: one figure per year, change per year, the span with its ye
   assert.equal(mock.calls.length, 4, "one request per year");
 });
 
+test("getBudgetTrend: a change of a negative figure has the sign of its direction (a rise from -10 bn to -5 bn is +50 %)", async () => {
+  const g9 = (year: number, value: number) => view({ year, unit: "group", id: "G-9", label: "9 Besondere Finanzierungsausgaben", value });
+  const mock = portal([g9(2020, -10e9), g9(2021, -5e9), g9(2022, -12e9)]);
+  const t = await getBudgetTrend(clientOf(mock), { fromYear: 2020, toYear: 2022, id: "G-9" }, { now });
+  assert.equal(t.status, "ok");
+  if (t.status !== "ok") return;
+  assert.deepEqual(t.points.map((p) => ("value" in p ? p.changePercent : null)), [undefined, 50, -140]);
+});
+
 test("getBudgetTrend: a year without the element is a gap with its reason, not a zero and not the end; a rename is a break", async () => {
   const mock = portal([ministry12(2022, 36e9), ministry12(2024, 44e9), ministry12(2025, 38e9)]);
   const t = await getBudgetTrend(clientOf(mock), { fromYear: 2022, toYear: 2025, id: "12" }, { now });
