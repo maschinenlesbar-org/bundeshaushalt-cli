@@ -135,7 +135,7 @@ test("a 2xx body without the meta/detail envelope raises HaushaltParseError", as
       (e: unknown) =>
         e instanceof HaushaltParseError &&
         e.message ===
-          "GET https://bundeshaushalt.de/internalapi/budgetData?year=2024&account=expenses: unexpected response shape: expected a JSON object with meta and detail.",
+          "GET https://www.bundeshaushalt.de/internalapi/budgetData?year=2024&account=expenses: unexpected response shape: expected a JSON object with meta and detail.",
       JSON.stringify(bad),
     );
   }
@@ -201,7 +201,7 @@ test("an id the API answers with an empty element (HTTP 200, detail {}) is a Hau
         e instanceof HaushaltNotFoundError &&
         e.id === id &&
         e.message ===
-          `GET https://bundeshaushalt.de/internalapi/budgetData?year=2024&account=expenses&unit=group&id=${id}: ` +
+          `GET https://www.bundeshaushalt.de/internalapi/budgetData?year=2024&account=expenses&unit=group&id=${id}: ` +
             `no budget element ${JSON.stringify(id)}: the API answered with an empty element.`,
       id,
     );

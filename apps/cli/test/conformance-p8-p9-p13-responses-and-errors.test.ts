@@ -110,7 +110,7 @@ test("P13: an unparseable redirect Location is a network error naming the reques
     });
     await assert.rejects(textCall(client), (e: unknown) => {
       assert.ok(e instanceof HaushaltNetworkError, String(e));
-      assert.match(e.message, /^Invalid redirect Location ".*" for GET https:\/\/bundeshaushalt\.de\//);
+      assert.match(e.message, /^Invalid redirect Location ".*" for GET https:\/\/www\.bundeshaushalt\.de\//);
       return true;
     });
   }

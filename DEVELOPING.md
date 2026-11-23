@@ -43,7 +43,7 @@ bundeshaushalt --help
 ```ts
 import { BundeshaushaltClient, HaushaltApiError, HaushaltValidationError } from "@maschinenlesbar.org/bundeshaushalt-cli";
 
-const client = new BundeshaushaltClient(); // defaults to https://bundeshaushalt.de
+const client = new BundeshaushaltClient(); // defaults to https://www.bundeshaushalt.de
 
 const top = await client.budgetData({ year: 2024, account: "expenses" });
 console.log(top.meta.year, top.children?.length ?? 0, "children");
@@ -74,7 +74,7 @@ try {
 
 ```ts
 new BundeshaushaltClient({
-  baseUrl: "https://bundeshaushalt.de",
+  baseUrl: "https://www.bundeshaushalt.de",
   timeoutMs: 15_000,
   maxRetries: 3,              // 429 / 503: waits Retry-After (<= 30 s), else linear backoff; 0..10
   maxResponseBytes: 50 << 20, // abort responses larger than 50 MiB (0 = unlimited)
@@ -243,7 +243,9 @@ CLI. Exposes a single method, `budgetData(...)`.
 **Request engine.** [`RequestEngine`](packages/client/src/engine.ts) — builds URLs,
 serialises queries, applies retry/backoff, follows redirects, decodes JSON and
 maps errors. Sits between the client and the transport. `DEFAULT_BASE_URL` is
-`https://bundeshaushalt.de`.
+`https://www.bundeshaushalt.de`: the bare `https://bundeshaushalt.de` answers every request with
+a 301 to it (seen 2026-11-22), which cost a second request each time and made the MCP server cite
+every answer as fetched from another host after a redirect.
 
 **Transport.** A single function `(HttpRequest) => Promise<HttpResponse>`
 ([`http.ts`](packages/client/src/http.ts)). The default (`nodeHttpTransport`) uses Node's

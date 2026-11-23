@@ -79,7 +79,8 @@ test("an option given as undefined means its default, as an omitted one does", a
     transport: mt.transport,
   });
   await client.budgetData({ year: 2024, account: "expenses", quota: undefined, unit: undefined, id: undefined });
-  assert.equal(mt.last().url, "https://bundeshaushalt.de/internalapi/budgetData?year=2024&account=expenses");
+  // The portal's own host: the bare bundeshaushalt.de answers every request with a 301 to www.
+  assert.equal(mt.last().url, "https://www.bundeshaushalt.de/internalapi/budgetData?year=2024&account=expenses");
   assert.equal(mt.last().headers?.["User-Agent"], "bundeshaushalt-cli");
   assert.equal(mt.last().timeoutMs, 30_000);
 });

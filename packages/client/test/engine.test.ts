@@ -85,7 +85,7 @@ test("getJson refuses a number JSON.parse can't carry exactly, never a changed v
       () => e.getJson("/internalapi/budgetData"),
       (err) =>
         err instanceof HaushaltParseError &&
-        err.message === `GET https://bundeshaushalt.de/internalapi/budgetData: the number ${literal} cannot be represented exactly.`,
+        err.message === `GET https://www.bundeshaushalt.de/internalapi/budgetData: the number ${literal} cannot be represented exactly.`,
       literal,
     );
   }
@@ -140,7 +140,7 @@ test("getJson reports an empty (204) response body clearly", async () => {
   const e = new RequestEngine({ transport: mt.transport });
   await assert.rejects(
     () => e.getJson("/x"),
-    (err) => err instanceof HaushaltParseError && err.message === "GET https://bundeshaushalt.de/x: empty response body (expected JSON).",
+    (err) => err instanceof HaushaltParseError && err.message === "GET https://www.bundeshaushalt.de/x: empty response body (expected JSON).",
   );
 });
 
@@ -410,7 +410,7 @@ test("the body is decoded by its declared charset and a UTF-8 BOM is ignored", a
   const unknown = makeMockTransport(() => rawResponse("{}", "application/json; charset=x-nope"));
   await assert.rejects(
     () => new RequestEngine({ transport: unknown.transport }).getJson("/x"),
-    (err: unknown) => err instanceof HaushaltParseError && err.message === 'GET https://bundeshaushalt.de/x: unsupported response charset "x-nope".',
+    (err: unknown) => err instanceof HaushaltParseError && err.message === 'GET https://www.bundeshaushalt.de/x: unsupported response charset "x-nope".',
   );
 });
 
@@ -787,7 +787,7 @@ test("an answer longer than V8's longest string is a HaushaltParseError naming t
       assert.ok(err instanceof HaushaltParseError, String(err));
       assert.equal(
         err.message,
-        `GET https://bundeshaushalt.de/internalapi/budgetData?year=2024: the answer is too large to read as text (${body.length} bytes; the longest string is 536870888 characters).`,
+        `GET https://www.bundeshaushalt.de/internalapi/budgetData?year=2024: the answer is too large to read as text (${body.length} bytes; the longest string is 536870888 characters).`,
       );
       return true;
     });

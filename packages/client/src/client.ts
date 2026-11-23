@@ -1,5 +1,5 @@
 // BundeshaushaltClient — a typed client over the open (no-auth) budget-data
-// endpoint of the German federal budget portal (https://bundeshaushalt.de).
+// endpoint of the German federal budget portal (https://www.bundeshaushalt.de).
 //
 //   client.budgetData({ year: 2024, account: "expenses" })
 //   client.budgetData({ year: 2024, account: "expenses", id: "G-5", unit: "group" })

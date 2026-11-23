@@ -323,7 +323,7 @@ test("a null 2xx body exits 1 with a parse error, not success", async () => {
   const cli = makeCli(() => jsonResponse(null));
   assert.equal(await run(["--compact", "expenses", "2024"], cli.deps), 1);
   assert.deepEqual(cli.out, []);
-  assert.match(untimed(cli.err.join("\n")), /^ERROR \[bundeshaushalt\.api\] GET https:\/\/bundeshaushalt\.de\/internalapi\/budgetData\?year=2024&account=expenses: unexpected response shape: expected a JSON object with meta and detail\.$/);
+  assert.match(untimed(cli.err.join("\n")), /^ERROR \[bundeshaushalt\.api\] GET https:\/\/www\.bundeshaushalt\.de\/internalapi\/budgetData\?year=2024&account=expenses: unexpected response shape: expected a JSON object with meta and detail\.$/);
 });
 
 test("an id the API answers with an empty element exits 4 with an ERROR of the api area, nothing on stdout (Bug 2)", async () => {
@@ -332,7 +332,7 @@ test("an id the API answers with an empty element exits 4 with an ERROR of the a
   assert.equal(await run(["--compact", "expenses", "2024", "--id", "G-1"], cli.deps), 4);
   assert.deepEqual(cli.out, []);
   assert.deepEqual(cli.err.map(untimed), [
-    'ERROR [bundeshaushalt.api] GET https://bundeshaushalt.de/internalapi/budgetData?year=2024&account=expenses&unit=group&id=G-1: no budget element "G-1": the API answered with an empty element.',
+    'ERROR [bundeshaushalt.api] GET https://www.bundeshaushalt.de/internalapi/budgetData?year=2024&account=expenses&unit=group&id=G-1: no budget element "G-1": the API answered with an empty element.',
   ]);
 });
 
@@ -530,7 +530,7 @@ test("the --quota actual hint follows what the user asked, also after a redirect
     new URL(req.url).pathname.startsWith("/moved") ? jsonResponse({}, 404) : redirectResponse("/moved/internalapi/budgetData");
   const actual = makeCli(responder);
   assert.equal(await run(["budget", "2024", "income", "--quota", "actual"], actual.deps), 4);
-  assert.match(untimed(actual.err.join("\n")), /^ERROR \[bundeshaushalt\.api\] HTTP 404 for GET https:\/\/bundeshaushalt\.de\/moved\//);
+  assert.match(untimed(actual.err.join("\n")), /^ERROR \[bundeshaushalt\.api\] HTTP 404 for GET https:\/\/www\.bundeshaushalt\.de\/moved\//);
   assert.match(untimed(actual.err.join("\n")), /^INFO  \[bundeshaushalt\.api\] with --quota actual, a 404 also means/m);
   // Without --quota actual no hint, whatever the final URL says.
   const target = makeCli((req) =>

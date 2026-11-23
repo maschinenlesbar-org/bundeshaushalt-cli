@@ -9,7 +9,7 @@
 | | |
 |---|---|
 | **Data provider** | Bundesministerium der Finanzen (BMF) |
-| **API / source** | `https://bundeshaushalt.de/internalapi/budgetData` (undocumented portal endpoint) |
+| **API / source** | `https://www.bundeshaushalt.de/internalapi/budgetData` (undocumented portal endpoint) |
 | **Data license** | **Public data, no copyright protection** ("öffentliche Daten ohne urheberrechtlichen Schutz") — the figures derive from the Bundeshaushaltsplan, an *amtliches Werk*. Effectively public domain. |
 | **Authoritative terms** | https://www.bundeshaushalt.de/DE/Service/Impressum/impressum.html |
 | **Attribution** | Not legally required; pointing users to the official Bundeshaushaltsplan is recommended. |

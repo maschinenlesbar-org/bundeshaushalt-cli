@@ -53,13 +53,13 @@ export function buildProgram(deps: CliDeps = defaultDeps): Command {
 
   program
     .name("bundeshaushalt")
-    .description("CLI for the open German federal budget API (https://bundeshaushalt.de)")
+    .description("CLI for the open German federal budget API (https://www.bundeshaushalt.de)")
     // The global options genuinely apply after a subcommand, so surface them in
     // every subcommand's --help (as a "Global Options:" section) rather than only
     // on the root, matching the docs' promise that they apply to every command.
     .configureHelp({ showGlobalOptions: true })
     .version(VERSION)
-    .option("--base-url <url>", "API base URL", once("--base-url", parseBaseUrl), "https://bundeshaushalt.de")
+    .option("--base-url <url>", "API base URL", once("--base-url", parseBaseUrl), "https://www.bundeshaushalt.de")
     .option(
       "--timeout <ms>",
       "time limit per request in milliseconds, whole response included (0 = no limit)",

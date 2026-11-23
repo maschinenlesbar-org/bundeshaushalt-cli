@@ -24,7 +24,7 @@ import {
   TextBuilder,
 } from "./errors.js";
 
-export const DEFAULT_BASE_URL = "https://bundeshaushalt.de";
+export const DEFAULT_BASE_URL = "https://www.bundeshaushalt.de";
 /** The User-Agent sent when the `userAgent` option is not given. */
 export const DEFAULT_USER_AGENT = "bundeshaushalt-cli";
 
@@ -40,7 +40,7 @@ export interface RawResponse {
  * NaN, Infinity, too large) makes the constructor throw a HaushaltValidationError.
  */
 export interface EngineOptions {
-  /** Base URL of the API. Defaults to https://bundeshaushalt.de */
+  /** Base URL of the API. Defaults to https://www.bundeshaushalt.de (the bare host redirects every request there). */
   baseUrl?: string | undefined;
   /** Swappable transport. Defaults to the built-in node http/https transport. */
   transport?: Transport | undefined;

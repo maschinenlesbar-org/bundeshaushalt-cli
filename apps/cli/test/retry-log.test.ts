@@ -46,5 +46,5 @@ test("the same record in jsonl, with the delay in ms under one second", async ()
   const rec = JSON.parse(r.err[0] as string) as Record<string, unknown>;
   assert.equal(rec["level"], "WARN");
   assert.equal(rec["topic"], "bundeshaushalt.http");
-  assert.equal(rec["msg"], "HTTP 503 from bundeshaushalt.de: retry 1 of 2 in 200 ms");
+  assert.equal(rec["msg"], "HTTP 503 from www.bundeshaushalt.de: retry 1 of 2 in 200 ms");
 });
