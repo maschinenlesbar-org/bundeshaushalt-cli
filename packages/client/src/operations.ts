@@ -37,14 +37,49 @@ export type BudgetLookup = { status: "ok"; data: BudgetData } | { status: "empty
  * One budgetData answer, or why the API has none. A 404 or an empty element (the CLI's exit 4)
  * means: for `actual`, the year's realised figures are not published yet (or the id doesn't exist
  * then); for next year, the draft budget isn't out yet; for an id, no such element that year, in
- * that grouping. Every other error (a bad parameter, the network, a 5xx) is thrown.
+ * that grouping. Every other error (a bad parameter, the network, a 5xx) is thrown, and so is a
+ * 404 that can't be the portal's "nothing here" (a web page; the planned whole budget of a year
+ * from 2012 to now): a HaushaltApiError saying the endpoint may have moved.
  */
 export async function lookupBudgetData(client: BundeshaushaltClient, params: BudgetParams, options: OperationOptions = {}): Promise<BudgetLookup> {
   try {
     return { status: "ok", data: await client.budgetData(params) };
   } catch (err) {
     if (!isNotFound(err)) throw err;
+    if (err instanceof HaushaltApiError) {
+      const moved = notTheData(err, params, options);
+      if (moved !== undefined) throw new HaushaltApiError({ status: err.status, url: err.url, method: err.method, body: err.body, detail: err.detail === undefined ? moved : `${err.detail}; ${moved}` });
+    }
     return { status: "empty", searched: { ...params }, reason: notFoundReason(params, options) };
+  }
+}
+
+/**
+ * Why a 404 is not the portal's "nothing here", or undefined when it is. The portal answers an
+ * unpublished year or an unknown id with a 404 and an empty body; a 404 that is a web page (an
+ * HTML "page not found") comes from elsewhere: the internal endpoint moved or was taken down.
+ * And the planned whole budget of every year from 2012 to the current one is always there, so a
+ * 404 for it can't mean there is no such budget.
+ */
+function notTheData(err: HaushaltApiError, params: BudgetParams, options: OperationOptions): string | undefined {
+  const body = err.body.trim();
+  if (body !== "" && !isJson(body)) {
+    return "the portal answered with a web page, not with budget data or its empty \"not found\": its internal endpoint may have moved or changed; try again later";
+  }
+  const year = (options.now?.() ?? new Date()).getUTCFullYear();
+  const wholePlan = params.id === undefined && (params.quota ?? "target") === "target" && (params.unit ?? "single") === "single";
+  if (wholePlan && params.year >= MIN_YEAR && params.year <= year) {
+    return `the portal has the planned whole budget of every year from ${MIN_YEAR} to ${year}, so this is not "no data": its internal endpoint may have moved or changed; try again later`;
+  }
+  return undefined;
+}
+
+function isJson(text: string): boolean {
+  try {
+    JSON.parse(text);
+    return true;
+  } catch {
+    return false;
   }
 }
 

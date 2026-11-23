@@ -4,7 +4,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { BundeshaushaltClient, comparePlanToActual, getBudgetBreakdown, getBudgetTrend, HaushaltApiError, HaushaltParseError, HaushaltValidationError, lookupBudgetData } from "../src/index.js";
 import { EMPTY_ELEMENT, expenses2024, expenses2024Actual, ministry12, ministry14, portal, titel140555408, view, viewKey } from "./fixtures.js";
-import { jsonResponse } from "./helpers.js";
+import { jsonResponse, makeMockTransport, rawResponse } from "./helpers.js";
 import type { MockTransport } from "./helpers.js";
 
 const clientOf = (mock: MockTransport) => new BundeshaushaltClient({ transport: mock.transport, maxRetries: 0 });
@@ -89,6 +89,27 @@ test("a changed answer shape (values as strings, an empty element for the whole 
   const oneChild = view({ year: 2024, label: "Sollwerte des Haushaltsjahres 2024", value: 10, children: [["01", "01 A", 10]] });
   (oneChild.children as unknown as Record<string, unknown>[]).push({ id: "02", label: "02 B", value: "5" });
   await assert.rejects(getBudgetBreakdown(clientOf(portal([oneChild])), { year: 2024 }, { now }), (err) => err instanceof HaushaltParseError && /child 2 of 2/.test(err.message));
+});
+
+test("a 404 that is a web page, or one for a past year's whole budget, is an error (the endpoint moved), never 'no such budget'", async () => {
+  const page = makeMockTransport(() => rawResponse("<!DOCTYPE html><html><title>Seite nicht gefunden</title></html>", "text/html", 404));
+  const moved = (err: unknown) => err instanceof HaushaltApiError && err.status === 404 && /endpoint .*(moved|changed)/.test(err.message);
+  await assert.rejects(getBudgetBreakdown(clientOf(page), { year: 2024 }, { now }), moved);
+  await assert.rejects(getBudgetBreakdown(clientOf(page), { year: 2024, id: "14" }, { now }), moved);
+  await assert.rejects(comparePlanToActual(clientOf(page), { year: 2024 }, { now }), moved);
+  await assert.rejects(getBudgetTrend(clientOf(page), { fromYear: 2022, toYear: 2024 }, { now }), moved);
+  await assert.rejects(lookupBudgetData(clientOf(page), { year: 2024, account: "expenses", id: "14" }, { now }), moved);
+  // The portal's own "not found" is a 404 with an empty body: still the reason.
+  const bare = makeMockTransport(() => rawResponse("", "", 404));
+  const unknown = await lookupBudgetData(clientOf(bare), { year: 2024, account: "expenses", id: "99" }, { now });
+  assert.equal(unknown.status, "empty");
+  const ist = await lookupBudgetData(clientOf(bare), { year: 2026, account: "expenses", quota: "actual" }, { now });
+  assert.equal(ist.status, "empty");
+  const draft = await lookupBudgetData(clientOf(bare), { year: 2027, account: "expenses" }, { now });
+  assert.equal(draft.status, "empty");
+  // The planned whole budget of 2012 to this year is always there: a 404 for it is the endpoint, not the data.
+  await assert.rejects(lookupBudgetData(clientOf(bare), { year: 2024, account: "income" }, { now }), moved);
+  await assert.rejects(lookupBudgetData(clientOf(bare), { year: 2026, account: "expenses", quota: "target" }, { now }), moved);
 });
 
 test("lookupBudgetData: an error other than not found is thrown, not turned into a reason", async () => {
@@ -202,7 +223,7 @@ test("getBudgetTrend: a year without the element is a gap with its reason, not a
 });
 
 test("getBudgetTrend: by default from 2012 to next year; a year after the current one is the draft; years without Ist are gaps", async () => {
-  const mock = portal([top(2026, 520e9), top(2027, 530e9)]);
+  const mock = portal(Array.from({ length: 2027 - 2012 + 1 }, (_, i) => top(2012 + i, 300e9 + i * 15e9)));
   const t = await getBudgetTrend(clientOf(mock), {}, { now });
   assert.equal(t.status, "ok");
   if (t.status !== "ok") return;
