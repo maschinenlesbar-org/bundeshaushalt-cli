@@ -129,6 +129,17 @@ test("comparePlanToActual: no Ist yet is empty with the reason and the latest ye
   assert.ok(mock.calls.length <= 4, "looks back two years at most");
 });
 
+test("comparePlanToActual: an element without a realised line in a year whose Ist is published says so, not 'not published'", async () => {
+  const actual14of2023 = view({ year: 2023, quota: "actual", id: "14", label: "14 Bundesministerium der Verteidigung", value: 50e9 });
+  const c = await comparePlanToActual(clientOf(portal([ministry14, expenses2024Actual, actual14of2023])), { year: 2024, id: "14" }, { now });
+  assert.equal(c.status, "empty");
+  if (c.status !== "empty") return;
+  assert.match(c.reason, /no realised line \(Ist\) for element 14 in 2024/);
+  assert.match(c.reason, /2024's realised figures are published/);
+  assert.doesNotMatch(c.reason, /are not published/);
+  assert.equal(c.latestYearWithActuals, undefined, "2024 has actuals: no earlier year is offered instead");
+});
+
 test("comparePlanToActual: below the top the labels say what the view covers, from the top of the path", async () => {
   const actual14 = view({ ...{ year: 2024, quota: "actual" as const, id: "14", label: "14 Bundesministerium der Verteidigung", value: 50287144857.59, total: 474753727609.58 }, parents: [[{ id: null, label: "Istwerte des Haushaltsjahres 2024" }]], children: [["1403", "1403 Kommandobehörden und Truppen", 19000000000]] });
   const c = await comparePlanToActual(clientOf(portal([ministry14, actual14])), { year: 2024, id: "14" });

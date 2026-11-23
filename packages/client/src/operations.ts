@@ -221,7 +221,8 @@ const ACTUALS_LOOKBACK = 2;
  * Planned (Soll) against realised (Ist) figures of one year, for the whole budget or one element,
  * joined by id (never by label). Ist is published only once a year's accounts are closed: when it
  * isn't there, the answer is `empty` with the reason and the latest of the two years before that
- * has Ist (`latestYearWithActuals`), never a comparison against nothing. Elements present in one
+ * has Ist (`latestYearWithActuals`), never a comparison against nothing; an element with no Ist
+ * line in a year whose Ist is published is `empty` saying that, without an earlier year. Elements present in one
  * quota only are listed apart, not dropped. Differences keep the cents of the Ist figures.
  */
 export async function comparePlanToActual(client: BundeshaushaltClient, input: PlanVsActualInput, options: OperationOptions = {}): Promise<PlanVsActual> {
@@ -230,6 +231,17 @@ export async function comparePlanToActual(client: BundeshaushaltClient, input: P
   if (plan.status === "empty") return plan;
   const real = await lookupBudgetData(client, paramsOf(input, "actual"), options);
   if (real.status === "empty") {
+    // An element without an Ist line in a year whose Ist is out: no realised figure under this id
+    // that year, not "not published" (with an earlier year offered in its place).
+    if (input.id !== undefined) {
+      const year = await lookupBudgetData(client, paramsOf({ ...input, id: undefined }, "actual"), options);
+      if (year.status === "ok") {
+        return {
+          ...real,
+          reason: `There is no realised line (Ist) for element ${input.id} in ${input.year}, although ${input.year}'s realised figures are published: the portal has a plan for it but no realised figure under this id that year (it may have been booked under another element, or ids changed). Compare the level above, or break down ${input.year}'s realised figures.`,
+        };
+      }
+    }
     for (let year = input.year - 1; year >= Math.max(MIN_YEAR, input.year - ACTUALS_LOOKBACK); year--) {
       const earlier = await lookupBudgetData(client, paramsOf({ ...input, year }, "actual"), options);
       if (earlier.status === "ok") return { ...real, latestYearWithActuals: year };
