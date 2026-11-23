@@ -146,7 +146,7 @@ export const TOOLS: readonly ToolDefinition[] = [
         account,
         unit,
         id,
-        rankBy: { type: "string", enum: ["euros", "percent"], description: "Rank by the difference in euros (default) or in percent of the plan." },
+        rankBy: { type: "string", enum: ["euros", "percent"], description: "Rank by the difference in euros (default) or in percent of the plan; in percent, elements with nothing planned (deltaPercent null) come first." },
         limit: { type: "integer", minimum: 1, maximum: 50, description: "The most elements listed per end, overspent and underspent (1-50, default 5)." },
       },
       ["year"],

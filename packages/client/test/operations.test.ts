@@ -109,6 +109,16 @@ test("comparePlanToActual: rankBy percent ranks by the share of the plan, euros 
   assert.deepEqual(await ranked("percent"), [["01", 50], ["02", 10]]);
 });
 
+test("comparePlanToActual: rankBy percent ranks spending with nothing planned first (no percent), not as 0 %", async () => {
+  const plan = view({ year: 2024, label: "Sollwerte des Haushaltsjahres 2024", value: 10e6, children: [["01", "01 A", 0], ["03", "03 C", 10e6], ["04", "04 D", 0]] });
+  const real = view({ year: 2024, quota: "actual", label: "Istwerte des Haushaltsjahres 2024", value: 80e6 - 2e6, children: [["01", "01 A", 50e6], ["03", "03 C", 30e6], ["04", "04 D", -2e6]] });
+  const c = await comparePlanToActual(clientOf(portal([plan, real])), { year: 2024, rankBy: "percent", limit: 1 });
+  assert.equal(c.status, "ok");
+  if (c.status !== "ok") return;
+  assert.deepEqual(c.overspent.map((r) => [r.id, r.deltaPercent]), [["01", null]]);
+  assert.deepEqual(c.underspent.map((r) => [r.id, r.deltaPercent]), [["04", null]]);
+});
+
 test("comparePlanToActual: no Ist yet is empty with the reason and the latest year that has it, never a comparison against nothing", async () => {
   const mock = portal([top(2026, 520e9), top(2025, 500e9), top(2024, 470e9, "actual")]);
   const c = await comparePlanToActual(clientOf(mock), { year: 2026 }, { now });

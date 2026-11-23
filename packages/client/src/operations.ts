@@ -173,7 +173,7 @@ export async function getBudgetBreakdown(client: BundeshaushaltClient, input: Br
 
 /** The input of {@link comparePlanToActual}. */
 export interface PlanVsActualInput extends BudgetSelection {
-  /** Rank the elements by the difference in euros (default) or in percent of the plan. */
+  /** Rank the elements by the difference in euros (default) or in percent of the plan; in percent, elements with nothing planned (no percent) come first. */
   rankBy?: "euros" | "percent" | undefined;
   /** The most elements listed per end (overspent, underspent; 1–50, default 5). */
   limit?: number | undefined;
@@ -247,7 +247,14 @@ export async function comparePlanToActual(client: BundeshaushaltClient, input: P
     else rows.push(compareRow(p.id, p.label, p.value, a.value));
   }
   const onlyInActual = [...realised.values()].filter((a) => !plannedIds.has(a.id)).map((a) => ({ id: a.id, label: a.label, value: a.value }));
-  const key = input.rankBy === "percent" ? (r: PlanVsActualRow) => r.deltaPercent ?? 0 : (r: PlanVsActualRow) => r.delta;
+  // Both ends by the size of the difference. In percent, spending where nothing was planned has
+  // no percent: it comes first (by euros), never ranked as 0 %.
+  const byEuros = (a: PlanVsActualRow, b: PlanVsActualRow): number => Math.abs(b.delta) - Math.abs(a.delta);
+  const byPercent = (a: PlanVsActualRow, b: PlanVsActualRow): number =>
+    a.deltaPercent === null || b.deltaPercent === null
+      ? Number(a.deltaPercent !== null) - Number(b.deltaPercent !== null) || byEuros(a, b)
+      : Math.abs(b.deltaPercent) - Math.abs(a.deltaPercent) || byEuros(a, b);
+  const rank = input.rankBy === "percent" ? byPercent : byEuros;
   const target = Number(plan.data.detail["value"]);
   const actual = Number(real.data.detail["value"]);
   const totals = compareRow("", "", target, actual);
@@ -262,8 +269,8 @@ export async function comparePlanToActual(client: BundeshaushaltClient, input: P
     element: { ...(id === undefined ? {} : { id }), label: String(plan.data.detail["label"] ?? "") },
     totals: { target, actual, delta: totals.delta, deltaPercent: totals.deltaPercent, executedPercent: target === 0 ? null : round(actual / target * 100, 1) },
     compared: rows.length,
-    overspent: rows.filter((r) => r.delta > 0).sort((a, b) => key(b) - key(a)).slice(0, limit),
-    underspent: rows.filter((r) => r.delta < 0).sort((a, b) => key(a) - key(b)).slice(0, limit),
+    overspent: rows.filter((r) => r.delta > 0).sort(rank).slice(0, limit),
+    underspent: rows.filter((r) => r.delta < 0).sort(rank).slice(0, limit),
     onlyInPlan,
     onlyInActual,
   };

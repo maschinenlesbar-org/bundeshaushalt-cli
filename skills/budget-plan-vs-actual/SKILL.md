@@ -92,7 +92,8 @@ Lead with the **headline totals and overall execution rate**
 
 - biggest **overspend** (largest positive delta) and biggest **underspend** (largest
   negative delta) — show both ends, they're the interesting findings;
-- or by **percentage** variance if they asked "which ministry deviated most relatively".
+- or by **percentage** variance if they asked "which ministry deviated most relatively". An
+  element planned at 0 has no percentage: list such spending first (or apart), never as 0%.
 
 ```
 Federal expenses 2023 — plan vs. actual (Soll vs. Ist)
