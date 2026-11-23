@@ -33,6 +33,24 @@ test("getBudgetBreakdown: ranked rows with shares and the rest summed; the sourc
   await connection.close();
 });
 
+test("getBudgetBreakdown under a small size cap: the rows it drops are still counted (listed), so listed + rest is the element's value", async () => {
+  const children: [string, string, number][] = Array.from({ length: 140 }, (_, i) => [`6002${String(i).padStart(5, "0")}`, `${i} ${"Zuweisung an die Länder für Maßnahmen ".repeat(4)}`.slice(0, 165), 1e9 - i * 1e6]);
+  const total = children.reduce((a, [, , value]) => a + value, 0);
+  const kapitel = view({ year: 2024, id: "6002", label: "6002 Allgemeine Bewilligungen", value: total, children });
+  const connection = await connect({ transport: portal([kapitel]), config: { maxResultChars: 8000 } });
+  const answer = (await connection.call("getBudgetBreakdown", { year: 2024, id: "6002", limit: 100 })).structuredContent as Record<string, unknown>;
+  await connection.close();
+  const rows = answer["rows"] as { value: number }[];
+  const listed = answer["listed"] as { count: number; value: number };
+  const rest = answer["rest"] as { count: number; value: number };
+  assert.equal(answer["truncated"], true);
+  assert.ok(rows.length < 100, `the cap dropped rows (${rows.length})`);
+  assert.equal(listed.count, 100);
+  assert.equal(listed.count + rest.count, 140);
+  assert.equal(Math.round(listed.value + rest.value), total, "nothing is in neither");
+  assert.match(String(answer["reason"]), /rows lost entries/);
+});
+
 test("getBudgetBreakdown: a leaf is its amount, path, cross-references and PDF page", async () => {
   const connection = await connect({ transport: world });
   const answer = (await connection.call("getBudgetBreakdown", { year: 2024, id: "140555408" })).structuredContent as Record<string, unknown>;

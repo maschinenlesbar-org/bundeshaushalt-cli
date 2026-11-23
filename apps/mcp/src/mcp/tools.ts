@@ -112,7 +112,7 @@ export const TOOLS: readonly ToolDefinition[] = [
     title: "Federal budget breakdown, ranked",
     description: [
       'Who gets how much of the German federal budget in a year: the elements ranked by amount, with their share. Use it for "wofür gibt der Bund Geld aus?", "Etat des Verteidigungsministeriums 2024", "Bundeshaushalt nach Einzelplänen", "what does Germany spend money on?", "how much does the health ministry get?", "biggest items in the 2024 budget", "break the budget down by economic group".',
-      "Without id: the whole budget by ministry (Einzelplan), economic group (unit group) or function (unit function). To drill in, call again with a row's id (Einzelplan 14 -> its Kapitel -> its Titel). Rows are sorted largest first; past limit they are summed in rest. At a leaf (a Titel) there are no rows: the answer has the amount, the same line in the other groupings (related) and its pages in the Haushaltsplan (pdf). value is euros; sharePercent is of the whole budget, shareOfParentPercent of the element broken down. Ids differ by year (Einzelplan 24 exists only from 2025); an unknown id or unpublished year is empty with the reason.",
+      "Without id: the whole budget by ministry (Einzelplan), economic group (unit group) or function (unit function). To drill in, call again with a row's id (Einzelplan 14 -> its Kapitel -> its Titel). Rows are sorted largest first; past limit they are summed in rest; listed counts and sums the rows, so listed.value + rest.value is the element's value. When the size cap drops rows, rows holds fewer than listed.count (reason says so): ask for a smaller limit. At a leaf (a Titel) there are no rows: the answer has the amount, the same line in the other groupings (related) and its pages in the Haushaltsplan (pdf). value is euros; sharePercent is of the whole budget, shareOfParentPercent of the element broken down. Ids differ by year (Einzelplan 24 exists only from 2025); an unknown id or unpublished year is empty with the reason.",
       RULES,
     ].join("\n\n"),
     inputSchema: input(
@@ -126,10 +126,29 @@ export const TOOLS: readonly ToolDefinition[] = [
       },
       ["year"],
     ),
-    outputSchema: output({ year: int, account: str_, quota: str_, unit: str_, element: obj, rowsAre: str_, rows: arr, rest: obj, leaf: bool, related: obj, pdf: arr, modified: str_ }),
+    outputSchema: output({
+      year: int,
+      account: str_,
+      quota: str_,
+      unit: str_,
+      element: obj,
+      rowsAre: str_,
+      rows: arr,
+      listed: { type: "object", description: "The rows before any size cap: their count and their sum in euros (listed.value + rest.value is the element's value); rows holds fewer only when the size cap dropped some." },
+      rest: obj,
+      leaf: bool,
+      related: obj,
+      pdf: arr,
+      modified: str_,
+    }),
     source: (args) => sourceOf(args),
     async run(args, context) {
-      return { ...(await getBudgetBreakdown(context.client, { year: num(args, "year") ?? 0, quota: str(args, "quota") as Quota | undefined, limit: num(args, "limit"), ...selection(args) })) };
+      const answer = await getBudgetBreakdown(context.client, { year: num(args, "year") ?? 0, quota: str(args, "quota") as Quota | undefined, limit: num(args, "limit"), ...selection(args) });
+      if (answer.status !== "ok" || answer.leaf) return { ...answer };
+      // The size cap may drop rows from the end after this, and can't add them to rest: `listed`
+      // keeps their count and sum, a scalar the cap never changes, so no amount is in neither.
+      const listed = { count: answer.rows.length, value: Math.round(answer.rows.reduce((total, row) => total + row.value, 0) * 100) / 100 };
+      return { ...answer, listed };
     },
   },
   {
