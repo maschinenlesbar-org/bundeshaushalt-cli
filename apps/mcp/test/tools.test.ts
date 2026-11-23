@@ -28,7 +28,7 @@ test("getBudgetBreakdown: ranked rows with shares and the rest summed; the sourc
   assert.deepEqual((answer["rows"] as { id: string }[]).map((r) => r.id), ["11", "14", "12"]);
   assert.deepEqual(answer["rest"], { count: 1, value: 39571791000 });
   assert.equal(answer["rowsAre"], "Einzelplan");
-  assert.match(String(answer["source"]), /\/internalapi\/budgetData\?year=2024&account=expenses$/);
+  assert.match(String(answer["source"]), /\/internalapi\/budgetData\?year=2024&account=expenses&quota=target$/);
   assert.match(String(answer["licence"]), /Bundesministerium der Finanzen/);
   await connection.close();
 });
@@ -49,6 +49,28 @@ test("getBudgetBreakdown under a small size cap: the rows it drops are still cou
   assert.equal(listed.count + rest.count, 140);
   assert.equal(Math.round(listed.value + rest.value), total, "nothing is in neither");
   assert.match(String(answer["reason"]), /rows lost entries/);
+});
+
+test("source is the request sent, one the client takes: the quota sent, the id composed, the first of several requests", async () => {
+  const transport = portal([expenses2024, expenses2024Actual, ministry12(2023, 40e9), ministry12(2024, 42e9)]);
+  const connection = await connect({ transport });
+  const sourceOf = async (tool: string, args: Record<string, unknown>) => {
+    const before = transport.calls.length;
+    const answer = (await connection.call(tool, args)).structuredContent as Record<string, unknown>;
+    return { source: String(answer["source"]), sent: transport.calls.slice(before).map((r) => r.url) };
+  };
+  for (const args of [{ year: 2024 }, { year: 2024, id: "U\u0308" }, { year: 2024, id: " g-6 " }, { year: 2024, quota: "actual" }]) {
+    const { source, sent } = await sourceOf("getBudgetBreakdown", args);
+    assert.equal(source, sent[0], JSON.stringify(args));
+  }
+  const data = await sourceOf("getBudgetData", { year: 2024 });
+  assert.equal(data.source, data.sent[0]);
+  const compared = await sourceOf("comparePlanToActual", { year: 2024 });
+  assert.equal(compared.source, `${compared.sent[0]} (and the same with quota=actual)`);
+  assert.ok(compared.sent[1]?.endsWith("quota=actual"));
+  const trend = await sourceOf("getBudgetTrend", { fromYear: 2023, toYear: 2024, id: "12" });
+  assert.equal(trend.source, `${trend.sent[0]} (one request per year, 2023 to 2024)`);
+  await connection.close();
 });
 
 test("getBudgetBreakdown: a leaf is its amount, path, cross-references and PDF page", async () => {
@@ -88,7 +110,7 @@ test("comparePlanToActual: deltas with cents, both ends, one-sided elements apar
   assert.deepEqual((answer["underspent"] as { id: string; delta: number }[]).map((r) => [r.id, r.delta]), [["14", -1664793142.41]]);
   assert.deepEqual((answer["onlyInPlan"] as { id: string }[]).map((r) => r.id), ["32"]);
   assert.deepEqual((answer["onlyInActual"] as { id: string }[]).map((r) => r.id), ["60"]);
-  assert.match(String(answer["source"]), /quota=target%2Cactual/);
+  assert.match(String(answer["source"]), /\?year=2024&account=expenses&quota=target \(and the same with quota=actual\)$/);
   await connection.close();
 });
 
@@ -109,7 +131,7 @@ test("getBudgetTrend: by id across a gap and a rename", async () => {
   assert.deepEqual(answer["gaps"], [2024]);
   assert.deepEqual(answer["breaks"], [2025]);
   assert.deepEqual(answer["span"], { from: 2023, to: 2025, changePercent: -5, perYearPercent: -2.5 });
-  assert.match(String(answer["source"]), /year=2023\.\.2025&account=expenses&id=12$/);
+  assert.match(String(answer["source"]), /\?year=2023&account=expenses&quota=target&id=12 \(one request per year, 2023 to 2025\)$/);
   await connection.close();
 });
 

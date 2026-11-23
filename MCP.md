@@ -73,7 +73,9 @@ For scripts and shared configs, pin a release and its digest from the
 | `getBudgetData` | One view as the portal sends it, its children a page at a time. |
 
 Every tool only reads. An answer is JSON (`structuredContent` and the same as text), with the
-`source` it came from (whole, never cut like the data; an answer a redirect fetched from another
+`source` it came from, the request as the client sent it (comparePlanToActual cites the plan's
+and adds "(and the same with quota=actual)", getBudgetTrend the first year's and "(one request per
+year, 2023 to 2027)"; whole, never cut like the data; an answer a redirect fetched from another
 host says so there: "… (answered by https://other.example after a redirect)", and a WARN record
 names both) and the data licence. A text over 2000 characters is cut and ends in
 `…[cut, N characters in all]`, and the answer says `truncated`. An answer over

@@ -13,9 +13,12 @@ import {
   getBudgetBreakdown,
   getBudgetTrend,
   lookupBudgetData,
+  buildQueryString,
   QuotaValues,
-  unitOfId,
   UnitValues,
+  validateBudgetParams,
+  type BudgetParams,
+  type QueryParams,
   type Account,
   type Quota,
   type Unit,
@@ -89,21 +92,30 @@ const selection = (args: Record<string, unknown>) => ({
   id: str(args, "id"),
 });
 
-/** The request a result comes from, under the API's base (for `source`): the unit a G-/F- id implies filled in, as the client sends it. */
-function sourceOf(args: Record<string, unknown>, fixed: Record<string, string | undefined> = {}): string {
-  const given = str(args, "id")?.trim();
-  const implied = given === undefined ? undefined : unitOfId(given);
-  const query = new URLSearchParams();
-  const params: Record<string, string | undefined> = {
-    year: num(args, "year")?.toString(),
-    account: str(args, "account") ?? "expenses",
-    quota: str(args, "quota"),
-    unit: str(args, "unit") ?? (implied === "single" ? undefined : implied),
-    id: given,
-    ...fixed,
-  };
-  for (const [key, value] of Object.entries(params)) if (value !== undefined) query.set(key, value);
-  return `internalapi/budgetData?${query.toString()}`;
+/**
+ * The request a result comes from, under the API's base (for `source`), as the client sends it
+ * (validateBudgetParams: the id trimmed and composed, the unit a G-/F- id implies; the quota the
+ * tool sends), so that following it gives the figures quoted.
+ */
+function sourceOf(args: Record<string, unknown>, year: number | undefined, quota: string | undefined): string {
+  const params = { year: year ?? 0, account: (str(args, "account") ?? "expenses") as Account, ...(quota === undefined ? {} : { quota: quota as Quota }), ...(str(args, "unit") === undefined ? {} : { unit: str(args, "unit") as Unit }), ...(str(args, "id") === undefined ? {} : { id: str(args, "id") as string }) };
+  let sent: BudgetParams = params;
+  try {
+    sent = validateBudgetParams(params);
+  } catch {
+    // Not sent at all (the call failed before): cite the arguments as given.
+  }
+  const query: QueryParams = { year: sent.year, account: sent.account, quota: sent.quota, unit: sent.unit, id: sent.id };
+  return `internalapi/budgetData?${buildQueryString(query)}`;
+}
+
+/** The years a trend read: from its answer (the points, or what an empty one searched). */
+function trendYears(args: Record<string, unknown>, answer: Record<string, unknown>): { from: number; to: number } {
+  const points = answer["points"] as { year: number }[] | undefined;
+  const searched = answer["searched"] as { fromYear?: number; toYear?: number } | undefined;
+  const from = points?.[0]?.year ?? searched?.fromYear ?? num(args, "fromYear") ?? 2012;
+  const to = points?.at(-1)?.year ?? searched?.toYear ?? num(args, "toYear") ?? from;
+  return { from, to };
 }
 
 export const TOOLS: readonly ToolDefinition[] = [
@@ -141,7 +153,7 @@ export const TOOLS: readonly ToolDefinition[] = [
       pdf: arr,
       modified: str_,
     }),
-    source: (args) => sourceOf(args),
+    source: (args) => sourceOf(args, num(args, "year"), str(args, "quota") ?? "target"),
     async run(args, context) {
       const answer = await getBudgetBreakdown(context.client, { year: num(args, "year") ?? 0, quota: str(args, "quota") as Quota | undefined, limit: num(args, "limit"), ...selection(args) });
       if (answer.status !== "ok" || answer.leaf) return { ...answer };
@@ -185,7 +197,8 @@ export const TOOLS: readonly ToolDefinition[] = [
       onlyInActual: arr,
       latestYearWithActuals: int,
     }),
-    source: (args) => sourceOf(args, { quota: "target,actual" }),
+    // Two requests: the plan, then the realised figures (and, without them, earlier years').
+    source: (args) => `${sourceOf(args, num(args, "year"), "target")} (and the same with quota=actual)`,
     async run(args, context) {
       const rankBy = str(args, "rankBy") as "euros" | "percent" | undefined;
       return { ...(await comparePlanToActual(context.client, { year: num(args, "year") ?? 0, rankBy, limit: num(args, "limit"), ...selection(args) })) };
@@ -208,7 +221,11 @@ export const TOOLS: readonly ToolDefinition[] = [
       id,
     }),
     outputSchema: output({ account: str_, quota: str_, unit: str_, element: obj, points: arr, span: obj, breaks: arr, gaps: arr }),
-    source: (args) => sourceOf(args, { year: `${num(args, "fromYear") ?? 2012}..${num(args, "toYear") ?? "next"}` }),
+    // One request per year: the first, and the years asked (the default last year is the clock's).
+    source: (args, _apiBase, answer) => {
+      const years = trendYears(args, answer);
+      return `${sourceOf(args, years.from, str(args, "quota") ?? "target")} (one request per year, ${years.from} to ${years.to})`;
+    },
     async run(args, context) {
       return {
         ...(await getBudgetTrend(context.client, {
@@ -241,7 +258,7 @@ export const TOOLS: readonly ToolDefinition[] = [
       ["year"],
     ),
     outputSchema: output({ meta: obj, detail: obj, total: int, children: arr, nextOffset: int, path: arr, related: obj }),
-    source: (args) => sourceOf(args),
+    source: (args) => sourceOf(args, num(args, "year"), str(args, "quota")),
     paged: (args) => ({ list: "children", offset: num(args, "offset") ?? 0 }),
     async run(args, context) {
       const { account: acc, unit: u, id: element } = selection(args);
