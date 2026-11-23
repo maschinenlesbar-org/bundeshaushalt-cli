@@ -7,8 +7,9 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { listTools } from "../src/mcp/server.js";
+import { DEADLINE_HINT, SIZE_HINT, TOOLS } from "../src/mcp/tools.js";
 import { connect } from "./harness.js";
-import { EMPTY_ELEMENT, expenses2024, expenses2024Actual, ministry12, ministry14, portal, titel140555408, view, viewKey } from "./helpers.js";
+import { EMPTY_ELEMENT, expenses2024, expenses2024Actual, jsonResponse, makeMockTransport, ministry12, ministry14, portal, rawResponse, titel140555408, view, viewKey } from "./helpers.js";
 
 const top = (year: number, value: number, quota: "target" | "actual" = "target") =>
   view({ year, quota, label: `${quota === "target" ? "Sollwerte" : "Istwerte"} des Haushaltsjahres ${year}`, value });
@@ -146,4 +147,39 @@ test("getBudgetData: the view as sent, children paged, the path instead of every
   const missing = (await connection.call("getBudgetData", { year: 2024, id: "99" })).structuredContent as Record<string, unknown>;
   assert.equal(missing["status"], "empty");
   await connection.close();
+});
+
+test("the deadline's and the size cap's advice fit every tool: each argument named comes with the tools that take it", async () => {
+  const schemas = new Map(TOOLS.map((tool) => [tool.name, Object.keys((tool.inputSchema as { properties: Record<string, unknown> }).properties)]));
+  // "year" is also a plain word ("one year per request"): the other arguments only.
+  const args = new Set([...schemas.values()].flat().filter((name) => name !== "year"));
+  for (const text of [DEADLINE_HINT, SIZE_HINT]) {
+    const pairs = [...text.matchAll(/(\w+(?: or \w+)*) \((\w+(?:, \w+)*)\)/g)];
+    for (const [, options, tools] of pairs) {
+      for (const tool of (tools as string).split(", ")) {
+        for (const option of (options as string).split(" or ")) assert.ok(schemas.get(tool)?.includes(option), `${tool} takes no ${option}: ${text}`);
+      }
+    }
+    const named = new Set(pairs.flatMap(([, options]) => (options as string).split(" or ")));
+    for (const option of args) assert.ok(!new RegExp(`\\b${option}\\b`).test(text) || named.has(option), `${option} named without its tools: ${text}`);
+  }
+  assert.match(DEADLINE_HINT, /try again/);
+  // The portal sends a view whole: only a deeper element makes its answer smaller.
+  assert.match(SIZE_HINT, /deeper element/);
+});
+
+test("an upstream failure's tool error says what to do: try again later, or that the endpoint may have changed", async () => {
+  const cases: [string, ReturnType<typeof makeMockTransport>, RegExp][] = [
+    ["a server error", makeMockTransport(() => jsonResponse({ message: "boom" }, 500)), /HTTP 500 .*try again in a few minutes/],
+    ["410 Gone", makeMockTransport(() => rawResponse("", "", 410)), /HTTP 410 .*may have changed/],
+    ["a page instead of data", makeMockTransport(() => rawResponse("<html></html>", "text/html")), /not JSON.*may have changed/],
+    ["a reset", makeMockTransport(() => Promise.reject(Object.assign(new Error("socket hang up"), { code: "ECONNRESET" }))), /socket hang up.*try again in a few minutes/],
+  ];
+  for (const [name, transport, advice] of cases) {
+    const connection = await connect({ transport });
+    const result = await connection.call("getBudgetBreakdown", { year: 2024 });
+    await connection.close();
+    assert.equal(result.isError, true, name);
+    assert.match(result.content[0]?.text ?? "", advice, name);
+  }
 });

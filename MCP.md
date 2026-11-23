@@ -84,7 +84,8 @@ go on), then has its longest texts cut further (each with that mark) or, when th
 other lists shortened (`reason` names them); a list keeps its first entry, `notes` stay whole, and the answer says
 `truncated`. One that can't be cut down so far is a tool error that says to ask for less. A
 failure is a tool error that says what to change (one over 5000 characters loses its middle, never
-its end, where the reason is).
+its end, where the reason is): a portal that fails or can't be reached, to try again in a few
+minutes; an answer that isn't the portal's data, that its undocumented endpoint may have changed.
 
 ## Options
 
