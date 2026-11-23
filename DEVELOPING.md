@@ -549,7 +549,7 @@ published app under `apps/` together, one version, one tag. Its npm README is th
 
 | Module | Role |
 |---|---|
-| `packages/client/src/operations.ts` | The skills' use cases as library functions (getBudgetBreakdown, comparePlanToActual, getBudgetTrend, and lookupBudgetData under them, which turns a 404 or an empty element into the reason: not published yet, or no such element that year), with their traps built in. Public API of both packages. |
+| `packages/client/src/operations.ts` | The skills' use cases as library functions (getBudgetBreakdown, comparePlanToActual, getBudgetTrend, and lookupBudgetData under them, which turns a 404 or an empty element into the reason: not published yet, or no such element that year; the three operations refuse an answer whose figures aren't numbers, a `HaushaltParseError`, rather than compute with it), with their traps built in. Public API of both packages. |
 | `packages/log` | The log records (text/jsonl), shared by both apps; `createLogger({ program })`. |
 | `src/mcp/tools.ts` | This repo's: the four tools (flat input schemas with limits, no root combinators; one object output schema each; descriptions under 2000 characters), the instructions, the licence, the hints the server's messages give. |
 | `src/mcp/api.ts` | This repo's: how the kit reaches the client (`BundeshaushaltClient` as `Client`, `HaushaltError` as `ClientError`, …, `apiBase`). This client is built without credentials, so it exports no `CHECK_CLIENT_OPTIONS`: `config.ts` builds one at start to check `--base-url` and `--user-agent`, so a value the client's constructor refuses is a usage error (exit 2), never a crash. |

@@ -9,7 +9,7 @@
 // - getBudgetTrend: one figure across years, with gaps and renames marked (budget-trend).
 
 import type { BundeshaushaltClient } from "./client.js";
-import { HaushaltApiError, HaushaltNotFoundError, HaushaltValidationError } from "./errors.js";
+import { HaushaltApiError, HaushaltNotFoundError, HaushaltParseError, HaushaltValidationError } from "./errors.js";
 import { maxYear, MIN_YEAR, type Account, type Quota, type Unit } from "./enums.js";
 import type { BudgetData, BudgetElement, BudgetParams, LabeledElement } from "./types.js";
 
@@ -66,6 +66,34 @@ function notFoundReason(params: BudgetParams, options: OperationOptions): string
     return `No budget element ${params.id} in ${params.year} (${params.account}, unit ${params.unit ?? "single"}). Ids differ by year and grouping (Einzelplan 24 exists only from 2025); list the level above for valid ids, and keep the unit the id came from.`;
   }
   return `No budget data for ${params.year} (${params.account}).`;
+}
+
+/**
+ * {@link lookupBudgetData} for the operations, which compute with the figures: an answer whose
+ * element has no numeric value, or with a child that has no id or no numeric value, is a
+ * HaushaltParseError. The undocumented endpoint changing shape (values as strings, an empty
+ * element for the whole budget) used to give an `ok` answer with no rows, null figures or equal
+ * totals, the children it couldn't read dropped silently.
+ */
+async function lookupView(client: BundeshaushaltClient, params: BudgetParams, options: OperationOptions): Promise<BudgetLookup> {
+  const lookup = await lookupBudgetData(client, params, options);
+  if (lookup.status === "empty") return lookup;
+  const problem = viewProblem(lookup.data);
+  if (problem !== undefined) {
+    const what = `${params.year}, ${params.account}${params.quota === undefined ? "" : `, ${params.quota}`}${params.unit === undefined ? "" : `, unit ${params.unit}`}${params.id === undefined ? "" : `, id ${params.id}`}`;
+    throw new HaushaltParseError(`budgetData (${what}): unexpected response shape: ${problem}. The portal's internal endpoint may have changed.`);
+  }
+  return lookup;
+}
+
+function viewProblem(data: BudgetData): string | undefined {
+  const value: unknown = data.detail["value"];
+  if (typeof value !== "number") return `the element's value is ${value === undefined ? "missing" : `not a number (${value === null ? "null" : typeof value})`}`;
+  const children: unknown = data.children;
+  if (children === undefined) return undefined;
+  if (!Array.isArray(children)) return "children is not a list";
+  const bad = children.findIndex((c: unknown) => typeof c !== "object" || c === null || typeof (c as BudgetElement).id !== "string" || typeof (c as BudgetElement).value !== "number");
+  return bad === -1 ? undefined : `child ${bad + 1} of ${children.length} has no id or no numeric value`;
 }
 
 /** The params of a selection, as the client takes them. */
@@ -133,7 +161,7 @@ export type Breakdown =
  */
 export async function getBudgetBreakdown(client: BundeshaushaltClient, input: BreakdownInput, options: OperationOptions = {}): Promise<Breakdown> {
   const limit = checkedLimit(input.limit, 15, 100);
-  const lookup = await lookupBudgetData(client, paramsOf(input, input.quota ?? "target"), options);
+  const lookup = await lookupView(client, paramsOf(input, input.quota ?? "target"), options);
   if (lookup.status === "empty") return lookup;
   const { meta, detail } = lookup.data;
   const children = elements(lookup.data.children);
@@ -227,9 +255,9 @@ const ACTUALS_LOOKBACK = 2;
  */
 export async function comparePlanToActual(client: BundeshaushaltClient, input: PlanVsActualInput, options: OperationOptions = {}): Promise<PlanVsActual> {
   const limit = checkedLimit(input.limit, 5, 50);
-  const plan = await lookupBudgetData(client, paramsOf(input, "target"), options);
+  const plan = await lookupView(client, paramsOf(input, "target"), options);
   if (plan.status === "empty") return plan;
-  const real = await lookupBudgetData(client, paramsOf(input, "actual"), options);
+  const real = await lookupView(client, paramsOf(input, "actual"), options);
   if (real.status === "empty") {
     // An element without an Ist line in a year whose Ist is out: no realised figure under this id
     // that year, not "not published" (with an earlier year offered in its place).
@@ -372,7 +400,7 @@ export async function getBudgetTrend(client: BundeshaushaltClient, input: TrendI
   let previous: { value: number; label: string } | undefined;
   let lastLabel = "";
   for (let year = from; year <= to; year++) {
-    const lookup = await lookupBudgetData(client, paramsOf({ ...input, year }, quota), options);
+    const lookup = await lookupView(client, paramsOf({ ...input, year }, quota), options);
     if (lookup.status === "empty") {
       points.push({ year, gap: lookup.reason });
       previous = undefined;
@@ -420,7 +448,7 @@ export async function getBudgetTrend(client: BundeshaushaltClient, input: TrendI
   };
 }
 
-/** The children that are elements (an id and a numeric value); anything else is left out. */
+/** The children as elements (lookupView has checked that each has an id and a numeric value). */
 function elements(children: BudgetData["children"]): { id: string; label: string; value: number; relativeValue: number; relativeToParentValue: number }[] {
   return (children ?? []).flatMap((child) => {
     const c = child as BudgetElement;

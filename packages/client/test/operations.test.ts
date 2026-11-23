@@ -2,7 +2,7 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { BundeshaushaltClient, comparePlanToActual, getBudgetBreakdown, getBudgetTrend, HaushaltApiError, HaushaltValidationError, lookupBudgetData } from "../src/index.js";
+import { BundeshaushaltClient, comparePlanToActual, getBudgetBreakdown, getBudgetTrend, HaushaltApiError, HaushaltParseError, HaushaltValidationError, lookupBudgetData } from "../src/index.js";
 import { EMPTY_ELEMENT, expenses2024, expenses2024Actual, ministry12, ministry14, portal, titel140555408, view, viewKey } from "./fixtures.js";
 import { jsonResponse } from "./helpers.js";
 import type { MockTransport } from "./helpers.js";
@@ -74,6 +74,21 @@ test("getBudgetBreakdown: next year before its draft is out says so", async () =
   const b = await getBudgetBreakdown(clientOf(portal([])), { year: 2027 }, { now });
   assert.equal(b.status, "empty");
   if (b.status === "empty") assert.match(b.reason, /draft budget \(Regierungsentwurf\) for 2027 is not published yet/);
+});
+
+test("a changed answer shape (values as strings, an empty element for the whole budget) is an error, never an ok answer with no rows or null figures", async () => {
+  const stringly = JSON.parse(JSON.stringify(expenses2024, (key, value) => (key === "value" && typeof value === "number" ? String(value) : value))) as unknown;
+  const strings = portal([], { [viewKey(2024)]: stringly, [viewKey(2024, "expenses", "actual")]: stringly });
+  const emptied = portal([], { [viewKey(2024)]: { meta: expenses2024.meta, detail: {} }, [viewKey(2024, "expenses", "actual")]: { meta: expenses2024.meta, detail: {} } });
+  for (const mock of [strings, emptied]) {
+    const shape = (err: unknown) => err instanceof HaushaltParseError && /unexpected response shape/.test(err.message) && /2024/.test(err.message);
+    await assert.rejects(getBudgetBreakdown(clientOf(mock), { year: 2024 }, { now }), shape);
+    await assert.rejects(comparePlanToActual(clientOf(mock), { year: 2024 }, { now }), shape);
+    await assert.rejects(getBudgetTrend(clientOf(mock), { fromYear: 2024, toYear: 2024 }, { now }), shape);
+  }
+  const oneChild = view({ year: 2024, label: "Sollwerte des Haushaltsjahres 2024", value: 10, children: [["01", "01 A", 10]] });
+  (oneChild.children as unknown as Record<string, unknown>[]).push({ id: "02", label: "02 B", value: "5" });
+  await assert.rejects(getBudgetBreakdown(clientOf(portal([oneChild])), { year: 2024 }, { now }), (err) => err instanceof HaushaltParseError && /child 2 of 2/.test(err.message));
 });
 
 test("lookupBudgetData: an error other than not found is thrown, not turned into a reason", async () => {
