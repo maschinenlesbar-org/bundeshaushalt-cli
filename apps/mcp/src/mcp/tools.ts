@@ -182,7 +182,7 @@ export const TOOLS: readonly ToolDefinition[] = [
     ].join("\n\n"),
     inputSchema: input({
       fromYear: year("The first year (default 2012)."),
-      toYear: year("The last year (default next year)."),
+      toYear: year("The last year, at most next year (default next year)."),
       account,
       quota,
       unit,

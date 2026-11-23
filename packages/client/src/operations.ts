@@ -337,13 +337,22 @@ export type Trend =
  * One figure across years: the whole budget's total or one element's amount (by id, the same id
  * every year: Einzelplan numbers stay, names change), one request per year, in order. A year
  * without the figure is a gap with its reason (not published yet, no such element then), never a
- * zero and never the end of the series; a label change marks a break in comparability. Every
- * other error ends the call. Nominal euros, not adjusted for inflation.
+ * zero and never the end of the series; a label change marks a break in comparability. A year
+ * outside 2012 to next year is a HaushaltValidationError before any request. Every other error
+ * ends the call. Nominal euros, not adjusted for inflation.
  */
 export async function getBudgetTrend(client: BundeshaushaltClient, input: TrendInput, options: OperationOptions = {}): Promise<Trend> {
   const now = options.now?.() ?? new Date();
   const from = input.fromYear ?? MIN_YEAR;
   const to = input.toYear ?? maxYear(now);
+  // Both ends checked before any request: a year past next year failed only when its turn came,
+  // after the years before it had been read, and named neither the argument nor the range.
+  const latest = maxYear(now);
+  for (const [name, year] of [["fromYear", from], ["toYear", to]] as const) {
+    if (!Number.isSafeInteger(year) || year < MIN_YEAR || year > latest) {
+      throw new HaushaltValidationError(`Invalid ${name} ${year}: Expected a year between ${MIN_YEAR} and ${latest} (next year: the latest budget, a draft once published).`);
+    }
+  }
   if (from > to) throw new HaushaltValidationError(`Invalid years: fromYear ${from} is after toYear ${to}.`);
   const quota = input.quota ?? "target";
   const points: TrendPoint[] = [];

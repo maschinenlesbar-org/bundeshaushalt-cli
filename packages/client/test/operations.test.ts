@@ -188,6 +188,16 @@ test("getBudgetTrend: by default from 2012 to next year; a year after the curren
   if (actual.status === "ok") assert.deepEqual(actual.gaps, [2025]);
 });
 
+test("getBudgetTrend: a year past next year is refused before any request, naming the argument and the latest year", async () => {
+  const mock = portal([top(2026, 520e9), top(2027, 530e9)]);
+  await assert.rejects(
+    getBudgetTrend(clientOf(mock), { fromYear: 2026, toYear: 2030 }, { now }),
+    (err) => err instanceof HaushaltValidationError && /toYear 2030/.test(err.message) && /2012 and 2027/.test(err.message),
+  );
+  await assert.rejects(getBudgetTrend(clientOf(mock), { fromYear: 2011, toYear: 2013 }, { now }), (err) => err instanceof HaushaltValidationError && /fromYear 2011/.test(err.message));
+  assert.equal(mock.calls.length, 0, "nothing sent");
+});
+
 test("getBudgetTrend: no year with the figure is empty; reversed years and a server error are errors", async () => {
   const none = await getBudgetTrend(clientOf(portal([])), { fromYear: 2023, toYear: 2024, id: "24" }, { now });
   assert.equal(none.status, "empty");
