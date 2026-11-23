@@ -54,7 +54,7 @@ const output = (properties: Record<string, JsonSchema>): JsonSchema => ({
     status: { type: "string", enum: ["ok", "empty"], description: "ok: the answer; empty: the portal has no figures for this (see reason: not published yet, or no such element that year)." },
     source: { type: "string" },
     licence: { type: "string" },
-    truncated: { type: "boolean", description: "True when the answer holds only part of the rows (size cap)." },
+    truncated: { type: "boolean", description: "True when the answer holds only part of the rows (size cap), or a text cut at its end (it ends in \"…[cut, N characters in all]\")." },
     reason: { type: "string" },
     searched: { type: "object" },
     ...properties,
