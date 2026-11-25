@@ -101,6 +101,32 @@ test("rejects on a connection error with HaushaltNetworkError", async () => {
   );
 });
 
+test("a signal its caller aborts stops the request as aborted, not as a timeout it didn't have; the engine's deadline keeps its text", async () => {
+  // The MCP server passes a tool call's signal to each request: a cancelled call or its deadline
+  // read "Request timed out after 30000ms", a timeout that never passed. Each signal aborts once
+  // the server has the request, which never gets an answer.
+  const caller = new AbortController();
+  await withServer(
+    () => caller.abort(),
+    async (baseUrl) => {
+      await assert.rejects(
+        () => nodeHttpTransport({ method: "GET", url: baseUrl, timeoutMs: 30_000, signal: caller.signal }),
+        (err: unknown) => err instanceof HaushaltNetworkError && err.message === "Request aborted by its caller before it finished",
+      );
+    },
+  );
+  const engine = new AbortController();
+  await withServer(
+    () => engine.abort(new HaushaltNetworkError("Request exceeded overall deadline of 80ms")),
+    async (baseUrl) => {
+      await assert.rejects(
+        () => nodeHttpTransport({ method: "GET", url: baseUrl, timeoutMs: 30_000, signal: engine.signal }),
+        (err: unknown) => err instanceof HaushaltNetworkError && err.message === "Request exceeded overall deadline of 80ms",
+      );
+    },
+  );
+});
+
 test("a timeout above setTimeout's 32-bit ceiling is clamped, not warned about", async () => {
   const warnings: string[] = [];
   const onWarning = (w: Error): void => {
